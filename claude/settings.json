@@ -1,0 +1,60 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git show:*)",
+      "Bash(git remote:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git config --get:*)",
+      "Bash(git ls-files:*)",
+      "Bash(ls:*)",
+      "Bash(pwd:*)",
+      "Bash(echo:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(file:*)",
+      "Bash(stat:*)",
+      "Bash(find:*)",
+      "Bash(diff:*)",
+      "Bash(which:*)",
+      "Bash(type:*)",
+      "Bash(uname:*)",
+      "Bash(date:*)",
+      "Bash(sort:*)",
+      "Bash(uniq:*)",
+      "Bash(tr:*)",
+      "Bash(test:*)",
+      "Bash(true)",
+      "Bash(false)",
+      "Bash(env)",
+      "Bash(printenv:*)"
+    ]
+  },
+  "enabledPlugins": {
+    "chrome-devtools-mcp@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "context7@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "ecc": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/affaan-m/everything-claude-code.git"
+      }
+    }
+  },
+  "alwaysThinkingEnabled": true,
+  "effortLevel": "xhigh",
+  "tui": "fullscreen",
+  "skipWorkflowUsageWarning": true,
+  "inputNeededNotifEnabled": true,
+  "agentPushNotifEnabled": true
+}

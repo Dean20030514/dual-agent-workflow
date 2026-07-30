@@ -1,0 +1,24 @@
+# Codex CLI config — durable preferences only.
+# Machine-generated sections (trusted projects list, notify hook path,
+# runtime marketplace paths, TUI state) are intentionally omitted:
+# Codex recreates them on first use. Copy to ~/.codex/config.toml on a
+# fresh machine and adjust the model if needed.
+
+model = "gpt-5.6-sol"
+model_reasoning_effort = "high"
+personality = "pragmatic"
+sandbox_mode = "workspace-write"
+service_tier = "default"
+
+[windows]
+sandbox = "elevated"
+
+[features]
+memories = true
+
+[memories]
+generate_memories = true
+use_memories = true
+
+[sandbox_workspace_write]
+network_access = true
