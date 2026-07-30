@@ -38,4 +38,4 @@
 * Approved by: [人类填写]
 * Date: [人类填写]
 
-> 此字段任何 Agent 不得修改。批准正式凭证 = 人类对本文件的 git commit；Status 由人类批准后自改。非 Approved 禁止进实现。
+> 此字段任何 Agent 不得修改；Status 由人类批准时亲自改为 Approved——**先改 Status、再 commit**。批准正式凭证 = **内含 `Status: Approved` 的**人类 git commit（建议消息 `docs(plan): approve <task>`）。非 Approved 禁止进实现。

@@ -12,6 +12,7 @@ Planning / Author Implementation / Independent Review / Final Review / Ready to 
 ## Source of Truth
 * PRODUCT_BRIEF.md(如适用) / TASK_BRIEF.md / IMPLEMENTATION_PLAN.md
 * Base branch / base commit：[Reviewer 按此审 diff]
+* approval_commit_sha: [计划批准 commit 的 SHA（内含 Status: Approved）；Author 在批准后的下一次交接文档 commit 补录；快速版写 N/A——以 Human Approval Evidence 替代]
 * git log 与当前 branch 的 diff / last_test_run.txt
 
 ## Review & Test Binding（SHA 绑定；final-review 收敛门与 Reviewer 读；语义见 AGENTS.md）

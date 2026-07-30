@@ -18,6 +18,6 @@ description: 探索完成后撰写正式实现计划。当需要把方向落成�
 * **Planning Files Created/Updated**
 * **Recommended Plan Summary**
 * **Files Planned for Modification**
-* **Awaiting Approval**：提醒人类——检查计划 → `git add` 计划文件并 commit（该 commit 即批准凭证）→ Status 改 Approved → 通知 Author 开始 `/implement`。
+* **Awaiting Approval**：提醒人类——审阅计划 → **先**由人类亲自在 `IMPLEMENTATION_PLAN.md` 填 `Status: Approved / Approved by / Date` → **再** `git add` 本阶段创建/更新的**全部规划产物**（不止计划文件）并创建批准 commit（建议消息 `docs(plan): approve <task>`；Approved 状态因此在批准 commit 内、工作树干净；该 commit 即批准凭证）→ 之后才允许开始 `/implement`。批准 commit SHA 由 Author 在下一次交接文档 commit 补录进 `HANDOFF.md`（`approval_commit_sha` 行）。
 
 > 长期规则（Safety / [DEBT] / 证据假设标签）见 `AGENTS.md`，无需在计划里复述。
