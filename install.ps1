@@ -2,6 +2,17 @@
 # PowerShell 5.1 compatible. Existing targets are backed up to *.bak-<timestamp>.
 # Run from the repo root:  powershell -ExecutionPolicy Bypass -File .\install.ps1
 
+param([switch]$IUnderstandThisReplacesLiveConfig)
+
+# Guard for the snapshot-first migration window (remove when H3 lands real
+# -DryRun/-ValidateOnly): this script mirror-replaces ~/.claude/{rules,workflow,
+# commands} — including live-only content such as workflow/archive/** — and
+# overwrites ~/.codex/AGENTS.md. Unknown switches like -DryRun are otherwise
+# silently ignored, so any exploratory invocation would perform a full deploy.
+if (-not $IUnderstandThisReplacesLiveConfig) {
+    throw 'install.ps1 is guarded during the snapshot-first migration (MORATORIUM-LOCAL-001). Re-run with -IUnderstandThisReplacesLiveConfig after the migration gates pass.'
+}
+
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $MyInvocation.MyCommand.Path
 $claudeDir = Join-Path $env:USERPROFILE '.claude'
