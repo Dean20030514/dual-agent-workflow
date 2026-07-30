@@ -34,8 +34,8 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 - **Reviewer 零仓库写入 + 双审隔离**：9B 盲审先行、9A 对照审后行，verdict 与 raw log 一律写仓外 holding；审查正文前强制快照自检（`review_tip_sha` / `handoff_snapshot_sha` 等 SHA 绑定，不一致即拒审）。
 - **Fix-Loop 外部化硬停**：每条 blocking 由 Reviewer 判 `caused_by_last_fix` 归因并计 streak，达阈值 Author 立即停手交人类，禁止原上下文滚补丁。
 - **零暗债**：任何妥协要么当场修，要么写成带偿还触发器的 `[DEBT]` 明账；触碰挂债文件必须同 commit 偿还（Payback-on-Touch）。
-- **守护有效性契约**（进行中）：回归用例必须实证"变异后因预期断言而红→恢复后绿→真实退出码→按构建系统提供缓存旁路或等价执行真实性证据"。
+- **守护有效性契约**（已定稿）：「回归用例有效」的唯一可接受证据 = 守护有效性装置的结构化产物——基线绿→变异后因预期断言而红→内容哈希验证还原后复绿，真实退出码为准（禁 grep 判红），并携带按构建系统提供的缓存旁路或等价执行真实性证据；母本只定义契约，脚本由各项目按技术栈实现（首个实现：SeedLink `pnpm guard:verify`）。
 
 ## 快照状态（2026-07-30）
 
-守护有效性契约任务在审中——本快照已包含其对 `AGENTS.md` / `reviewer-prompt.md` / `QUALITY_GATES.md` / `templates/HANDOFF.md` / `commands/{debug,implement}.md` 的改动，**尚未通过独立复审**；复审闭合后会再同步一次。历史基线（2026-06-25 的 v3.1 拆分版）保留在本仓库首个 commit。`~/.claude/rules-archived-zh/`（已退役的中文规则包）与本地演练证据 archive 刻意不发布。
+守护有效性契约任务**已闭合**：契约条文经两轮独立双审确认，装置侧五轮审查（含盲审与一轮作废重跑）收敛零 blocking，SeedLink 实证 绿→预期断言红→恢复后绿 的结构化产物落档（冻结哈希与证据位置见 `~/.claude/workflow/archive/2026-07-30-guard-effectiveness-backup/ARCHIVE_NOTE.md`，本地文件）。本快照所含六个母本文件即定稿版。历史基线（2026-06-25 的 v3.1 拆分版）保留在本仓库首个 commit。`~/.claude/rules-archived-zh/`（已退役的中文规则包）与本地演练证据 archive 刻意不发布。
