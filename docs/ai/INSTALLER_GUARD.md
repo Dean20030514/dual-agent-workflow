@@ -23,7 +23,16 @@ approved_deviation:
     - emergency installer guard (718b31a + d526ff1 + this record's commit)
   justification: "correctness fix and destructive-operation safety fix could not wait for the harness"
   baseline_preservation: workflow-baseline-pre-snapshot-first-2026-07-30 (annotated tag on pre-migration main, enables retrospective PR0A baseline)
-  human_approval: pending — the human's review-and-merge of these branches is the approval evidence; record the merge commits here at close-out
+  human_approval:
+    status: approved
+    approved_by: Yanxiao Zheng
+    approved_at: 2026-07-30
+    evidence: >
+      merge commit e058de1 — created by the human with --no-ff, carrying the
+      Approved-Deviation and Installer-Guard-Debt trailers; 62b07d1 landed by
+      human fast-forward the same day (Author transcribed this record post-merge;
+      the durable evidence is the merge commit itself, not this transcription).
+      The [DEBT] above stays active until H3 or the next install.ps1 touch.
 ```
 
 ## Guard behavior evidence (2026-07-30, PowerShell 7 `-File` invocation)
