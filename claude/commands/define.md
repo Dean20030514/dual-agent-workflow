@@ -1,8 +1,13 @@
 ---
 description: 实现任何功能/产品前的第一道动作。当需要确认"这东西值不值得做、做成什么样算对"，或要决定 18 维哪些展开时使用。
+argument-hint: [本次任务 / 需求简述]
 ---
 
 # Phase 0：产品定义 / 需求澄清（门控入口）
+
+先读 `AGENTS.md` 并遵守其 Safety Rules（项目无 AGENTS.md 则从 `~/.claude/workflow/AGENTS.md` 母本 scaffold）。
+
+本次任务：$ARGUMENTS
 
 不写代码，只答两件事：**值不值得做、做成什么样算对**，并决定 18 维哪些展开。
 时序：只读判断可在建分支前；任何文件落盘（PRODUCT_BRIEF / TASK_BRIEF）在 `git checkout -b` 之后。
@@ -79,4 +84,5 @@ description: 实现任何功能/产品前的第一道动作。当需要确认"�
 * **基线与目标**（推荐）：当前值 → 期望值；无基线则本次先建基线。
 * **上线后谁接用户**：反馈走哪条通道。无人接 = 不算可发布。
 
-> Phase 0 完成后落盘 PRODUCT_BRIEF + TASK_BRIEF（均在建分支后），进入 `/explore`。模板见 `docs/ai/templates/`。
+> Phase 0 完成后落盘 PRODUCT_BRIEF + TASK_BRIEF（均在建分支后），进入 `/explore`。
+> **TASK_BRIEF / PRODUCT_BRIEF 一律按 `~/.claude/workflow/templates/` 的 canonical 骨架建；archive 最近实例只供内容/项目约定参考，绝不作结构模板（这是模板漂移根源）。**
