@@ -2,8 +2,12 @@
 
 > Versioned process record for `task/snapshot-first-authority-contract`
 > (fast-path task; same dedicated-record pattern as `docs/ai/INSTALLER_GUARD.md`).
-> Base: main @ e6a9b7f. Round 1 draft: f63d100. This is the round-2 revision
-> after three external reviews (see Reviewer round below).
+> Base: main @ 06ffd49 (branch rebuilt onto current main via cherry-pick after
+> round-3 review R3-丙 found the original base e6a9b7f had fallen behind main,
+> making the merge gate's fast-forward requirement unsatisfiable; the original
+> chain is archived at `task/snapshot-first-authority-contract-pre-rebase` and
+> the pre-rebuild SHAs cited in this record — f63d100 / 8bc67fb / c0fb772 /
+> d597f1f / 0adb919 — remain valid historical pointers into that archive).
 
 ## Scope
 
@@ -38,6 +42,11 @@ deployable_anchors:
 deployable_tag_convention: >
   none_registered — until a designation convention is registered, the
   deployable set is exactly {main current tip}
+deployable_tag_convention_note: >
+  For the future convention design: fast-forward merges place topic commits on
+  main's first-parent chain (62b07d1 itself entered main by ff), so
+  "first-parent boundary" is a necessary-but-NOT-sufficient condition —
+  explicit designation is the load-bearing second condition.
 non_deployable:
   - any other main-REACHABLE commit, incl. second-parent/topic-branch
     intermediates (counterexample: 718b31a is main-reachable yet a known-unsafe
@@ -163,11 +172,32 @@ Round 2 (定点复核, 2026-07-30) verdicts and disposition:
   yes` → fixed in round-3 README text + the yaml above.
 
 **Fix-Loop counter** (transcribed per protocol; attribution is the Reviewer's):
-round-2→3 counts **1** (R2-丙: two Product blockings, `caused_by_last_fix:
-yes`). streak = 1. One more attributed-yes round → hard stop, hand to human.
+round-2→3 counted **1** (R2-丙: two Product blockings, `caused_by_last_fix:
+yes`); incoming streak for round 3 = 1. Round-3 outcome: zero blockings with
+`caused_by_last_fix: yes` (R3-丙's single Verification Blocking is attributed
+`no`) → per the HANDOFF rule「某轮 0 计则 streak 归 0」, **outgoing streak =
+0**, hard stop not triggered. R3-乙 ruled the same; R3-丙's note "streak 维持
+1" diverges from the written rule and is transcribed here for the record —
+the rule text governs. History of the round-2 findings is retained above;
+only the consecutive counter resets.
 
-Round 3: [待定点复核 — 仅审 round-3 改动：README 两段的锚点/受管面收紧 +
-上方 yaml 新增字段]
+Round 3 (定点复核, 2026-07-30) verdicts and disposition:
+
+- R3-甲: approve, 0 blocking, 0 attribution — non-blocking note on ff/
+  first-parent (necessary-not-sufficient) → frozen as
+  `deployable_tag_convention_note` above.
+- R3-乙: 通过, 0 blocking — drift-finding semantics clarified (findings are
+  eliminated by later H3 deployment, LOCAL-001 closure does not itself demand
+  deployment); fix-loop reset ruling per the HANDOFF rule.
+- R3-丙: semantic pass + 1 Verification Blocking (`caused_by_last_fix: no`) —
+  branch base e6a9b7f had fallen behind main 06ffd49 (main..branch showed a
+  third file, the EVIDENCE-INDEX bundle lines; ff impossible) → fixed by
+  rebuilding the chain onto main via cherry-pick (rebase is disallowed by the
+  operator's git discipline; cherry-pick rebuild is the sanctioned
+  equivalent), original chain archived at `-pre-rebase`.
+
+Round 4: [待身份级定点复核 — 仅核对重建链：main 是否为 tip 祖先、
+main..tip 是否仅两文件、README 两段与记录内容相对 0adb919 是否零语义漂移]
 
 Round-3 interim verification, run against tip `d597f1f` (final-tip
 verification still owed at the Merge gate; backfill commit postdates the tip
