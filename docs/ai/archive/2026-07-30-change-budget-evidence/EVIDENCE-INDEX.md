@@ -68,9 +68,12 @@ reference_check_scope: { targets: "current active docs only" }
 inventory_id: LOCAL-DELTA-2026-07-30T160241-0700
 frozen_at_local: "2026-07-30 16:02:41 -0700"
 candidate_snapshot_commit: 62b07d1   # merged into main fast-forward 2026-07-30
-actual_canonical_commit: f2273cb     # main after human merges (62b07d1 ff → e058de1 guard no-ff → f2273cb evidence squash)
-actual_canonical_tree: 87908df8785b19fe534135afa5b355512a38d81a
+canonical_rebind_commit: f2273cb     # commit the inventory rebind ran against (62b07d1 ff → e058de1 guard no-ff → f2273cb evidence squash)
+canonical_rebind_tree: 87908df8785b19fe534135afa5b355512a38d81a   # the tree is the authoritative anchor; commits are readable pointers
+closeout_commit: 119e20a             # docs-only close-out; deploy surface unchanged
+deploy_surface_changed_after_rebind: false
 rebinding_result: exact              # deploy surface byte-identical between 62b07d1 and main; three approval-protocol anchors verified unique on main
+gc_anchor: evidence-original-682324d # local-only lightweight tag pinning commit 682324d (pre-removal mapping.txt provenance); NEVER push; future validator drift checks should assert liveness via `git cat-file -e 682324d^{commit}`
 result_summary: "10 content / 78 eol_only / 11 identical / 1 no_live_counterpart / 0 live-only strays (100 files)"
 content_delta_set: LOCAL-001         # exactly ten files; see manifest below
 raw_private_evidence:                # machine-local file, referenced by hash only

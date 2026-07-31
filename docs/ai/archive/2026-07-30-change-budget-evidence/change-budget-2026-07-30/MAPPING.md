@@ -3,8 +3,10 @@
 The backup's original `mapping.txt` mapped flattened names to absolute local
 paths and was removed at publication review (2026-07-30). Its bytes remain
 provable: sha256 `B325C8F8CA4CF66E2896E0A139E2034413877CA57A159D5C901E2C1755040172`
-(uppercase hex; also preserved verbatim in this branch's history at commit
-682324d). The table below is the 1:1 repo-relative equivalent — each flattened
+(uppercase hex; also preserved verbatim in the local-only branch
+`docs/evidence-preservation` at commit 682324d, pinned against GC by the
+local-only tag `evidence-original-682324d` — neither is ever pushed). The
+table below is the 1:1 repo-relative equivalent — each flattened
 name corresponds to the managed file's repo path; live deploy targets are
 listed in the repository README.
 
