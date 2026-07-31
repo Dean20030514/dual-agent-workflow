@@ -1,6 +1,8 @@
 # 双 Agent 协作开发工作流（Claude Code Author × Codex Reviewer）
 
-个人双 Agent 工作流 + Claude Code/Codex 全局配置的**规范事实源（canonical source）**。`main` 分支及带版本锚的 commit/tag 定义可部署配置；本机 `~/.claude/` 与 `~/.codex/` 是由本仓库部署出的**运行副本**。所有可复用规则与工作流修改先在本仓库经可见 diff 审查与版本绑定，再部署到本机；未经仓库接纳的本机修改一律视为 **candidate overlay**（候选增强/应急补丁），须通过仓库 diff 晋升，不构成规范版本。凭据、登录态、session/日志/缓存、`settings.local.json` 与私有 auto-memory 不入仓（详见下方「刻意不部署」）。在 H3 提供真实 `-DryRun`/`-ValidateOnly` 前，install.ps1 保持迁移安全锁定（见下方警告）。
+个人双 Agent 工作流 + Claude Code/Codex 全局配置的**规范事实源（canonical source）**。规范可部署版本仅由 **`main` 已接纳的 commit** 及**明确标记为可部署的 release/config tag**（指向 `main` 历史）定义；未合入的分支与 commit 仍是候选；迁移基线、评测、取证、归档等历史用途的 tag/commit **仅作证据锚点，不代表当前可部署版本**。
+
+本机 `~/.claude/` 与 `~/.codex/` 中**由部署器明确管理的路径**（即下方「布局与安装位置」表的安装目标）是本仓库的运行副本；其余机器态——凭据、登录态、session/日志/缓存、`settings.local.json`、私有 auto-memory 及其他明确 machine-local / keep-local-only 内容——不属于部署副本、不要求晋升。迁移期间运行副本可暂含尚未晋升的 candidate overlay；任何针对**受管部署面的可复用本机修改**均视为 candidate overlay（候选增强/应急补丁），须先经仓库可见 diff、审查与版本绑定完成晋升，方构成规范版本并部署回本机。在 H3 提供真实 `-DryRun`/`-ValidateOnly` 前，`install.ps1` 保持迁移安全锁定（见下方警告）。
 
 ## 一键部署（新设备）
 
@@ -39,5 +41,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 - **守护有效性契约**（已定稿）：「回归用例有效」的唯一可接受证据 = 守护有效性装置的结构化产物——基线绿→变异后因预期断言而红→内容哈希验证还原后复绿，真实退出码为准（禁 grep 判红），并携带按构建系统提供的缓存旁路或等价执行真实性证据；母本只定义契约，脚本由各项目按技术栈实现（首个实现：SeedLink `pnpm guard:verify`）。
 
 ## 快照状态（2026-07-30）
+
+>（历史记录：snapshot-first 迁移前时点的状态描述，行文沿用当时的「快照/母本」视角；现行权威契约见文首。）
 
 守护有效性契约任务**已闭合**：契约条文经两轮独立双审确认，装置侧五轮审查（含盲审与一轮作废重跑）收敛零 blocking，SeedLink 实证 绿→预期断言红→恢复后绿 的结构化产物落档（冻结哈希与证据位置见 `~/.claude/workflow/archive/2026-07-30-guard-effectiveness-backup/ARCHIVE_NOTE.md`，本地文件）。本快照所含六个母本文件即定稿版。历史基线（2026-06-25 的 v3.1 拆分版）保留在本仓库首个 commit。`~/.claude/rules-archived-zh/`（已退役的中文规则包）与本地演练证据 archive 刻意不发布。
