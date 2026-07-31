@@ -196,8 +196,12 @@ Round 3 (定点复核, 2026-07-30) verdicts and disposition:
   operator's git discipline; cherry-pick rebuild is the sanctioned
   equivalent), original chain archived at `-pre-rebase`.
 
-Round 4: [待身份级定点复核 — 仅核对重建链：main 是否为 tip 祖先、
-main..tip 是否仅两文件、README 两段与记录内容相对 0adb919 是否零语义漂移]
+Round 4 (身份级, 2026-07-30): executed as the Author's rebuilt-chain
+verification — main ancestor ✅ / main..tip two files ✅ / README zero byte
+drift vs reviewed 0adb919 ✅ — and accepted by the human's approval commit
+`329f59c`; the full acceptance suite was then rerun green against `329f59c`
+itself (gate step 3), closing R2-甲 M1 / R2-乙 V1's final-tip binding
+requirement.
 
 Round-3 interim verification, run against tip `d597f1f` (final-tip
 verification still owed at the Merge gate; backfill commit postdates the tip
@@ -223,12 +227,13 @@ sequence:
   4: human merges <approval-tip> (never an earlier commit)
   5: post-merge close-out commit on main backfills the chain below
      (a record cannot self-reference its own commit)
-chain:  # backfilled at close-out
-  reviewed_semantic_tip: pending
-  human_approval_tip: pending
-  verification_tip: pending   # must equal human_approval_tip
-  merge_tip: pending          # must equal human_approval_tip
-  verification_result: pending
+chain:  # backfilled at close-out, 2026-07-30
+  reviewed_semantic_tip: bfb25c6   # rebuilt chain; content byte-identical to reviewed 0adb919 (README diff = 0 lines)
+  human_approval_tip: 329f59c     # human-authored, approval field only (+4 lines, single file)
+  verification_tip: 329f59c       # full acceptance rerun green against this tip
+  merge_tip: 329f59c              # main fast-forwarded 06ffd49..329f59c — equals approval tip
+  verification_result: pass       # zero-hit / 9-of-9 unique / warning intact / two-file diff / zero README drift / whitespace clean
+  fix_loop_outgoing_streak: 0
 ```
 
 ## Registered follow-ups
@@ -245,5 +250,6 @@ chain:  # backfilled at close-out
 - Approved by: [Dean]
 - Date: [2026/07/30]
 
-[待人类一句话批准：谁/何时/批准了什么——快速版凭证；由人类亲自填写并单独
-commit（见 Merge gate 第 2 步），Agent 不得代填]
+> Filled and committed by the human as `329f59c` (approval-field-only commit,
+> verified by the Author at gate step 3); the original placeholder instruction
+> was removed at close-out.
