@@ -1,6 +1,6 @@
 # 双 Agent 协作开发工作流（Claude Code Author × Codex Reviewer）
 
-个人开发工作流 + Claude Code 全局配置的母本镜像。活母本安装在本机 `~/.claude/` 与 `~/.codex/`，本仓库是其发布快照——**以本机安装为准，本仓库不独立演进**。
+个人双 Agent 工作流 + Claude Code/Codex 全局配置的**规范事实源（canonical source）**。`main` 分支及带版本锚的 commit/tag 定义可部署配置；本机 `~/.claude/` 与 `~/.codex/` 是由本仓库部署出的**运行副本**。所有可复用规则与工作流修改先在本仓库经可见 diff 审查与版本绑定，再部署到本机；未经仓库接纳的本机修改一律视为 **candidate overlay**（候选增强/应急补丁），须通过仓库 diff 晋升，不构成规范版本。凭据、登录态、session/日志/缓存、`settings.local.json` 与私有 auto-memory 不入仓（详见下方「刻意不部署」）。在 H3 提供真实 `-DryRun`/`-ValidateOnly` 前，install.ps1 保持迁移安全锁定（见下方警告）。
 
 ## 一键部署（新设备）
 
