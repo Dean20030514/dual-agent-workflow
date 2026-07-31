@@ -79,6 +79,11 @@ content_delta_set: LOCAL-001         # exactly ten files; see manifest below
 raw_private_evidence:                # machine-local file, referenced by hash only
   file: LOCAL_DELTA_INVENTORY_freeze.txt (local scratchpad, absolute paths + mtimes)
   sha256: f501eafd85461507144dc306a93d8ac27cb21f89bb66aca3adb71f1a974a7a5d
+private_bundle:                      # durable off-repo backup of the provenance branch
+  file: ~/Documents/private-evidence/change-budget-evidence-2026-07-30.bundle (machine-local; never enters the repo)
+  sha256: 5E8D4E48D460D628A7A643C0ACA8413E879EAA48529B2142C79B40678ADC2EBE
+  contains: refs/heads/docs/evidence-preservation @ c2165df, complete history incl. 682324d
+  verified: git bundle verify OK, 2026-07-30 (human-run)
 handshake: "recomputed post-freeze: 11/11 lf-blob equal (content handshake)"
 moratorium: "MORATORIUM-LOCAL-001 closed 2026-07-30 — report #1 hash-verified; all other master-side sessions confirmed closed by the human"
 ```
