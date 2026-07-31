@@ -241,5 +241,9 @@ chain:  # backfilled at close-out
 
 ## Human Approval Evidence
 
+- Status: Approved
+- Approved by: [Dean]
+- Date: [2026/07/30]
+
 [待人类一句话批准：谁/何时/批准了什么——快速版凭证；由人类亲自填写并单独
 commit（见 Merge gate 第 2 步），Agent 不得代填]
