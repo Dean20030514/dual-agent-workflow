@@ -169,6 +169,17 @@ yes`). streak = 1. One more attributed-yes round → hard stop, hand to human.
 Round 3: [待定点复核 — 仅审 round-3 改动：README 两段的锚点/受管面收紧 +
 上方 yaml 新增字段]
 
+Round-3 interim verification, run against tip `d597f1f` (final-tip
+verification still owed at the Merge gate; backfill commit postdates the tip
+as usual): `local-first-authority` pattern zero hits excluding
+`docs/ai/archive/**` ✅ · nine boundary elements each exactly once in README
+(`first-parent 集成边界` · `尚未登记` · `不代表当前可部署版本` ·
+`持续镜像/覆盖的路径` · `仅在缺失时播种` · `machine-local / keep-local-only` ·
+`受管部署面的可复用本机修改` · `尚未晋升的 candidate overlay` ·
+`迁移安全锁定`) ✅ · warning block absent from README diff ✅ · branch diff =
+two files ✅ · whitespace clean ✅ · install.ps1 not executed (process
+assertion) ✅
+
 ## Merge gate (identity chain; per R2-甲 M1 + R2-乙 V1/V2)
 
 ```yaml
