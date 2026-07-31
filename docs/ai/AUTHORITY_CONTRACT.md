@@ -75,7 +75,29 @@ priority, per reviewer 甲 N1): unify the term at the next full README revision.
 
 ## Verification (round 2)
 
-[filled after checks against the round-2 tip commit]
+Ran against tip commit `8bc67fb` (commit-addressed per the v2 methodology; the
+grep pattern for the old sentence is the two-keyword `local-first-authority`
+pattern — deliberately not spelled out here, see Scope for the retrieval
+pointer):
+
+1. `local-first-authority` pattern vs `8bc67fb`, excluding `docs/ai/archive/**`
+   → zero hits (exit 1). ✅
+2. Seven boundary elements each appear exactly once in `8bc67fb:README.md`:
+   `已接纳的 commit` · `仅作证据锚点，不代表当前可部署版本` ·
+   `由部署器明确管理的路径` · `machine-local / keep-local-only` ·
+   `尚未晋升的 candidate overlay` · `受管部署面的可复用本机修改` ·
+   `迁移安全锁定`. ✅
+3. `git diff main 8bc67fb -- README.md` contains zero occurrences of the
+   migration-lock warning text — the block is untouched. ✅
+4. Branch diff = `README.md` + this record only. ✅
+5. `install.ps1` not executed (Author process assertion; not diff-provable). ✅
+6. Migration baseline tag present and classified `migration_baseline`
+   (non-deployable) by the frozen anchor classification above. ✅
+7. `git diff --check` clean. ✅
+
+> The commit carrying this section postdates `8bc67fb` (a record cannot
+> self-reference its own commit — same pattern as `handoff_snapshot_sha`);
+> it adds only this verification text and changes no contract content.
 
 ## Reviewer round
 
