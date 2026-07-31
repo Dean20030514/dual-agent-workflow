@@ -31,19 +31,38 @@ independent review. `install.ps1` is never executed.
 
 ```yaml
 deployable_anchors:
-  - main_accepted_commits            # commits reachable from main after human merge
-  - designated_release_or_config_tag # explicitly marked deployable, points into main history
-non_deployable_anchor_classes:
+  current_canonical: main current tip        # the only default deploy target
+  historical_deployable: >
+    release/config tags explicitly designated deployable AND pointing at a
+    main first-parent integration-boundary commit
+deployable_tag_convention: >
+  none_registered — until a designation convention is registered, the
+  deployable set is exactly {main current tip}
+non_deployable:
+  - any other main-REACHABLE commit, incl. second-parent/topic-branch
+    intermediates (counterexample: 718b31a is main-reachable yet a known-unsafe
+    pre-CmdletBinding guard state, never a main integration state)
+  - unmerged branches and commits (candidates)
   - migration_baseline               # e.g. workflow-baseline-pre-snapshot-first-2026-07-30
   - eval_baseline
   - evidence                         # e.g. evidence-original-682324d
   - archive
   - superseded
-  - feature_branch_commit
 rule: >
-  Only anchors explicitly designated deployable may be deployed. The existence
-  of a tag or version anchor never implies deployability; unmerged branches and
-  commits remain candidates.
+  Reachability from main never implies deployability, and neither does the
+  existence of a tag or version anchor. Only main's current tip — plus, once a
+  designation convention exists, explicitly designated first-parent-boundary
+  tags — may be deployed.
+migration_overlay_grace: >
+  The README's migration-period allowance for unpromoted candidate overlays on
+  the managed surface ENDS when the LOCAL-001 selective-promotion task closes;
+  any residual unpromoted delta on the managed surface then converts to a
+  drift finding (feeds the registered validator drift-check follow-up).
+managed_surface_note: >
+  Managed runtime copy = install targets the deployer continuously
+  mirrors/overwrites. ~/.codex/config.toml is seed-only (created when missing,
+  never re-synced) and becomes machine-local / keep-local-only after creation —
+  drift checks and H3 must NOT require it to match config.example.toml.
 ```
 
 ## Remaining 「母本」 semantics
@@ -62,9 +81,11 @@ priority, per reviewer 甲 N1): unify the term at the next full README revision.
    (`git grep <pat> <tip> -- .`), never against the working tree — round 1's
    false pass came from `git grep` skipping the then-untracked record file.**
 2. The new README contract states, each present exactly once: deployable
-   boundary (main-accepted commits + explicitly designated deployable tags);
-   non-deployable anchor classes as evidence anchors only; managed deploy
-   surface = installer-managed paths (the layout table's install targets);
+   boundary (main current tip + designated first-parent-boundary deployable
+   tags, none yet registered); non-deployable classes incl. main-reachable
+   topic-branch intermediates (evidence/candidates only); managed deploy
+   surface = paths the deployer continuously mirrors/overwrites, with the
+   seed-only `~/.codex/config.toml` explicitly carved out as machine-local;
    machine-local / keep-local-only exemption; migration-period overlay
    allowance; candidate-overlay promotion duty for reusable changes to the
    managed surface; install.ps1 lock until H3.
@@ -73,7 +94,10 @@ priority, per reviewer 甲 N1): unify the term at the next full README revision.
 5. `install.ps1` is not executed at any point (process assertion by the
    Author; not provable from the diff, recorded as such per reviewer note).
 
-## Verification (round 2)
+## Verification (round 2 — superseded)
+
+> Historical: bound to `8bc67fb`, superseded by round 3 below and by the
+> final-tip verification mandated in the Merge gate (per R2-甲 M1 / R2-乙 V1).
 
 Ran against tip commit `8bc67fb` (commit-addressed per the v2 methodology; the
 grep pattern for the old sentence is the two-keyword `local-first-authority`
@@ -121,9 +145,60 @@ disposition:
   commits only; deployed copy = installer-managed paths) → merged into the
   round-2 text.
 
-Round 2: [待定点复核 — 仅审 README 新两段与本记录的两项新增定义
-（anchor classification / 母本 semantics）]
+Round 2 (定点复核, 2026-07-30) verdicts and disposition:
+
+- R2-甲: approve — M1 (acceptance must rerun against the actual tip, not a
+  predecessor) → folded into the Merge gate below; N1 deployable-tag
+  convention gap → `deployable_tag_convention: none_registered` frozen above;
+  N2 overlay grace needs an endpoint → `migration_overlay_grace` bound to
+  LOCAL-001 closure above; bundle-hash-into-index suggestion → done on main.
+- R2-乙: semantic pass — V1/V2 (verification and merge must bind to the final
+  human-approval tip; approval must be a versioned human commit) → encoded in
+  the Merge gate below; PR0A fixture `verification-window-untracked-file` →
+  registered as follow-up.
+- R2-丙: 不通过 — B1 "main-reachable ≠ deployable" (counterexample 718b31a:
+  main-reachable, not first-parent, known-unsafe intermediate — verified) and
+  B2 seed-only `config.toml` wrongly inside the continuously-managed surface
+  (verified: installer copies only when missing) — both `caused_by_last_fix:
+  yes` → fixed in round-3 README text + the yaml above.
+
+**Fix-Loop counter** (transcribed per protocol; attribution is the Reviewer's):
+round-2→3 counts **1** (R2-丙: two Product blockings, `caused_by_last_fix:
+yes`). streak = 1. One more attributed-yes round → hard stop, hand to human.
+
+Round 3: [待定点复核 — 仅审 round-3 改动：README 两段的锚点/受管面收紧 +
+上方 yaml 新增字段]
+
+## Merge gate (identity chain; per R2-甲 M1 + R2-乙 V1/V2)
+
+```yaml
+sequence:
+  1: round-3 re-review passes on the then-current branch tip
+  2: human personally fills Human Approval Evidence below and commits it as
+     "docs(approval): approve snapshot-first authority contract"
+     (that commit may change ONLY the approval field)
+  3: Author verifies <reviewed-tip>..<approval-tip> touches only the approval
+     field, then reruns the FULL acceptance suite against <approval-tip>
+  4: human merges <approval-tip> (never an earlier commit)
+  5: post-merge close-out commit on main backfills the chain below
+     (a record cannot self-reference its own commit)
+chain:  # backfilled at close-out
+  reviewed_semantic_tip: pending
+  human_approval_tip: pending
+  verification_tip: pending   # must equal human_approval_tip
+  merge_tip: pending          # must equal human_approval_tip
+  verification_result: pending
+```
+
+## Registered follow-ups
+
+- PR0A fixture `verification-window-untracked-file` (git grep skips untracked
+  files → zero matches must classify as incomplete evidence, never a pass).
+- 母本 terminology unification at the next full README revision (R1-甲 N1).
+- Validator drift check consumes `migration_overlay_grace` conversion at
+  LOCAL-001 closure.
 
 ## Human Approval Evidence
 
-[待人类一句话批准：谁/何时/批准了什么——快速版凭证；批准后本任务方可由人类合入]
+[待人类一句话批准：谁/何时/批准了什么——快速版凭证；由人类亲自填写并单独
+commit（见 Merge gate 第 2 步），Agent 不得代填]

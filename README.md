@@ -1,8 +1,8 @@
 # 双 Agent 协作开发工作流（Claude Code Author × Codex Reviewer）
 
-个人双 Agent 工作流 + Claude Code/Codex 全局配置的**规范事实源（canonical source）**。规范可部署版本仅由 **`main` 已接纳的 commit** 及**明确标记为可部署的 release/config tag**（指向 `main` 历史）定义；未合入的分支与 commit 仍是候选；迁移基线、评测、取证、归档等历史用途的 tag/commit **仅作证据锚点，不代表当前可部署版本**。
+个人双 Agent 工作流 + Claude Code/Codex 全局配置的**规范事实源（canonical source）**。当前规范版本 = **`main` 当前 tip**；历史可部署版本仅限**明确标记为可部署、且指向 `main` first-parent 集成边界的 release/config tag**（此类 tag 目前尚未登记——登记约定建立前，可部署集合即 `main` 当前 tip）。其余一切 commit/tag——`main` 可达但属 topic 分支中间态的 commit、未合入的分支与 commit、以及迁移基线、评测、取证、归档等历史用途锚点——**仅作证据或候选，不代表当前可部署版本**。
 
-本机 `~/.claude/` 与 `~/.codex/` 中**由部署器明确管理的路径**（即下方「布局与安装位置」表的安装目标）是本仓库的运行副本；其余机器态——凭据、登录态、session/日志/缓存、`settings.local.json`、私有 auto-memory 及其他明确 machine-local / keep-local-only 内容——不属于部署副本、不要求晋升。迁移期间运行副本可暂含尚未晋升的 candidate overlay；任何针对**受管部署面的可复用本机修改**均视为 candidate overlay（候选增强/应急补丁），须先经仓库可见 diff、审查与版本绑定完成晋升，方构成规范版本并部署回本机。在 H3 提供真实 `-DryRun`/`-ValidateOnly` 前，`install.ps1` 保持迁移安全锁定（见下方警告）。
+本机 `~/.claude/` 与 `~/.codex/` 中**由部署器持续镜像/覆盖的路径**（下方「布局与安装位置」表的安装目标；**`~/.codex/config.toml` 除外**——它仅在缺失时播种，创建后即属 machine-local，不受持续镜像管理）是本仓库的运行副本；其余机器态——凭据、登录态、session/日志/缓存、`settings.local.json`、私有 auto-memory 及其他明确 machine-local / keep-local-only 内容——不属于部署副本、不要求晋升。迁移期间运行副本可暂含尚未晋升的 candidate overlay；任何针对**受管部署面的可复用本机修改**均视为 candidate overlay（候选增强/应急补丁），须先经仓库可见 diff、审查与版本绑定完成晋升，方构成规范版本并部署回本机。在 H3 提供真实 `-DryRun`/`-ValidateOnly` 前，`install.ps1` 保持迁移安全锁定（见下方警告）。
 
 ## 一键部署（新设备）
 
