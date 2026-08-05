@@ -4,7 +4,7 @@
 
 **The authoritative list is the agent list in each session's system-reminder** — typically generic types such as general-purpose / Explore / Plan.
 
-**There are no domain-specialist agents on this machine.** They used to come from the `ecc` plugin (planner, architect, tdd-guide, code-reviewer, security-reviewer, build-error-resolver, e2e-runner, refactor-cleaner, doc-updater, language-specific reviewers); **that plugin was uninstalled on 2026-07-25** because it went unused. `~/.claude/agents/` does not exist — never reference it. To bring the specialists back: `claude plugin install ecc@ecc`, then restart.
+**There are no domain-specialist agents on this machine.** They used to come from the `ecc` plugin (planner, architect, tdd-guide, code-reviewer, security-reviewer, build-error-resolver, e2e-runner, refactor-cleaner, doc-updater, language-specific reviewers); **that plugin was uninstalled on 2026-07-25** because it went unused, and its marketplace entry was removed from settings.json on 2026-08-05. `~/.claude/agents/` does not exist — never reference it. (Historical origin, for the record only: affaan-m/everything-claude-code.)
 
 ## Fallback rule (mandatory)
 

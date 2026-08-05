@@ -27,14 +27,9 @@ rules/
 
 ## Installation
 
-### Option 1: Repository Installer (Recommended)
+### Option 1: Repository Installer
 
-```powershell
-# From the repository root: mirrors claude/ (rules included) into ~/.claude/
-pwsh -File install.ps1
-```
-
-The installer deploys all rule packs; there is no per-language selection step in this repository.
+The repository installer (`install.ps1`, repo root) deploys all rule packs as part of mirroring `claude/` into the home config directory; there is no per-language selection step in this repository. It is currently locked by the migration-period installer guard — see the deployment section of the root README before attempting any deployment, and do not run it directly.
 
 ### Option 2: Manual Installation
 
