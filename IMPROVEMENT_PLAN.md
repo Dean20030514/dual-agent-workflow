@@ -1,6 +1,7 @@
 # IMPROVEMENT_PLAN — dual-agent-workflow
 
 Consensus baseline v1.1 · 2026-07-30
+Status (2026-08-05): **REFERENCE ONLY** — Round 1 execution stopped by human adjudication (H5A sealed `stopped, NOT converged — over-engineered`; known drifts fixed directly; workflow minimized to five rules + three gates, see `docs/ai/HANDOFF.md`). Do not execute phases from this document without a fresh explicit human decision. The line below is the historical v1.1 status, preserved for the record.
 Status: APPROVED FOR PLANNING INPUT (feed into `/plan`; each PR still goes through the normal Frozen Acceptance + Human Approval gate)
 Changelog v1.0 → v1.1: integrates final-review items I-01..I-07 and non-blocking additions A, B (GPT-R6 review of v1.0, target `1ff8f6dc…` / blob `691ed4a5…`). No architectural decision reopened.
 
