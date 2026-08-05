@@ -6,6 +6,8 @@
 
 This is the most important section — follow it strictly. It runs inside the **dual-agent collaboration model** (Claude Code + Codex) whose full, executable form lives in `~/.claude/workflow/` (see "Development Workflow" below). Claude owns Plan / Implement / Verify (Phases 1–3 here — 本节这套编号映射到工作流命令体系的 `/explore`+`/plan`(探索+规划) / `/implement`(实现) / `/final-review`(审查);完整 Phase 0–4 编号以 `~/.claude/workflow/index.md` 的「命令 → 阶段」对照表为准，勿与本节同号混淆); Codex owns independent **lightweight** review only (no rebuilding copies / reinstalling deps / rerunning test suites); handoff happens through `docs/ai/` files, never verbally.
 
+**Research-reuse-first（先找轮子，再造轮子——强制，先于任何新实现）**：不管做什么，开工前先上 GitHub 找**成熟的 / 可复用的 / 可二次开发的**相似实现（`gh search repos` / `gh search code`），再查官方文档（Context7）与包注册表（npm / PyPI / crates.io）；找到能覆盖 80%+ 需求的成熟方案，优先**采用 / 移植 / 包装**而不是从零写——站在巨人的肩膀上，不重复造轮子。检索结论（找到什么、采用或不采用及理由）写进 `/explore` 的 Reuse Findings 与 `/plan` 的方案比较。完整程序 = `~/.claude/rules/common/development-workflow.md` §0（唯一详细出处）。
+
 ### Phase 1: Plan — Iterate Until Perfect
 
 - **Default**: produce a detailed written plan before writing code, using the template below.
