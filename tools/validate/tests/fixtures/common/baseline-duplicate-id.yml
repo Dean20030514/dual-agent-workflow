@@ -1,0 +1,26 @@
+# Test fixture: two schema-complete entries sharing one id. Duplicate ids must
+# be rejected - stale detection is keyed by id, so duplicates can mask a stale
+# entry when its twin matches.
+baseline:
+  - id: BL-DUP-001
+    check_id: path-references
+    exact_target: docs/example.md
+    exact_observation: "./missing-file.sh"
+    reason: "Fixture entry: first holder of the duplicated id"
+    payoff:
+      work_item: H2
+      condition: "Reference removed"
+    introduced_by_plan: docs/ai/IMPLEMENTATION_PLAN.md (H5A)
+    owner: Dean
+    status: active
+  - id: BL-DUP-001
+    check_id: path-references
+    exact_target: docs/other.md
+    exact_observation: "./another-missing.sh"
+    reason: "Fixture entry: second holder of the duplicated id"
+    payoff:
+      work_item: H2
+      condition: "Reference removed"
+    introduced_by_plan: docs/ai/IMPLEMENTATION_PLAN.md (H5A)
+    owner: Dean
+    status: active

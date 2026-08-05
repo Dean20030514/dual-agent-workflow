@@ -1,0 +1,8 @@
+# Test fixture: parseable YAML whose entry violates the registry schema
+# (missing reason/payoff/owner, status not 'active').
+baseline:
+  - id: BL-BAD-001
+    check_id: path-references
+    exact_target: docs/example.md
+    exact_observation: "./missing-file.sh"
+    status: retired

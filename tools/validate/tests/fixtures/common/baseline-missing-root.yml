@@ -1,0 +1,5 @@
+# Test fixture: parseable YAML whose root key is wrong ('entries' instead of
+# 'baseline'). An existing registry file without the 'baseline' root key must
+# raise a schema error instead of silently acting as an empty registry.
+entries:
+  - id: BL-WRONG-ROOT-001

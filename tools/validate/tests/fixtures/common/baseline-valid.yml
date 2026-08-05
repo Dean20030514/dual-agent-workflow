@@ -1,0 +1,26 @@
+# Test fixture: well-formed baseline registry with two complete entries.
+# Values are synthetic; this file is never read by production scans
+# (fixture-scope contract - active checks exclude tests/fixtures/**).
+baseline:
+  - id: BL-TEST-001
+    check_id: path-references
+    exact_target: docs/example.md
+    exact_observation: "./missing-file.sh"
+    reason: "Fixture entry: known drift kept until payoff lands"
+    payoff:
+      work_item: H2
+      condition: "Reference removed when H2 rewrites the rules README"
+    introduced_by_plan: docs/ai/IMPLEMENTATION_PLAN.md (H5A)
+    owner: Dean
+    status: active
+  - id: BL-TEST-002
+    check_id: policy-invariants
+    exact_target: docs/example2.md
+    exact_observation: "Push with -u flag"
+    reason: "Fixture entry: forbidden directive exemplar"
+    payoff:
+      work_item: H2
+      condition: "Directive removed from the source document"
+    introduced_by_plan: docs/ai/IMPLEMENTATION_PLAN.md (H5A)
+    owner: Dean
+    status: active

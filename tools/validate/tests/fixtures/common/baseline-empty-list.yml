@@ -1,0 +1,3 @@
+# Test fixture: explicitly empty registry - the legal way to declare
+# "no exemptions" while keeping the file and its root key present.
+baseline: []

@@ -1,0 +1,4 @@
+# Test fixture: intentionally malformed YAML (unclosed flow sequence).
+baseline:
+  - id: [BL-BROKEN
+    check_id: "::: not yaml
