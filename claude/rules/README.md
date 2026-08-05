@@ -27,20 +27,14 @@ rules/
 
 ## Installation
 
-### Option 1: Install Script (Recommended)
+### Option 1: Repository Installer (Recommended)
 
-```bash
-# Install common + one or more language-specific rule sets
-./install.sh typescript
-./install.sh python
-./install.sh golang
-./install.sh web
-./install.sh swift
-./install.sh php
-
-# Install multiple languages at once
-./install.sh typescript python
+```powershell
+# From the repository root: mirrors claude/ (rules included) into ~/.claude/
+pwsh -File install.ps1
 ```
+
+The installer deploys all rule packs; there is no per-language selection step in this repository.
 
 ### Option 2: Manual Installation
 
@@ -68,7 +62,7 @@ cp -r rules/php ~/.claude/rules/php
 ## Rules vs Skills
 
 - **Rules** define standards, conventions, and checklists that apply broadly (e.g., "80% test coverage", "no hardcoded secrets").
-- **Skills** (`skills/` directory) provide deep, actionable reference material for specific tasks (e.g., `python-patterns`, `golang-testing`).
+- **Skills** provide deep, actionable reference material for specific tasks (e.g., `python-patterns`, `golang-testing`); they are delivered through Claude Code's skill system (plugins / personal skills), not by a directory in this repository.
 
 Language-specific rule files reference relevant skills where appropriate. Rules tell you *what* to do; skills tell you *how* to do it.
 
@@ -87,7 +81,7 @@ To add support for a new language (e.g., `rust/`):
    ```
    > This file extends [common/xxx.md](../common/xxx.md) with <Language> specific content.
    ```
-4. Reference existing skills if available, or create new ones under `skills/`.
+4. Reference existing skills if available (delivered via Claude Code's skill system).
 
 For non-language domains like `web/`, follow the same layered pattern when there is enough reusable domain-specific guidance to justify a standalone ruleset.
 
@@ -102,7 +96,7 @@ When language-specific rules and common rules conflict, **language-specific rule
 
 `common/coding-style.md` recommends immutability as a default principle. A language-specific `golang/coding-style.md` can override this:
 
-> Idiomatic Go uses pointer receivers for struct mutation — see [common/coding-style.md](../common/coding-style.md) for the general principle, but Go-idiomatic mutation is preferred here.
+> Idiomatic Go uses pointer receivers for struct mutation — see [common/coding-style.md](common/coding-style.md) for the general principle, but Go-idiomatic mutation is preferred here.
 
 ### Common rules with override notes
 

@@ -18,7 +18,7 @@ When creating PRs:
 2. Use `git diff [base-branch]...HEAD` to see all changes
 3. Draft comprehensive PR summary
 4. Include test plan with TODOs
-5. Push with `-u` flag if new branch
+5. Prepare the exact push command for the human, but never execute remote operations
 
 > For the full development process (planning, TDD, code review) before git operations,
 > see [development-workflow.md](./development-workflow.md).
