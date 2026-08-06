@@ -86,7 +86,7 @@ Anything that needs clarification before proceeding
 
 - When uncertain about a design decision: **ask me** — do not make autonomous choices.
 - When you see multiple valid approaches: present them with trade-offs and let me choose.
-- **Recommend the globally-best, durable option; never default to the minimal-diff / least-effort choice.** When exploring directions, selecting an approach, drafting a plan, or presenting options, optimize for "correct and won't need rework later", not "smallest change now" — a smaller-but-inferior option chosen to save effort is laziness that forces me to patch it afterward; name the trade-off but **lead with the right-long-term option**. Scope note: this governs *which approach*, not *how much unrelated code you touch* — "minimal change" / "task-scoped" / "no unrelated refactors" still hold as **implementation scoping**, never as a reason to pick the smallest solution.
+- **Recommend the minimal sufficient option that stays correct long-term: it meets the current acceptance criteria and avoids known rework, without expanding abstractions for hypothetical future needs.** When exploring directions, selecting an approach, drafting a plan, or presenting options, "sufficient" excludes laziness: an option that drops requirements or predictably forces rework to save effort is not sufficient — name the trade-off, and lead with the smallest option that won't need repair. Scope note: this governs *which approach*, not *how much unrelated code you touch* — "minimal change" / "task-scoped" / "no unrelated refactors" still hold as **implementation scoping**.
 
 ## Communication
 

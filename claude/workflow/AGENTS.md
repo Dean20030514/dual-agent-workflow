@@ -29,7 +29,7 @@
 * Do not comment out core logic to bypass errors.
 * Do not bypass validation, authentication, or error handling.
 * Do not introduce new dependencies unless the plan explicitly approves it.
-* Do not do unrelated refactors. Keep changes minimal and task-scoped. (Scoping only — this constrains touching *unrelated* code, NOT which approach you pick: select the globally-best, durable approach per CLAUDE.md → Decision Making, then keep the diff scoped to it. "Minimal" ≠ pick the smallest/laziest solution.)
+* Do not do unrelated refactors. Keep changes minimal and task-scoped. (Scoping only — this constrains touching *unrelated* code, NOT which approach you pick: select the minimal sufficient, long-term-correct approach per CLAUDE.md → Decision Making, then keep the diff scoped to it. "Minimal" ≠ pick the smallest/laziest solution.)
 * Do not modify lockfiles unless dependencies actually changed.
 * Do not commit secrets, tokens, or API keys.
 * Do not claim tests passed without real execution evidence — Routine: show the real command, full output, and exit code in conversation; Critical: write actual output to docs/ai/last_test_run.txt.
