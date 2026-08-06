@@ -22,7 +22,7 @@ When no specialist agent exists for a job, **the main agent takes on that respon
 
 ## Parallel Task Execution
 
-ALWAYS use parallel Task execution for independent operations:
+Use parallel Task execution only when the operations are genuinely independent — no contention on the same files or decisions — and parallelism yields a clear net benefit:
 
 ```markdown
 # GOOD: Parallel execution
