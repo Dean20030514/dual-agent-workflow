@@ -8,7 +8,7 @@
 * **范围修订(2026-08-05 二次裁决)**:另批 6 个一行修正——5 个语言规则文件(java/rust/perl/csharp/dart 的 testing.md)的固定 80% 覆盖率行改为跟随项目自有门槛,`rules/README.md` 示例行同批清理;最终最多 15 文件,不触碰其他文件。
 * **范围修订(2026-08-05 三次裁决)**:人类明确选择路径 B,批准在 mini A/B 前消除已机械确认的模式作用域冲突;新增 `claude/workflow/AGENTS.md`,最终最多 16 文件。本次只处理 Mode Scope、planning/reuse 落点、commit actor 与三闸门 N/A 语义;不加入一手来源规则,不修改 Parallel、全局最优或 Commit B 内容。
 * **改动面**:按批准文件与锚点完成编辑;最终范围以 staged diff 为准。
-* **状态**:diff 已产出,待人类扫 diff → commit → 部署同步 → 新会话 mini A/B(单独报告)。
+* **状态**:已 commit(3925b5c) + 已部署同步(15 受管文件从 main 精确同步,SHA-256 双侧比对 15/15 MATCH,2026-08-05;含新增受管 `claude/workflow/AGENTS.md`);待新会话 mini A/B(单独报告)。
 
 ## 状态(2026-08-05)
 * **H5A validator:停牌封存**(`stopped, NOT converged — over-engineered`,人类裁决)。代码留在 `tools/validate/`(Common + PathReferences + 81 测试):非门禁、勿续建、勿修;`validate.ps1` 入口从未建成;真仓断言绑定修漂移前的仓库状态,套件对当前 main **预期失败**——这是封存标记,不是 bug。全部过程、裁决与账目①–㉒:`archive/2026-08-05-h5a-validator-foundation-stopped/HANDOFF.md`。
