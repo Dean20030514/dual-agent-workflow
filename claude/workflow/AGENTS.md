@@ -80,6 +80,7 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
   * 例：`用户愿为自动化付费 [假设]`
 * 所有 `[假设]` 进待验证清单并写明最低成本验证方式；没有验证方式的 `[假设]` = 脑补，审查打回。
 * 标「唯一依据 = 是」的高影响假设，进入实现前必须已验证转 `[证据]` 或显式降级；否则计划停在 Pending。
+* 工具能力与行为断言必须以官方文档、官方 changelog 或源码等一手来源为依据；次级文章仅可作为检索线索，不得单独作为采纳或晋升证据。
 
 ## AI Collaboration Rules（仅 Critical 模式）
 
