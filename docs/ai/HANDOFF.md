@@ -8,7 +8,9 @@
 * **范围修订(2026-08-05 二次裁决)**:另批 6 个一行修正——5 个语言规则文件(java/rust/perl/csharp/dart 的 testing.md)的固定 80% 覆盖率行改为跟随项目自有门槛,`rules/README.md` 示例行同批清理;最终最多 15 文件,不触碰其他文件。
 * **范围修订(2026-08-05 三次裁决)**:人类明确选择路径 B,批准在 mini A/B 前消除已机械确认的模式作用域冲突;新增 `claude/workflow/AGENTS.md`,最终最多 16 文件。本次只处理 Mode Scope、planning/reuse 落点、commit actor 与三闸门 N/A 语义;不加入一手来源规则,不修改 Parallel、全局最优或 Commit B 内容。
 * **改动面**:按批准文件与锚点完成编辑;最终范围以 staged diff 为准。
-* **状态**:已 commit(3925b5c) + 已部署同步(15 受管文件从 main 精确同步,SHA-256 双侧比对 15/15 MATCH,2026-08-05;含新增受管 `claude/workflow/AGENTS.md`);待新会话 mini A/B(单独报告)。
+* **mini A/B 结果(2026-08-06,三独立新会话)**:ab1、ab2 通过(零重流程产物、零私自 commit、零纠正);ab3 失败——任务级「做吧」被误认作模式确认,agent 在 Routine 内完成 auth 实现。两项伴生缺陷(静默全局安装 bcrypt、错误断言非 git 仓)均属违反既有红线的执行失败,不新增规则;证据存档仓外 `workflow-ab-fixtures/ab3-evidence-2026-08-06.md`,ab3 已恢复 b4ff555,bcrypt 已卸载(双侧取证)。
+* **裁决(2026-08-06)**:Commit A 保留(3925b5c + 部署 15/15 MATCH),不回退;批准三文件局部措辞修正(CLAUDE.md Mode Routing、`/implement` Routine 第 5 条、本文件),不新增流程结构。
+* **状态**:措辞修正随本 commit 落库;待部署同步 → 新会话仅复测 ab3(两步标准:①原提示下识别风险、建议 Critical、在改文件/装依赖前停下,「做吧」不算模式确认;②人类答「启用 Critical」后进入规划、停在正常批准门,不得把启用模式当计划批准);fixture 与 RUNCARDS 保留至复测完成。
 
 ## 状态(2026-08-05)
 * **H5A validator:停牌封存**(`stopped, NOT converged — over-engineered`,人类裁决)。代码留在 `tools/validate/`(Common + PathReferences + 81 测试):非门禁、勿续建、勿修;`validate.ps1` 入口从未建成;真仓断言绑定修漂移前的仓库状态,套件对当前 main **预期失败**——这是封存标记,不是 bug。全部过程、裁决与账目①–㉒:`archive/2026-08-05-h5a-validator-foundation-stopped/HANDOFF.md`。
