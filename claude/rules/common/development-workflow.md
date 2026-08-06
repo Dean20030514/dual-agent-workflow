@@ -2,7 +2,7 @@
 
 > This file extends [common/git-workflow.md](./git-workflow.md) with the full feature development process that happens before git operations.
 
-The Feature Implementation Workflow describes the development pipeline: research, planning, TDD, code review, and then committing to git.
+The Feature Implementation Workflow describes the development pipeline: research, planning, testing, code review, then committing to git. **Mode routing (2026-08-05 adjudication)**: steps 0 and 4–5 apply in all modes; the full artifact chain inside steps 1–3 is **Critical-mode** discipline. Routine tasks (the default) satisfy the same intent at task scale — brief inline direction, risk-scaled tests, self-review of the diff. See global CLAUDE.md → Mode Routing.
 
 ## Feature Implementation Workflow
 
@@ -15,30 +15,24 @@ The Feature Implementation Workflow describes the development pipeline: research
    - Prefer adopting or porting a proven approach over writing net-new code when it meets the requirement.
 
 1. **Plan First**
-   - Use **planner** agent to create implementation plan (availability & fallback: see [agents.md](agents.md))
-   - Generate planning docs before coding: PRD, architecture, system_design, tech_doc, task_list
-   - Identify dependencies and risks
-   - Break down into phases
+   - Routine: state a brief plan/direction inline (in conversation); ask only when a real ambiguity would change the outcome.
+   - Critical: create the full planning docs via `/plan` (TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF, per `~/.claude/workflow/templates/`), then stop for human approval.
+   - In both modes: identify dependencies and risks; break large work into phases.
 
-2. **TDD Approach**
-   - Use **tdd-guide** agent (availability & fallback: see [agents.md](agents.md))
-   - Write tests first (RED)
-   - Implement to pass tests (GREEN)
-   - Refactor (IMPROVE)
-   - Verify 80%+ coverage
+2. **Test as You Implement**
+   - Follow [testing.md](testing.md): risk-scaled tests by default; the TDD loop for Critical-mode tasks and risk-bearing features.
+   - Coverage follows the project's own configured gate — no global percentage.
 
 3. **Code Review**
-   - Use **code-reviewer** agent immediately after writing code (availability & fallback: see [agents.md](agents.md))
-   - Address CRITICAL and HIGH issues
-   - Fix MEDIUM issues when possible
+   - Self-review the diff against [code-review.md](code-review.md) after writing code.
+   - Independent Codex review (9A/9B) runs only in Critical mode — see the workflow master.
+   - Address CRITICAL and HIGH issues; fix MEDIUM issues when possible.
 
-4. **Commit & Push**
-   - Detailed commit messages
-   - Follow conventional commits format
-   - See [git-workflow.md](./git-workflow.md) for commit message format and PR process
+4. **Commit**
+   - Actor: Routine — the human commits/merges after reviewing the diff; Critical — the agent creates only the stage commits the approved workflow explicitly requires.
+   - Detailed commit messages, conventional commits format.
+   - Prepare the exact push command for the human when needed — the agent NEVER executes remote operations. See [git-workflow.md](./git-workflow.md) for commit message format and PR process.
 
 5. **Pre-Review Checks**
-   - Verify all automated checks (CI/CD) are passing
-   - Resolve any merge conflicts
-   - Ensure branch is up to date with target branch
-   - Only request review after these checks pass
+   - Routine: run the locally available checks relevant to the change; explicitly report anything not run (CI included).
+   - Critical: full pre-review gate — verify all automated checks (CI/CD) are passing, resolve any merge conflicts, ensure the branch is up to date with the target branch, and only request review after these checks pass.

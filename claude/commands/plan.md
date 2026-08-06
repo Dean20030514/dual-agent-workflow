@@ -1,8 +1,10 @@
 ---
-description: 探索完成后撰写正式实现计划。当需要把方向落成可批准的 IMPLEMENTATION_PLAN、并停下等人类批准时使用。
+description: 探索完成后撰写正式实现计划。当需要把方向落成可批准的 IMPLEMENTATION_PLAN、并停下等人类批准时使用。Critical 模式命令——仅人类明确启用重流程时使用。
 ---
 
 # Phase 2：正式规划（Author）
+
+> 本命令属 **Critical 模式**（人类明确启用才进入）。Routine 任务不创建任何交接文件，简短方向写在对话里即可——见全局 `CLAUDE.md` → Mode Routing。
 
 基于探索结果：
 1. 归档旧 per-task 文件到 `docs/ai/archive/`。

@@ -14,8 +14,8 @@ When no specialist agent exists for a job, **the main agent takes on that respon
 |-----|-----------------|
 | Code review | Walk the [code-review.md](code-review.md) checklist yourself |
 | Security review | Walk the [security.md](security.md) checklist yourself — **never skipped** |
-| TDD / tests-first | Follow the MANDATORY TDD workflow in [testing.md](testing.md) yourself — tests first, RED→GREEN→REFACTOR |
-| Implementation planning | `/plan`; direction & requirements exploration via `/define` + `/explore` |
+| Testing discipline | Follow the risk-scaled testing rules in [testing.md](testing.md) yourself; use the TDD loop for Critical-mode / high-risk work |
+| Implementation planning | Routine: brief inline direction; Critical: `/plan`, with `/define` + `/explore` as needed |
 | Build errors | Diagnose yourself via systematic debugging (`/debug`) |
 
 **Model rule:** sub-agents always inherit the main conversation's model — omit the `model` parameter, never downgrade (see [performance.md](performance.md)).

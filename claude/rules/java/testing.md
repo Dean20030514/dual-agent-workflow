@@ -121,7 +121,7 @@ Use descriptive names with `@DisplayName`:
 
 ## Coverage
 
-- Target 80%+ line coverage
+- Follow the project's existing coverage gate; if none exists, do not invent a global percentage
 - Use JaCoCo for coverage reporting
 - Focus on service and domain logic — skip trivial getters/config classes
 

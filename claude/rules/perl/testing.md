@@ -33,7 +33,7 @@ Always use `-l` to ensure `lib/` is on `@INC`.
 
 ## Coverage
 
-Use **Devel::Cover** — target 80%+:
+Use **Devel::Cover** — follow the project's existing coverage gate; if none exists, do not invent a global percentage:
 
 ```bash
 cover -test

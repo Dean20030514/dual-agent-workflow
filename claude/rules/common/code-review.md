@@ -33,8 +33,8 @@ Before marking code complete:
 - [ ] Errors are handled explicitly
 - [ ] No hardcoded secrets or credentials
 - [ ] No console.log or debug statements
-- [ ] Tests exist for new functionality
-- [ ] Test coverage meets 80% minimum
+- [ ] Tests exist for new/changed behavior, scaled to risk (see [testing.md](testing.md))
+- [ ] Test coverage meets the project's own configured gate (no global minimum)
 
 ## Security Review Triggers
 
@@ -77,7 +77,7 @@ For genuinely independent review, the dual-agent workflow's Codex pass is the re
 2. Check security checklist first
 3. Review code quality checklist
 4. Run relevant tests
-5. Verify coverage >= 80%
+5. Verify coverage against the project's configured gate (if any)
 6. Use appropriate agent for detailed review
 ```
 

@@ -128,7 +128,7 @@ Use descriptive names that explain the scenario:
 
 ## Coverage
 
-- Target 80%+ line coverage
+- Follow the project's existing coverage gate; if none exists, do not invent a global percentage
 - Use **cargo-llvm-cov** for coverage reporting
 - Focus on business logic — exclude generated code and FFI bindings
 

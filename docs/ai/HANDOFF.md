@@ -1,6 +1,14 @@
 # HANDOFF.md
 
-> 当前无进行中任务。本文件是仓库现状的极简交接;历史任务全部在 `docs/ai/archive/<日期-任务>/`。
+> 当前进行中任务:Commit A(见下)。本文件是仓库现状的极简交接;历史任务全部在 `docs/ai/archive/<日期-任务>/`。
+
+## 进行中任务(2026-08-05):Commit A — 统一 live 配置与「五规则三闸门」裁决
+
+* **Human Approval Evidence(批准边界,人类原文)**:仅将 2026-08-05「五规则三闸门」裁决传导到实际每会话配置,使 Routine 成为默认、Critical 仅由人类明确启用;移除全局固定 80% 覆盖率、默认 TDD 仪式、全项目强制双 Agent,并为 `/implement` 提供不含 SHA 账本和强制 Reviewer 的真实轻路径。保留现有五规则三闸门及 Critical 严格机制,不修改 H5A 封存记录,不顺带实施 Commit B、C、D。完成后只做一次三任务 mini A/B 验收,不建立长期评测平台;验收结果单独报告,Commit A 不因 A/B 结果自动扩展范围;发现问题先停下由人类裁决,不以规则修补规则。
+* **范围修订(2026-08-05 二次裁决)**:另批 6 个一行修正——5 个语言规则文件(java/rust/perl/csharp/dart 的 testing.md)的固定 80% 覆盖率行改为跟随项目自有门槛,`rules/README.md` 示例行同批清理;最终最多 15 文件,不触碰其他文件。
+* **范围修订(2026-08-05 三次裁决)**:人类明确选择路径 B,批准在 mini A/B 前消除已机械确认的模式作用域冲突;新增 `claude/workflow/AGENTS.md`,最终最多 16 文件。本次只处理 Mode Scope、planning/reuse 落点、commit actor 与三闸门 N/A 语义;不加入一手来源规则,不修改 Parallel、全局最优或 Commit B 内容。
+* **改动面**:按批准文件与锚点完成编辑;最终范围以 staged diff 为准。
+* **状态**:diff 已产出,待人类扫 diff → commit → 部署同步 → 新会话 mini A/B(单独报告)。
 
 ## 状态(2026-08-05)
 * **H5A validator:停牌封存**(`stopped, NOT converged — over-engineered`,人类裁决)。代码留在 `tools/validate/`(Common + PathReferences + 81 测试):非门禁、勿续建、勿修;`validate.ps1` 入口从未建成;真仓断言绑定修漂移前的仓库状态,套件对当前 main **预期失败**——这是封存标记,不是 bug。全部过程、裁决与账目①–㉒:`archive/2026-08-05-h5a-validator-foundation-stopped/HANDOFF.md`。

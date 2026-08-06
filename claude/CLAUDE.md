@@ -2,13 +2,22 @@
 
 > **维护提示**：本文件每会话必载，是跨项目策略层。双 Agent 全流程的可执行细节**不在这里**——在 `~/.claude/workflow/`（母本，自动生效的 `AGENTS.md` + 7 个 slash command + QUALITY_GATES / reviewer-prompt / templates / design-notes）。本文件只保留：① 跨项目红线；② 指向 `~/.claude/workflow/` 的导航。改本文件前先读 auto-memory 的 `feedback_global_claude_evolution`（12 处既定改动来历，勿复活旧冲突）。
 
+## Mode Routing — Routine by default; Critical only when the human enables it（2026-08-05 裁决）
+
+Every task starts in **Routine** mode. The heavyweight dual-agent process is **Critical** mode, entered **only on explicit human instruction** — never self-upgraded.
+
+- **Routine (default)**: Claude edits → human reviews the diff → human commits/merges. Loop: read the relevant code/rules first → state a brief direction (ask only when a real ambiguity would change the outcome) → make the minimal sufficient, task-scoped change → run the tests/checks that directly prove this change → present diff + real verification output + residual risks. No TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF / SHA ledger / Reviewer is required by default.
+- **Critical (human-enabled)**: the full workflow in `~/.claude/workflow/` + the 7 slash commands (Frozen Acceptance, Human Approval gate, SHA binding, 9A/9B dual review, Reviewer zero-write, Fix-Loop hard stop) — all existing mechanisms unchanged.
+- **Suggest, don't self-upgrade**: when a task touches auth/permissions/secrets, money/billing, DB migrations or irreversible data ops, deploy/rollback/CI core, public API or compatibility contracts, or spans many architecture layers — recommend Critical and wait for the human's confirmation.
+- Always-on in both modes: the five rules + three gates of the 2026-08-05 adjudication (repo snapshot as SSOT; human approves real changes; Author shows real test evidence; Reviewer — when one runs — is zero-write; consecutive-blocking hard stop), the Safety Rules, and the no-hidden-debt red line. **Any new process/rule/registry/check defaults to NO** unless one sentence states a net benefit exceeding its maintenance cost.
+
 ## Workflow
 
-This is the most important section — follow it strictly. It runs inside the **dual-agent collaboration model** (Claude Code + Codex) whose full, executable form lives in `~/.claude/workflow/` (see "Development Workflow" below). Claude owns Plan / Implement / Verify (Phases 1–3 here — 本节这套编号映射到工作流命令体系的 `/explore`+`/plan`(探索+规划) / `/implement`(实现) / `/final-review`(审查);完整 Phase 0–4 编号以 `~/.claude/workflow/index.md` 的「命令 → 阶段」对照表为准，勿与本节同号混淆); Codex owns independent **lightweight** review only (no rebuilding copies / reinstalling deps / rerunning test suites); handoff happens through `docs/ai/` files, never verbally.
+This is the most important section. Phases 1–3 below in their **full ceremonial form are the Critical-mode discipline**; Routine tasks (the default) keep their substance — read first, scoped change, real verification — without the artifact ceremony (see Mode Routing above). The full form runs inside the **dual-agent collaboration model** (Claude Code + Codex) whose full, executable form lives in `~/.claude/workflow/` (see "Development Workflow" below). Claude owns Plan / Implement / Verify (Phases 1–3 here — 本节这套编号映射到工作流命令体系的 `/explore`+`/plan`(探索+规划) / `/implement`(实现) / `/final-review`(审查);完整 Phase 0–4 编号以 `~/.claude/workflow/index.md` 的「命令 → 阶段」对照表为准，勿与本节同号混淆); Codex owns independent **lightweight** review only (no rebuilding copies / reinstalling deps / rerunning test suites); handoff happens through `docs/ai/` files, never verbally.
 
-**Research-reuse-first（先找轮子，再造轮子——强制，先于任何新实现）**：不管做什么，开工前先上 GitHub 找**成熟的 / 可复用的 / 可二次开发的**相似实现（`gh search repos` / `gh search code`），再查官方文档（Context7）与包注册表（npm / PyPI / crates.io）；找到能覆盖 80%+ 需求的成熟方案，优先**采用 / 移植 / 包装**而不是从零写——站在巨人的肩膀上，不重复造轮子。检索结论（找到什么、采用或不采用及理由）写进 `/explore` 的 Reuse Findings 与 `/plan` 的方案比较。完整程序 = `~/.claude/rules/common/development-workflow.md` §0（唯一详细出处）。
+**Research-reuse-first（先找轮子，再造轮子——强制，先于任何新实现）**：不管做什么，开工前先上 GitHub 找**成熟的 / 可复用的 / 可二次开发的**相似实现（`gh search repos` / `gh search code`），再查官方文档（Context7）与包注册表（npm / PyPI / crates.io）；找到能覆盖 80%+ 需求的成熟方案，优先**采用 / 移植 / 包装**而不是从零写——站在巨人的肩膀上，不重复造轮子。检索结论（找到什么、采用或不采用及理由）——Routine：在对话中简记；Critical：写进 `/explore` 的 Reuse Findings 与 `/plan` 的方案比较。完整程序 = `~/.claude/rules/common/development-workflow.md` §0（唯一详细出处）。
 
-### Phase 1: Plan — Iterate Until Perfect
+### Phase 1: Plan — Iterate Until Perfect (Critical-mode full form; Routine uses a brief inline direction per Mode Routing)
 
 - **Default**: produce a detailed written plan before writing code, using the template below.
 - **Plan-first exemptions** — a brief inline rationale + change summary replaces the full template when:
@@ -61,12 +70,11 @@ Anything that needs clarification before proceeding
 - Always run existing tests after making changes to ensure nothing breaks.
 - For long tasks: **report progress after each major step** (what was done, what's next).
 
-### Phase 3: Verify — Iterate Until Zero Issues
+### Phase 3: Verify — Prove What You Claim
 
-- After implementation, run **thorough verification**: full test suite, edge cases, manual checks.
-- Fix every issue found, then verify again.
-- Repeat this verify-fix cycle until there are **absolutely zero remaining issues**.
-- Do NOT declare "done" while any known issue, warning, or failing test remains.
+- **Routine**: run the tests/checks that directly prove this change's behavior (targeted tests + the directly related suite); **state explicitly what was not run**. Fix what the run reveals; do not declare "done" while a known issue introduced by this task remains.
+- **Critical**: run **thorough verification** — full test suite, edge cases, manual checks; repeat the verify-fix cycle until there are **absolutely zero remaining issues**; do NOT declare "done" while any known issue, warning, or failing test remains.
+- In both modes: verification claims require real execution output shown as evidence — never assert "passes" from reasoning alone.
 
 ### Error Handling During Work
 
@@ -102,7 +110,7 @@ Anything that needs clarification before proceeding
 
 ## Git
 
-- You MAY create commits using **Conventional Commits** format:
+- Commit actor is mode-scoped — **Routine: the agent does NOT create commits; the human reviews the diff, then commits/merges. Critical: the agent creates only the stage commits the approved workflow explicitly requires.** Commits use **Conventional Commits** format:
   - `feat:` / `fix:` / `refactor:` / `docs:` / `test:` / `chore:` / `perf:` / `ci:`
 - Co-authored-by attribution is disabled globally via `~/.claude/settings.json`.
 - **NEVER** push, pull, rebase, merge, force-push, or perform any remote operations.
@@ -115,7 +123,7 @@ Full conventions live in the auto-loaded rule packs `~/.claude/rules/common/` + 
 - **Error handling**: explicit at every boundary — **never** silently swallow errors or exceptions.
 - **Style changes**: to "improve" existing style, explain why and get confirmation first. Run the project's configured formatter (black / prettier / clang-format / …) after edits.
 - **No TODO comments in code** — TODOs go in the project's plan / TODO docs. Comments and docstrings in English; docstrings required on **public + non-trivial** functions/classes (skip 5-line private helpers).
-- **Testing**: TDD by default (tests first), target **>80%** coverage, run the full suite after changes; use the project's existing framework — **ask before introducing new test infra**.
+- **Testing**: prove behavior with tests scaled to risk — bug fixes get a reproducing regression test; behavior changes are tested at the nearest contract level; **coverage follows the project's own configured gate (no global % target)**; full suite when blast radius warrants it or in Critical mode (TDD loop preferred there). Use the project's existing framework — **ask before introducing new test infra**. Details: `rules/common/testing.md`.
 - **Dependencies**: prefer mature libraries, but check project constraints first (some enforce zero deps). **Never silent-install** — say what and why. Python: prefer project venv; `--break-system-packages` only after telling me why.
 - **Language idioms**: follow each language's conventions (see rule packs). C++ / CUDA specifics live in `~/.claude/rules/cpp/` and `~/.claude/rules/cuda/`.
 
@@ -151,14 +159,14 @@ Full conventions live in the auto-loaded rule packs `~/.claude/rules/common/` + 
 ## Process discipline（原 Superpowers 节）
 
 - **Superpowers 插件已于 2026-07-28 卸载**（同批卸载：code-review / commit-commands / claude-md-management / serena / security-guidance，共 6 个——模型与 harness 内置能力提升后，或与内置能力重叠、或与本机既定规则相抵；逐项理由见 auto-memory `feedback_global_claude_evolution`。找回任一：`claude plugin install <名>@claude-plugins-official`）。
-- 流程纪律（plan → implement → review → finish）**不因此减少一项，全部由自家 workflow 承载**：systematic-debugging → `/debug`；tests-first / TDD → `rules/common/testing.md` 的 MANDATORY workflow；verification-before-completion（claiming-completion gate）→ `/implement` + `/final-review`；receiving-review 纪律 → `/final-review` + `reviewer-prompt.md`；brainstorming / 方向探索 → `/define` + `/explore`。harness 系统提示本身亦内置"证据先于断言"要求。
+- 流程纪律（plan → implement → review → finish）**不因此减少一项，全部由自家 workflow 承载**：systematic-debugging → `/debug`；risk-scaled testing（TDD 循环为 Critical / 高风险变更路径）→ `rules/common/testing.md`；verification-before-completion（claiming-completion gate）→ `/implement` + `/final-review`；receiving-review 纪律 → `/final-review` + `reviewer-prompt.md`；brainstorming / 方向探索 → `/define` + `/explore`。harness 系统提示本身亦内置"证据先于断言"要求。
 - **领域能力**（库文档 / 浏览器诊断 / 前端设计 / LSP 等）由 harness 内置工具 + 保留的官方插件提供，见上「Tooling Ecosystem」。没有对应工具时，职责由主 Agent 自己承担（见 `rules/common/agents.md` 的 Fallback rule）。
 
 > **2026-07-25**：本节原为「Superpowers vs ECC — Division of Labor」；ECC 卸载（连同 playwright / github 等共 10 个）后简化为「Superpowers — process discipline」。**2026-07-28**：Superpowers 本身亦卸载，本节改为**纪律落点索引**。**勿因"少了插件"把技能调用引用加回来**——所有纪律已内化到上述自家文件。
 
 ## Development Workflow — Dual-Agent (Claude Code + Codex)
 
-Every project is worked by **both** Claude Code (Author) and Codex (Reviewer). The full, executable workflow is **not duplicated here** — it lives in `~/.claude/workflow/` (master, auto-applies) and the 7 global slash commands. This section is only the map + the Claude-Code-side launch details that live nowhere else.
+Projects use the dual-agent model (Claude Code Author × Codex Reviewer) **when the human enables Critical mode** — see Mode Routing. Routine tasks are Claude + human diff review + human commit, with no Reviewer by default. The full, executable workflow is **not duplicated here** — it lives in `~/.claude/workflow/` (master, auto-applies) and the 7 global slash commands. This section is only the map + the Claude-Code-side launch details that live nowhere else.
 
 **Roles:** Claude Code (Author) = understanding / architecture / planning / implementation / test fixing / final review. Codex CLI (Reviewer) = independent **lightweight** code review only (fresh context + a different model's perspective, not doing the Author's work). Human (me) = approve the plan / inspect diffs / decide trade-offs / final commit. The two agents do **not** share memory.
 
@@ -174,8 +182,8 @@ Every project is worked by **both** Claude Code (Author) and Codex (Reviewer). T
 | Design rationale + doc-writing conventions (维护者读，不在执行路径) | `~/.claude/workflow/workflow-design-notes.md` |
 | Per-phase instructions | `~/.claude/commands/{define,explore,plan,design-check,implement,debug,final-review}.md` |
 
-**Phase flow** (gated — small/internal tasks mark non-applicable dims N/A and skip; full 18-dim scan in `/define`):
-`/define (产品定义 + 18 维适用性扫描) → /explore (只读探索) → /plan (写交接文件，Approval gate) → /implement (实现 + 测试产物到 docs/ai/last_test_run.txt + 适用质量/设计闸门) → Codex 轻量独立 review (用 reviewer-prompt.md) → /final-review (含代跑 Codex 的 Verification Needed) → human commit`. Small tasks use the fast path (see `/implement` 末尾「快速版」) but MUST still keep at least `docs/ai/HANDOFF.md` (with the 0.1 scan + approval evidence) — no purely verbal handoff.
+**Phase flow (Critical mode; entered only on explicit human instruction — see Mode Routing)** (gated — small/internal tasks mark non-applicable dims N/A and skip; full 18-dim scan in `/define`):
+`/define (产品定义 + 18 维适用性扫描) → /explore (只读探索) → /plan (写交接文件，Approval gate) → /implement (实现 + 测试产物到 docs/ai/last_test_run.txt + 适用质量/设计闸门) → Codex 轻量独立 review (用 reviewer-prompt.md) → /final-review (含代跑 Codex 的 Verification Needed) → human commit`. Small tasks **within Critical mode** use the fast path (see `/implement` 末尾「快速版」) and MUST still keep at least `docs/ai/HANDOFF.md` (with the 0.1 scan + approval evidence). Routine tasks (the default) do not enter this flow and carry no handoff-file requirement.
 
 **Six non-negotiable principles** (full 9 条核心原则 in `index.md`): (1) handoff via files, never verbally; (2) verification artifacted — test output to file, next agent reads the file not the prose; (3) git as gate — commit each phase, rollback via revert; (4) `IMPLEMENTATION_PLAN.md` Human Approval Status editable by human only; (5) every change explainable/verifiable/rollbackable; (6) Reviewer is lightweight — no rebuilding copies / reinstalling deps / rerunning full suites (it reasons from `docs/ai/last_test_run.txt` + git diff, lists commands under *Verification Needed* for the Author to run).
 

@@ -3,6 +3,14 @@
 > 本文件是项目长期规则与**禁止事项的唯一出处**，以及全流程所有重复硬规则（Reviewer 轻量协议、`[DEBT]` 格式、证据/假设标签）的**单一定义处**。其他文件和 prompt 只引用本文件，不再罗列，引用写法："Follow the Safety Rules in AGENTS.md" / "Follow the Reviewer-Lightweight Protocol in AGENTS.md"。
 > 已存在则先读再增量更新，永不覆盖重写。
 
+## Mode Scope（2026-08-05 裁决）
+
+> 路由定义唯一出处：全局 `CLAUDE.md` → Mode Routing。默认 **Routine**；**Critical** 仅人类明确启用。
+
+* **两种模式恒适用**：Safety Rules、真实执行证据（真实命令 / 完整输出 / 退出码）、No-Hidden-Debt / `[DEBT]` 红线。
+* **仅 Critical 适用**：TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF 交接文件、`docs/ai/last_test_run.txt` 持久化、SHA 绑定、任务分支与阶段 commit（Git Discipline）、Reviewer 与双审协议（AI Collaboration Rules 及各审查相关节）。
+* **Reviewer 零写入**：只要有 Reviewer 实际运行——任何模式——零写入规则恒适用。
+
 ## Project Overview
 
 项目是什么、技术栈、主要目录。[填写]
@@ -24,7 +32,7 @@
 * Do not do unrelated refactors. Keep changes minimal and task-scoped. (Scoping only — this constrains touching *unrelated* code, NOT which approach you pick: select the globally-best, durable approach per CLAUDE.md → Decision Making, then keep the diff scoped to it. "Minimal" ≠ pick the smallest/laziest solution.)
 * Do not modify lockfiles unless dependencies actually changed.
 * Do not commit secrets, tokens, or API keys.
-* Do not claim tests passed without writing actual output to docs/ai/last_test_run.txt.
+* Do not claim tests passed without real execution evidence — Routine: show the real command, full output, and exit code in conversation; Critical: write actual output to docs/ai/last_test_run.txt.
 * Do not state uncertain conclusions as certain.
 * Do not perform destructive operations without stating the risk first.
 * Never edit the Human Approval Status field in IMPLEMENTATION_PLAN.md.
@@ -73,7 +81,7 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
 * 所有 `[假设]` 进待验证清单并写明最低成本验证方式；没有验证方式的 `[假设]` = 脑补，审查打回。
 * 标「唯一依据 = 是」的高影响假设，进入实现前必须已验证转 `[证据]` 或显式降级；否则计划停在 Pending。
 
-## AI Collaboration Rules
+## AI Collaboration Rules（仅 Critical 模式）
 
 * The Author agent plans, implements, fixes tests, and updates docs/ai/HANDOFF.md.
 * The Reviewer agent reviews the git diff independently. It never implements anything — every fix, including for a blocking issue it found, is made by the Author after the dual-review window closes.
@@ -138,7 +146,7 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
 
 Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码，见 AI Collaboration Rules），且**只允许改当前 blocking 所需的最小生产范围**。要新增模块 / 改公共接口 / 扩大架构 → **停止并重新计划**（走 /plan），不在 fix 循环里做。
 
-## Git Discipline（全程强制）
+## Git Discipline（Critical 模式内全程强制；Routine 不建任务分支、不由 Agent commit——人类扫 diff 后 commit/merge）
 
 * 任务开始从主分支建任务分支：`git checkout -b task/[简短任务名]`。
 * 阶段性 commit 强制：计划批准由人类 commit（即批准凭证）；Author 实现 `wip(author): ...`；交接产物（`last_test_run.txt` + `HANDOFF.md`）在 HANDOFF 更新完毕后单独 `docs(handoff): ...`；review 修复 `wip(review-fix): ...`（**由 Author 在双审窗口结束后创建**）。

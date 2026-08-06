@@ -209,7 +209,7 @@ integration_test/
 
 ## Coverage
 
-- Target 80%+ line coverage for business logic (domain + state managers)
+- Follow the project's existing coverage gate; if none exists, do not invent a global percentage
 - All state transitions must have tests: loading → success, loading → error, retry
 - Run `flutter test --coverage` and inspect `lcov.info` with a coverage reporter
 - Coverage failures should block CI when below threshold

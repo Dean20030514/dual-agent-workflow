@@ -41,6 +41,6 @@ public sealed class OrderServiceTests
 
 ## Coverage
 
-- Target 80%+ line coverage
+- Follow the project's existing coverage gate; if none exists, do not invent a global percentage
 - Focus coverage on domain logic, validation, auth, and failure paths
 - Run `dotnet test` in CI with coverage collection enabled where available

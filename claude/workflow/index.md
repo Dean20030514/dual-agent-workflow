@@ -3,6 +3,8 @@
 > 本套工作流已拆分为多个按需加载的文件。**长期规则集中在 `AGENTS.md`（自动生效），各 Phase 拆成 slash command（用到才加载）**，从根本上避免单次把整套流程塞进 context。
 > 本文件只做总览与导航，不含可执行指令；指令在各 command 正文里。
 
+> **模式路由（2026-08-05 裁决）**：本命令体系与全部交接产物是 **Critical 模式**的执行细节，仅在人类明确要求时启用。日常任务默认走 **Routine**（Claude 改 → 人类扫 diff → 人类 commit/merge，无交接文件要求）——路由定义唯一出处：全局 `CLAUDE.md` → Mode Routing。五规则与 Safety Rules 两种模式恒适用；三闸门按模式取用——Routine：diff 范围与真实退出码闸门适用，无 Reviewer 时审查 SHA 绑定闸门为 N/A；Critical：三个机械闸门全部适用。
+
 ## 双 Agent 协作模式
 
 * **Author**（默认 Claude Code）：探索、规划、实现、修测试、更新交接文件。

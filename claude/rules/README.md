@@ -56,7 +56,7 @@ cp -r rules/php ~/.claude/rules/php
 
 ## Rules vs Skills
 
-- **Rules** define standards, conventions, and checklists that apply broadly (e.g., "80% test coverage", "no hardcoded secrets").
+- **Rules** define standards, conventions, and checklists that apply broadly (e.g., "follow the project's coverage gate", "no hardcoded secrets").
 - **Skills** provide deep, actionable reference material for specific tasks (e.g., `python-patterns`, `golang-testing`); they are delivered through Claude Code's skill system (plugins / personal skills), not by a directory in this repository.
 
 Language-specific rule files reference relevant skills where appropriate. Rules tell you *what* to do; skills tell you *how* to do it.
