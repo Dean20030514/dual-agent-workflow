@@ -6,12 +6,12 @@ The Feature Implementation Workflow describes the development pipeline: research
 
 ## Feature Implementation Workflow
 
-0. **Research & Reuse** _(mandatory before any new implementation)_
+0. **Research & Reuse** _(for new implementations, new dependencies, and architecture choices; pure doc fixes, already-diagnosed bug fixes, and changes following established in-repo patterns may skip)_
    - **GitHub code search first:** Run `gh search repos` and `gh search code` to find existing implementations, templates, and patterns before writing anything new.
    - **Library docs second:** Use Context7 or primary vendor docs to confirm API behavior, package usage, and version-specific details before implementing.
    - **Web search only when the first two are insufficient:** Use `WebSearch` / `WebFetch` for broader web research or discovery, after GitHub search and primary docs. (The Exa MCP previously named here is retired — see CLAUDE.md "MCP servers loaded".)
    - **Check package registries:** Search npm, PyPI, crates.io, and other registries before writing utility code. Prefer battle-tested libraries over hand-rolled solutions.
-   - **Search for adaptable implementations:** Look for open-source projects that solve 80%+ of the problem and can be forked, ported, or wrapped.
+   - **Search for adaptable implementations:** Look for open-source projects that solve most of the problem and can be forked, ported, or wrapped; judge adoption by requirement fit, maintenance status, license, integration cost, and security risk — no fixed percentage threshold.
    - Prefer adopting or porting a proven approach over writing net-new code when it meets the requirement.
 
 1. **Plan First**
