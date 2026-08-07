@@ -32,9 +32,10 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 | `portable/` | — | 便携单文件版 v3.1（**旧快照**：零写入、快照绑定等新机制尚未移植；v3.2 受控迁移待母本全部前置任务闭合后执行，勿手改此文件补课） |
 | `install.ps1` | — | 上述一切的一键部署脚本 |
 
-## 核心机制（2026-07 版）
+## 核心机制（2026-08 版）
 
-- **交接走文件、验证产物化**：所有交接经 `docs/ai/`，测试输出落 `last_test_run.txt`，下一个 Agent 读产物不信自述；git 作阶段门，回滚靠 revert。
+- **模式路由（2026-08-05 裁决）**：日常任务默认 **Routine**——对话内简短方向 + 真实验证输出（命令 / 完整输出 / 退出码），人类扫 diff 后 commit/merge，无交接文件仪式；**Critical** 仅人类明确启用，才进入下述完整机制。任务级「做吧」不构成模式确认；触及 auth / 迁移 / 部署 / 资金等高风险面须先建议 Critical 并停下等确认。
+- **交接走文件、验证产物化（Critical）**：交接经 `docs/ai/`，测试输出落 `last_test_run.txt`，下一个 Agent 读产物不信自述；git 作阶段门，回滚靠 revert。
 - **Reviewer 零仓库写入 + 双审隔离**：9B 盲审先行、9A 对照审后行，verdict 与 raw log 一律写仓外 holding；审查正文前强制快照自检（`review_tip_sha` / `handoff_snapshot_sha` 等 SHA 绑定，不一致即拒审）。
 - **Fix-Loop 外部化硬停**：每条 blocking 由 Reviewer 判 `caused_by_last_fix` 归因并计 streak，达阈值 Author 立即停手交人类，禁止原上下文滚补丁。
 - **零暗债**：任何妥协要么当场修，要么写成带偿还触发器的 `[DEBT]` 明账；触碰挂债文件必须同 commit 偿还（Payback-on-Touch）。
