@@ -8,7 +8,7 @@
 * **H5A validator:停牌封存**(`stopped, NOT converged — over-engineered`,人类裁决)。代码留在 `tools/validate/`(Common + PathReferences + 81 测试):非门禁、勿续建、勿修;`validate.ps1` 入口从未建成;真仓断言绑定修漂移前的仓库状态,套件对当前 main **预期失败**——这是封存标记,不是 bug。全部过程、裁决与账目①–㉒:`archive/2026-08-05-h5a-validator-foundation-stopped/HANDOFF.md`。
 * **已知漂移已直接修复**:install.sh/skills 幽灵引用、push 指令冲突(b13859d);根 LICENSE(MIT)+ THIRD_PARTY_NOTICES 含 ECC 上游原文(a5802cf);ecc marketplace 残留与可执行恢复指令清除(78cb432)。
 * **IMPROVEMENT_PLAN v1.1 = 参考材料(REFERENCE ONLY)**,不按其 phase 开工;重启任何一项需人类明确决定。
-* **部署**:`install.ps1` 受迁移期 guard 锁定,勿直接运行;部署 = 从 main 精确同步受管文件 + 哈希比对(最近一次:2026-08-06 随 `83985f5` 同步 2 文件 2/2 MATCH;此前 2026-08-05 随 `3925b5c` 同步 15 文件 15/15 MATCH)。
+* **部署**:`install.ps1` 受迁移期 guard 锁定,勿直接运行;部署 = 从 main 精确同步受管文件 + 哈希比对。**2026-08-07 全受管面 blob 级审计:零漂移**(含 settings.json PowerShell 白名单与 Commit B 两文件;曾检出 67 文件 EOL-only 分歧,已双侧规范化为 LF、内容级零变化;历史:2026-08-05 15/15、2026-08-06 2/2)。
 
 ## 工作方式(五规则三闸门,裁决㉒)
 日常改动 = Claude 改 + 人类扫 diff + 人类 commit/merge。五条核心规则:快照仓 SSOT / 真改动人类批准 / Author 交真实测试产物 / Reviewer 零写入只读 diff 与证据 / 连续 blocking 硬停拆新任务。三个机械闸门:审查 SHA 绑定干净工作树、实际 diff 不超批准范围、测试真实执行退出码可信。9A/9B 双审等重流程仅用于人类明确要求的真项目;**任何新增流程/规则/登记表/检查项默认「不」**,除非一句话说清净收益。模式路由(Routine 默认/Critical 人类启用)唯一出处:全局 `CLAUDE.md` → Mode Routing。
