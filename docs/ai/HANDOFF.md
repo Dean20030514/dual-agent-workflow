@@ -2,7 +2,8 @@
 
 > 当前无进行中任务。本文件是仓库现状的极简交接;历史任务全部在 `docs/ai/archive/<日期-任务>/`。
 
-## 状态(2026-08-06 更新)
+## 状态(2026-08-07 更新)
+* **Commit B 落地(2026-08-07)**:Reviewer 调用形态收敛入 `claude/workflow/reviewer-prompt.md` 双审隔离协议 ③(唯一定义处)——显式 sandbox/model/效力档 + `--ephemeral --ignore-user-config --ignore-rules` + 机器键 `-c windows.sandbox="elevated"`(缺它则全命令被 policy 拒,冒烟实测)。**read-only 未晋升**:六轮行为冒烟证实明文 HTTP 出网在两种沙箱模式下均放行(实拉真页面 200/559B),「网络阻断」验收不成立——继续显式 workspace-write(fallback 形态已在一次性 fixture 仓行为验证);沙箱≠网络边界已记为已知风险,复测晋升需人类明确决定。
 * **Commit A + mini A/B 结案(2026-08-06,Complete)**:Routine/Critical 模式路由已落地并部署(`3925b5c` 主体 + `83985f5` 措辞修正);Routine 减重与 Critical 完整性均有**行为级**证据;复发即重开裁决,不得静默。全档:`archive/2026-08-06-routine-critical-routing/HANDOFF.md`。
 * **H5A validator:停牌封存**(`stopped, NOT converged — over-engineered`,人类裁决)。代码留在 `tools/validate/`(Common + PathReferences + 81 测试):非门禁、勿续建、勿修;`validate.ps1` 入口从未建成;真仓断言绑定修漂移前的仓库状态,套件对当前 main **预期失败**——这是封存标记,不是 bug。全部过程、裁决与账目①–㉒:`archive/2026-08-05-h5a-validator-foundation-stopped/HANDOFF.md`。
 * **已知漂移已直接修复**:install.sh/skills 幽灵引用、push 指令冲突(b13859d);根 LICENSE(MIT)+ THIRD_PARTY_NOTICES 含 ECC 上游原文(a5802cf);ecc marketplace 残留与可执行恢复指令清除(78cb432)。

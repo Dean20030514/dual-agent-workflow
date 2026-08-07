@@ -26,10 +26,12 @@
 
 ```bash
 HOLD="/c/Users/16097/AppData/Local/Temp/claude/review-holding/<task>"; mkdir -p "$HOLD"
-codex exec --sandbox workspace-write -o "$HOLD/9B.md" "<9B prompt>" </dev/null > "$HOLD/9B_raw.log" 2>&1
+codex exec --sandbox workspace-write --ephemeral --ignore-user-config --ignore-rules -c 'windows.sandbox="elevated"' -m gpt-5.6-sol -c 'model_reasoning_effort="high"' -o "$HOLD/9B.md" "<9B prompt>" </dev/null > "$HOLD/9B_raw.log" 2>&1
 # 确认工作树干净、无 verdict 残留后，再跑 9A
-codex exec --sandbox workspace-write -o "$HOLD/9A.md" "<9A prompt>" </dev/null > "$HOLD/9A_raw.log" 2>&1
+codex exec --sandbox workspace-write --ephemeral --ignore-user-config --ignore-rules -c 'windows.sandbox="elevated"' -m gpt-5.6-sol -c 'model_reasoning_effort="high"' -o "$HOLD/9A.md" "<9A prompt>" </dev/null > "$HOLD/9A_raw.log" 2>&1
 ```
+
+> **调用形态（2026-08-07 Commit B 收敛；唯一定义处）**：`--sandbox` 与 `-m` **必须显式**（双路径皆然，不依赖任何默认）；`--ephemeral --ignore-user-config --ignore-rules` 隔离用户配置与规则注入，但 **`-c 'windows.sandbox="elevated"'` 必须随行**——本机 Windows 沙箱后端键在用户配置里，单用 `--ignore-user-config` 会令全部命令被 policy 拒绝（2026-08-07 冒烟首轮实测）；`-c 'model_reasoning_effort="high"'` 同理显式（否则隔离掉用户配置后推理档静默降为默认）。**read-only 未晋升**：行为冒烟证实其明文 HTTP 出网放行（实拉 example.com 200/559B）、「网络阻断」验收不成立，六项未全过——继续显式 workspace-write；复测晋升需人类明确决定。**已知风险（沙箱≠网络边界）**：本机 Codex 沙箱在 read-only 与 workspace-write 下明文 HTTP 出网均放行，Reviewer 网络纪律由 lean protocol（不重装依赖/不重建副本）与人审 verdict 兜底，不依赖沙箱。
 
 **零写入无例外**：若某环境不允许把 `-o` 写到仓库工作树之外 → **停止并报告人类**，不得退化为写进仓内——哪怕"跑完立刻 mv 到 holding、事后工作树恢复干净"也不行：双审窗口内曾发生的仓内写入本身就已破坏两份判断的独立性。
 
