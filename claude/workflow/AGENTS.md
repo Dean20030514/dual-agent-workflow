@@ -28,7 +28,7 @@
 * Do not remove or skip tests to make them pass.
 * Do not comment out core logic to bypass errors.
 * Do not bypass validation, authentication, or error handling.
-* Do not introduce new dependencies unless the plan explicitly approves it.
+* Do not introduce new dependencies unless explicitly approved by the human — via the approved plan in Critical, or explicit in-conversation approval in Routine.
 * Do not do unrelated refactors. Keep changes minimal and task-scoped. (Scoping only — this constrains touching *unrelated* code, NOT which approach you pick: select the minimal sufficient, long-term-correct approach per CLAUDE.md → Decision Making, then keep the diff scoped to it. "Minimal" ≠ pick the smallest/laziest solution.)
 * Do not modify lockfiles unless dependencies actually changed.
 * Do not commit secrets, tokens, or API keys.
@@ -56,7 +56,7 @@
 Any compromise made just to "get it working / save time" (simplification, hardcoding, skipped edge case, temporary workaround) has only two legal exits:
 
 * (a) fix it now, or
-* (b) record one line in the current task's `docs/ai/HANDOFF.md` "Remaining Risks", in this exact format:
+* (b) register it — **Critical**: one line in the current task's `docs/ai/HANDOFF.md` "Remaining Risks", in the exact format below; **Routine** (no HANDOFF): stop and surface the compromise in conversation — the human either approves fixing it now or upgrades the task to Critical, where it gets its `[DEBT]` line. No silent third path:
 
 ```
 [DEBT] <one-line description> | Payback trigger: <which file/module, when next touched, must repay first> | Impact: <what happens if unpaid>
