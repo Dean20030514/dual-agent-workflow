@@ -125,11 +125,22 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
   4. 产物含执行真实性证据（字段 ⑧）。
 * **无装置项目**：不得把该能力写成已启用；装置落地前「回归用例有效」= 未证明——列 Reviewer Verification Needed 并记 `[DEBT]`（Payback trigger：下次需要守护证据时先落地装置），或在当前任务顺带落地装置。
 * **与验证三分类的边界**：装置及其变异 spec 是**常驻项目脚手架**，不属 diagnostic probe；运行期变异必须还原并产物化。Author 不得自证规则保持不变——Reviewer 不运行装置，只核产物完整性与字段自洽（见 reviewer-prompt 9A）。
+* **负向对照：适用范围扩展到一切守护声称（2026-08-15）**——本节的"区分力"要求**不限于测试守护**。任何「机制 X 会拒绝 Y」的声称（构建/编译配置、lint 规则、类型检查、CI 门禁、扫描器等）都必须提供**负向对照**：至少一个「**若移除 X 则会通过**」的样本，证明拒绝确由 X 造成。**用「本来就会失败」的样本验证守护 = 无效验证，等同空守护测试。**
+  > 实证（2026-08-15）：某项目声称 `tsconfig` 的 `"types": []` 能拒绝 Node 内置模块导入，并写进验收、测试产物与配置注释三处。实测七个探针中**五个本该被拒的全部通过**（含最朴素的 `import 'node:fs'`）。根因：此前所有"验证通过"的样本要么是**环境全局**（`module`/`require`/`process`——移除该配置也照样被拒），要么是**未安装的包**（拒绝原因是解析不到）。**每个通过的样本，就算机制完全不存在也会照样通过。**
+
+## 验收条款必须可机检（唯一定义处）
+
+**每条验收条款（AC）的「判定方式」必须是一条可执行命令 + 期望退出码，或一份可 diff 的产物。** 判定方式写成「Reviewer 逐条核对 / 对照两表核 / 核清单完整性」这类**必须靠人读散文才能判定**的条目，**不是验收条款**：它可以作为 Non-Blocking Suggestion 或移交清单条目记录，但**不得作为 Blocking、不得阻止收敛**。
+
+* 写不出命令的性质（"清单是否自包含"、"文档是否诚实"）→ 要么改写成可机检形式（清单条目数 == 源表条目数、某扫描命令零命中、某字段存在性），要么降级为 Suggestion / Known Issue。
+* **声称不得超出判定命令的实际覆盖范围**——超出即 `[Verification Blocking]`（另见「守护有效性装置」的负向对照要求）。
+
+> **来历（2026-08-15 实测）**：某任务 AC1/AC2（退出码类）四轮零缺陷；AC5/AC9/AC13（"Reviewer 对照…逐条核"、判定对象是散文清单的完整性）逐轮产出新 blocking，第 4 轮又挑出 7 条遗漏。**散文完整性永远可以再被挑出一条——拿它当 blocking 依据，等于在构造上把收敛做成不可能。**
 
 ## Reviewer verdict 分类语义（唯一定义处；reviewer-prompt / final-review 引用本节，不得产生冲突契约）
 
 顶层输出字段保持不变（兼容 Codex 强制结构），语义分类如下：
-* **Blocking Issues** 每条标 `[Product Blocking]`（用户可见正确性 / 用户数据错误 / 安全）或 `[Verification Blocking]`（验证不健全：probe 冒充证据、测试不走真实路径、审后弱化测试或改验收、绕过 validation/auth/删测试藏错），并由 **Reviewer** 标 `caused_by_last_fix: yes/no`。**只有 Blocking Issues（Product/Verification）默认阻止合并。**
+* **Blocking Issues** 每条标 `[Product Blocking]`（用户可见正确性 / 用户数据错误 / 安全）或 `[Verification Blocking]`（验证不健全：probe 冒充证据、测试不走真实路径、审后弱化测试或改验收、绕过 validation/auth/删测试藏错），并由 **Reviewer** 标 `caused_by_last_fix: yes/no`。**只有 Blocking Issues（Product/Verification）默认阻止合并。**（**阻止合并 ≠ 计入硬停**：streak 只由 `[Product Blocking]` 递增，见「Fix-Loop 计数与跨轮硬停」；两审零 Product 时 Verification 的收口方式见「最后一轮独立审查门 → 证据层出口」。）
 * **Debt Verdict** 取值 **`Clean / Noted / Deferred`**（**无 "Blocking" 值**）：**Clean**=无债；**Noted**=**未触发** Payback-on-Touch 的普通存量债（行数债等，不阻止合并，**不得与用户数据错误等价**）；**Deferred**=触发 Payback-on-Touch 但**已获人类批准延期**（不阻止）。**触发 Payback-on-Touch 但未偿还、又无批准延期 → 不是 Process Debt，移入 Blocking Issues 标 `[Verification Blocking]`**（与本文件 Payback-on-Touch "otherwise must not be committed" 一致，消除矛盾）。
 * **Review Verdict 语义**：Blocking Issues 非空 → **必须"不通过"**；"有条件通过"**不得**与任何 Product/Verification Blocking 并存；Process Debt、Suggestion 本身不影响"通过"。
 * **不得把 Author 的自我总结 / "已修复" 叙述当作证据。**
@@ -145,14 +156,19 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
 
 ## Fix-Loop 计数与跨轮硬停（唯一定义处；/debug、/final-review 引用）
 
-* **递增**：某一轮**只要存在至少一个经确认的 `caused_by_last_fix: yes` 的 Product/Verification Blocking**，该轮 streak 计 1。9A、9B **重复发现同一问题不重复计数**（按问题去重）。
+* **递增（仅 Product 计数）**：某一轮**只要存在至少一个经确认的 `caused_by_last_fix: yes` 的 `[Product Blocking]`**，该轮 streak 计 1。**`[Verification Blocking]` 不计入 streak**——照常如实落账、照常修复，但**不触发硬停**。9A、9B **重复发现同一问题不重复计数**（按问题去重）。
+  > 理由（2026-08-15 实测）：硬停的本意是防「修 A 坏 B」的产品级恶化。三个真实任务后段的 blocking 几乎全是 `[Verification]`（证据能否证明声称），多轮**双审零 `[Product]`**，却被自己的记账瑕疵逼到 streak=6 / 硬停。账本瑕疵与用户数据错误不同级，不应等价计数。
 * **判定权与写入**：`caused_by_last_fix` **由 Reviewer 在其 verdict 里判定**；Author 只能把该值**逐字转录**进 HANDOFF（附 review 文件/轮次来源），**不得自行判断或改写**（Reviewer 对仓库零写入、verdict 产于仓外 holding——见 AI Collaboration Rules；故 HANDOFF 里的该字段只能由 Author 落账时逐字转录，Author 无裁定权）。Reviewer 标 `dispute` → **不自动计数、交人类裁决**。
-* **重置**：某一轮无"修复引入的 Product/Verification Blocking"（该轮 0 计），streak 归 0。
+* **重置**：某一轮无"修复引入的 `[Product Blocking]`"（该轮 0 计），streak 归 0。
 * **停止（硬门）**：streak 连续达 **2** → **立即停止编码**，只能：回退 / 重新拆任务 / 请求人类批准架构升级；**禁止"再试一轮"**（未获人类确认不得继续）。
+* **轮次上限（关闭阀，2026-08-15 新增）**：同一任务的双审达 **3 轮**仍未收敛 → **停止再审**，交人类在「带如实登记的限制交付 / 重新拆任务 / 回退」三者中裁决。**收敛不是唯一出口**——把"再审一轮"当默认出口，是四个真实任务全部停在 `stopped, NOT converged` 的直接原因（实测轮次：7 / 6 / 5 / 3）。人类可明确批准延长，但延长须逐次批准，不得默认。
 
 ## 最后一轮独立审查门（唯一定义处）
 
 标记"已收敛 / Ready to Commit"要求：**最后一轮所有 review-sensitive 生产改动都已被独立审查**（当前 review-sensitive 内容 == `review_tip_sha`，且**本轮实际跑过的每一份 verdict 都 = 通过**——默认双审即 `review_verdict_9A` 与 `review_verdict_9B` 皆通过；减档只跑 9A 时 9B 记 N/A + 减档原因）。**人类因成本叫停 ≠ 质量通过**：记为 `stopped, NOT converged`，未经审代码**不得**标已收敛/已提交。
+
+**证据层出口（2026-08-15 新增，斩断无限回归）**：若某轮**两审均零 `[Product Blocking]`**，则其剩余 `[Verification Blocking]` 的修复**可由人类确认后直接收口**，不再要求为此另跑一整轮独立审查（HANDOFF 记「人类确认收口 + 所修条目」）。**本出口对任何 `[Product Blocking]` 一律不适用**——生产改动的独立审查要求不变。
+> 理由（2026-08-15 实测）：证据层修复本身会产出新的证据层瑕疵，若每次都要求再审一轮，只要 Reviewer 在证据层永远挑得出一条，收敛在构造上就不可能——某任务第 7 轮两审双双「不通过」，争的是**一条文档计数**，其修复方式是把手写计数整条删掉。
 
 ## review-fix 最小生产范围（Safety Rule 补充）
 
