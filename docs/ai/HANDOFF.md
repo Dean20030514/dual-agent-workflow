@@ -1,9 +1,13 @@
 # HANDOFF.md
 
 > 当前无进行中任务。本文件是仓库现状的极简交接;历史任务全部在 `docs/ai/archive/<日期-任务>/`。
+>
+> **下一件任务(人类已排期,未开工)**:`portable/通用prompt-v3.1.txt` → **v3.2 受控整体迁移**——按当前母本重新生成单文件版,**不逐条补课**(README 文首明令)。性质是重新生成而非改若干处:母本自 2026-07-25 起新增的全部机制(模式路由/Routine/Reviewer 零写入/快照绑定/归因/review_sensitive_paths/守护有效性装置/diff 预算/轮次上限/修法必附)都要压缩进单文件叙述,**开工前先过 diff 预算评估与切片**(`claude/workflow/AGENTS.md` → 单轮任务 diff 预算)。桌面副本 `C:\Users\16097\Desktop\通用prompt-v3.1.txt` 与仓内哈希一致(`3bcf9156…`),迁移只有一处落点。
 
 ## 状态(2026-08-15 更新)
 * **流程修正(2026-08-15)**:四个真实项目的 Critical 任务**全部** `stopped, NOT converged`/硬停,诊断出三病——① 证据层自指螺旋(后段 blocking 几乎全 `[Verification]`,多轮双审零 `[Product]`,docs/ai 证据面占 diff 41–74%);② 声称被**无区分力样本**验过(某 AC 的七个探针中五个本该被拒的全部通过,此前"验证通过"样本在机制不存在时也会照样通过);③ **判定权不在命令而在人读**(退出码类 AC 四轮零缺陷,"Reviewer 逐条核散文清单"类 AC 逐轮产新 blocking)。已落库**六条**修正:单轮 diff 预算 / streak 只由 Product 递增 / 轮次上限 / 证据层出口 / 负向对照扩到一切守护声称 / 验收必须可复现判定(`9dd07e1` + `018579b`)——**判据与数值一律以 `claude/workflow/AGENTS.md` 各自唯一定义处为准,本文件不复述**。经**两轮**外部审查(两轮均判不通过,共 14 条 blocking,逐条回代码核实后全部成立)修补至今:第 1 轮补分类优先级、出口文件范围、等价类覆盖、可复现判定、三者优先级、砍仪式护栏,并把 `/debug` `/final-review` `/plan` `/implement` `/define` 与 HANDOFF 模板的复述收敛为指针;第 2 轮补 **reviewer-prompt 的分类契约**(Reviewer 实际读的那份,此前仍把绕过 auth 列为 Verification)、**证据层出口与收敛门的衔接**(此前三条互斥使出口成死条文)、**`review_sensitive_paths` 清单本身冻结**、**等价类绑定人类冻结的输入域 + Reviewer 主张新类须给域内反例**、**反例须实际触发失败**、Safety Rules 与 README 的复述指针化。完整诊断与实测数据:auto-memory `critical-mode-diagnosis-2026-08-15`。
+* **五轮外部审查已收口(2026-08-15)**:六条修正经 5 轮 Codex 审查逐轮修补,blocking **7→7→3→2→1** 单调收窄,第 5 轮 `Unintended Consequences: None`(修补不再产生新问题)。commit 链:`9dd07e1`(diff 预算)→`018579b`(五条)→`af8dce6`(r1 七条)→`8d1a0a3`(修法必附契约)→`3a0035a`(r2 七条)→`c6421d4`(r3 四条)→`b5cbb9d`(r4 一条)。**审查过程新增一条规则**:`reviewer-prompt.md` → **修法必附**——Reviewer 每条 Blocking/Suggestion 必附 `Proposed Fix`(具体改法 + 依赖假设;需取舍写"需人类裁决"),Author 逐条三选一表态(采纳/修改后采纳/不采纳;不采纳允许零改动但须技术理由;Suggestion 不影响通过)。**贯穿五轮的同一个病**:改「唯一定义处」时忘记同一规则在别处的复述——共发现 4 类复述点(`/debug` `/final-review` `templates/HANDOFF.md` `/plan` `/implement` `/define`、README、仓根 AGENTS.md、**`codex/AGENTS.md`(三次)**、以及 AGENTS.md 自身 `:183` 对 `:158` 的复述)。**教训:改规则前先全仓 grep 该规则的复述副本,检索面必须含 `codex/`。**
+* **残余项(如实登记,人类可接受)**:① `portable/通用prompt-v3.1.txt` 停在 2026-07-25,**这五轮的十条规则一条都没有**(模式路由/Routine/零写入/快照绑定/归因/review_sensitive_paths/守护装置/diff 预算/轮次上限/修法必附全缺)——按 README 文首「勿手改此文件补课」不逐条打补丁,**待 v3.2 受控整体迁移**(下一件任务;桌面副本与仓内哈希一致 `3bcf9156…`,无分叉);② 本仓无可执行测试面,规则一致性只能靠外部审查兜底,无机械验证手段;③ `b5cbb9d` 那一行的关闭状态未经第 6 轮独立确认(可机械 grep 确认:必含类别全仓只剩 `AGENTS.md:158` 一处)。
 * **四个停滞任务未合并**:各自 HANDOFF 均记录当前不可合并(「Author 不得标 Ready to Commit」/「双审通过后才 merge」而双审未过 / 任务进行中 / 6 条 blocking 未修复已移交),待人类逐个裁决「带如实登记的限制交付 vs 按新预算重拆」。
 
 ## 状态(2026-08-12 更新)
