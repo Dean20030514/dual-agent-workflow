@@ -14,8 +14,8 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 2. **VERIFY**：回代码核对——现象/缺陷真存在吗？
 3. **EVALUATE**：在这个 codebase 里技术上成立吗？照改会否破坏现有功能？它看了全上下文吗？
 4. **决定**：成立就改；不成立就**带技术理由反驳**（disagree 要逐条说理，不默默忽略也不默默照办）。
-5. **逐条对 Reviewer 的 `Proposed Fix` 表态**（契约见 `reviewer-prompt.md` → 修法必附）：`采纳` / `修改后采纳`（写明改了什么、为何比原方案好）/ `不采纳`（带技术理由）。**不得沉默跳过，不得只改不说，也不得只说不改**；表态逐条落进 HANDOFF Work Log，供下一轮 Reviewer 核对。Reviewer 写 `需人类裁决` 的，原样上交人类，Author 无裁定权。
-5. **YAGNI**：要求"补全 X"时先 grep 确认真有人用；没人用就反提"按 YAGNI 删掉"。
+5. **逐条对 Reviewer 的 `Proposed Fix` 表态**——三种表态的确切义务（含"不采纳允许零改动"与 Suggestion 不构成合并门）**以 `reviewer-prompt.md` → 修法必附为唯一定义处，本文件不复述**。Reviewer 写 `需人类裁决` 的原样上交人类，Author 无裁定权。
+6. **YAGNI**：要求"补全 X"时先 grep 确认真有人用；没人用就反提"按 YAGNI 删掉"。
 
 **禁止 performative agreement**：不写"完全正确！""好建议！"——用动作代替表态，改了 diff 本身就证明你听进去了。
 
@@ -23,7 +23,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 
 > 本节先于下面"重点判断"：先确定哪些意见真该采纳，再逐条确认是否已解决。
 
-重点判断：① blocking 是否全解决（两份 verdict 逐条过，9A/9B 同一问题按问题去重）；② **双审隔离是否成立**——两份 verdict 绑定同一 `review_tip_sha`；核验所用的**权威 `handoff_snapshot_sha` 来源 = HANDOFF 的 Review & Test Binding**（统一落账时由 Author 持久化，见 reviewer-prompt.md 双审隔离协议 ④），**不依赖仓外 holding 的 prompt 文件**（prompt 文件若尚在可作旁证——两份所写应相同——但其缺失不阻断核验）；审前快照用**持久化证据**核验，**禁止**用「最近一次修改 HANDOFF 的 commit」（如 `git log -1 --format=%H -- docs/ai/HANDOFF.md`）去核——落账后它指向审后 docs commit，必然失真：核两份 verdict 证据首行的 `observed_head_sha` 相互相等且 == `handoff_snapshot_sha`；`handoff_blob_sha` / `last_test_run_blob_sha` 两份相互相等、且分别 == `git rev-parse <handoff_snapshot_sha>:docs/ai/HANDOFF.md` / `git rev-parse <handoff_snapshot_sha>:docs/ai/last_test_run.txt`；`worktree_clean` 皆 yes；双审窗口内无人改生产代码/`review_sensitive_paths`/HANDOFF（核对 git log 无窗口内 commit、两份 verdict 文件各自独立）；再核 `read_handoff_from`（必须是"工作树"）与 `handoff_current_phase`（必须是审前那份的原文）——出现 `git show tip`、SHA/blob 任一不吻合、或旧 Phase = 该轮建立在**过期/未绑定 HANDOFF** 上，作废重跑，不得据其标收敛；不成立则这轮双审无效，重跑而非将就；③ 是否需文档/配置/迁移/README 更新；④ 测试是否可信（必要时 Author 在正常终端重跑——与 Reviewer 禁令无关）；⑤ 是否有"测试通过但实现不稳"；⑥ Verification Needed 命令是否已全部代跑并追加输出；⑦ 是否残留 scratch 目录 / 诊断 probe（有则列出，probe 提交前删）。
+重点判断：① blocking 是否全解决（两份 verdict 逐条过，9A/9B 同一问题按问题去重）；② **双审隔离是否成立**——两份 verdict 绑定同一 `review_tip_sha`；核验所用的**权威 `handoff_snapshot_sha` 来源 = HANDOFF 的 Review & Test Binding**（统一落账时由 Author 持久化，见 reviewer-prompt.md 双审隔离协议 ④），**不依赖仓外 holding 的 prompt 文件**（prompt 文件若尚在可作旁证——两份所写应相同——但其缺失不阻断核验）；审前快照用**持久化证据**核验，**禁止**用「最近一次修改 HANDOFF 的 commit」（如 `git log -1 --format=%H -- docs/ai/HANDOFF.md`）去核——落账后它指向审后 docs commit，必然失真：核两份 verdict 证据首行的 `observed_head_sha` 相互相等且 == `handoff_snapshot_sha`；`handoff_blob_sha` / `last_test_run_blob_sha` 两份相互相等、且分别 == `git rev-parse <handoff_snapshot_sha>:docs/ai/HANDOFF.md` / `git rev-parse <handoff_snapshot_sha>:docs/ai/last_test_run.txt`；`worktree_clean` 皆 yes；**`review_sensitive_paths_snapshot` 两份逐字相等，且 == 快照 commit 与当前工作树 HANDOFF 中该清单的原文**（三者任一不等 = 审后换过边界，作废重跑）；双审窗口内无人改生产代码/`review_sensitive_paths`/HANDOFF（核对 git log 无窗口内 commit、两份 verdict 文件各自独立）；再核 `read_handoff_from`（必须是"工作树"）与 `handoff_current_phase`（必须是审前那份的原文）——出现 `git show tip`、SHA/blob 任一不吻合、或旧 Phase = 该轮建立在**过期/未绑定 HANDOFF** 上，作废重跑，不得据其标收敛；不成立则这轮双审无效，重跑而非将就；③ 是否需文档/配置/迁移/README 更新；④ 测试是否可信（必要时 Author 在正常终端重跑——与 Reviewer 禁令无关）；⑤ 是否有"测试通过但实现不稳"；⑥ Verification Needed 命令是否已全部代跑并追加输出；⑦ 是否残留 scratch 目录 / 诊断 probe（有则列出，probe 提交前删）。
 
 **合并门（默认阻止合并只由 Product/Verification Blocking）**：Review Verdict 非"通过"、或有未解决 Product/Verification Blocking → 不得可提交；Process Debt（Debt Verdict: Noted/Deferred）与 Suggestion **记录但不默认阻止**。
 
