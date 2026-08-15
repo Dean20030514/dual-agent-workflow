@@ -35,7 +35,7 @@ codex exec --sandbox workspace-write --ephemeral --ignore-user-config --ignore-r
 
 **零写入无例外**：若某环境不允许把 `-o` 写到仓库工作树之外 → **停止并报告人类**，不得退化为写进仓内——哪怕"跑完立刻 mv 到 holding、事后工作树恢复干净"也不行：双审窗口内曾发生的仓内写入本身就已破坏两份判断的独立性。
 
-**④ 两份都完成后才统一落账**：Author 把两份 verdict 收进 `docs/ai/review_9A.md` / `docs/ai/review_9B.md`，然后**一次性**更新 HANDOFF——`review_verdict_9A` / `review_verdict_9B`、**`handoff_snapshot_sha`（必须与两份 verdict 一起持久化进 Review & Test Binding；落账后它就是 final-review 核验的权威来源，不依赖仓外 holding 的 prompt 文件）**、Work Log、Fix-Loop Counter 的逐字转录。此后所有修复走 `/debug` + `/final-review`，**都在双审窗口之外**。减档只跑 9A 时，`review_verdict_9B` 写 `N/A — 人类减档，原因: …`。**落账前先比对两份 verdict 的证据首行（⑤）——全部六个字段逐项核，任一不满足则不得落账、该轮双审作废重跑**：
+**④ 两份都完成后才统一落账**：Author 把两份 verdict 收进 `docs/ai/review_9A.md` / `docs/ai/review_9B.md`，然后**一次性**更新 HANDOFF——`review_verdict_9A` / `review_verdict_9B`、**`handoff_snapshot_sha`（必须与两份 verdict 一起持久化进 Review & Test Binding；落账后它就是 final-review 核验的权威来源，不依赖仓外 holding 的 prompt 文件）**、Work Log、Fix-Loop Counter 的逐字转录。此后所有修复走 `/debug` + `/final-review`，**都在双审窗口之外**。减档只跑 9A 时，`review_verdict_9B` 写 `N/A — 人类减档，原因: …`。**落账前先比对两份 verdict 的证据首行（⑤）——全部七个字段逐项核，任一不满足则不得落账、该轮双审作废重跑**：
 * `read_handoff_from`：两份都必须是「工作树」（出现 `git show tip` 即作废）；
 * `handoff_current_phase`：两份都必须等于审前 HANDOFF 的 Current Phase 原文（记录旧 Phase = 读到过期交接文件）；
 * `observed_head_sha`：相互相等且 == `handoff_snapshot_sha`；
@@ -52,10 +52,10 @@ git status --porcelain       # 必须为空——整个工作树，不只 review
 git diff --quiet <handoff_snapshot_sha> -- docs/ai/HANDOFF.md docs/ai/last_test_run.txt   # 必须通过（工作树两文件内容 == 快照）
 git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt   # → handoff_blob_sha / last_test_run_blob_sha
 # → review_sensitive_paths_snapshot：从工作树 HANDOFF 的 Review & Test Binding 逐字抄出该清单原文（不要改写、不要归纳）
-git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff 里每个生产/测试/迁移/构建配置/验收文件都被该清单覆盖
+git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff 里每个必含类别的文件（类别以 `AGENTS.md` → review-sensitive paths + SHA 绑定为准：生产源码 / tests / migrations·schema / 构建配置 + **依赖声明 + lockfile** / TASK_BRIEF / IMPLEMENTATION_PLAN / QUALITY_GATES）都被该清单覆盖
 ```
 
-任一不满足、**或该清单未覆盖 `git diff --name-only <base>..<tip>` 中任一生产/测试/迁移/构建配置/验收文件** → **在审查正文前输出「快照不一致」报告（写明失败项与实际观察值）并拒审**，不得进入审查。声明式的 `handoff_snapshot_sha` 只有经此自检落账后才成为绑定（此前只是 Author 的一句话）。
+任一不满足、**或该清单未覆盖 `git diff --name-only <base>..<tip>` 中任一必含类别的文件（类别以 `AGENTS.md` → review-sensitive paths + SHA 绑定为准：生产源码 / tests / migrations·schema / 构建配置 + **依赖声明 + lockfile** / TASK_BRIEF / IMPLEMENTATION_PLAN / QUALITY_GATES）** → **在审查正文前输出「快照不一致」报告（写明失败项与实际观察值）并拒审**，不得进入审查。声明式的 `handoff_snapshot_sha` 只有经此自检落账后才成为绑定（此前只是 Author 的一句话）。
 
 ---
 
@@ -102,7 +102,7 @@ git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff �
 4) docs/ai/HANDOFF.md 5) 审查对象 = git diff <review_base_sha>..<review_tip_sha>（两个 sha 见 HANDOFF 的 Review & Test Binding）6) docs/ai/last_test_run.txt
 
 审查对象锚定（两个锚点，别混）：
-* **审前快照自检（先于一切审查动作，结果记入 verdict 证据首行）**：`git rev-parse HEAD` 必须 == handoff_snapshot_sha（<由 Author 填>）→ 记 observed_head_sha；`git status --porcelain`（**全工作树**，不只 review_sensitive_paths）必须为空 → 记 worktree_clean；`git diff --quiet <handoff_snapshot_sha> -- docs/ai/HANDOFF.md docs/ai/last_test_run.txt` 必须通过；`git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt` → 记 handoff_blob_sha / last_test_run_blob_sha；**逐字抄出 HANDOFF 的 `review_sensitive_paths` 原文 → 记 review_sensitive_paths_snapshot，并逐项核它覆盖 `git diff --name-only <base>..<tip>` 中全部生产/测试/迁移/构建配置/验收文件，漏项即拒审**。**任一不满足 → 在审查正文前输出「快照不一致」（写明失败项与实际观察值）并拒审，不得继续。**
+* **审前快照自检（先于一切审查动作，结果记入 verdict 证据首行）**：`git rev-parse HEAD` 必须 == handoff_snapshot_sha（<由 Author 填>）→ 记 observed_head_sha；`git status --porcelain`（**全工作树**，不只 review_sensitive_paths）必须为空 → 记 worktree_clean；`git diff --quiet <handoff_snapshot_sha> -- docs/ai/HANDOFF.md docs/ai/last_test_run.txt` 必须通过；`git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt` → 记 handoff_blob_sha / last_test_run_blob_sha；**逐字抄出 HANDOFF 的 `review_sensitive_paths` 原文 → 记 review_sensitive_paths_snapshot，并逐项核它覆盖 `git diff --name-only <base>..<tip>` 中全部必含类别的文件（类别以 `AGENTS.md` → review-sensitive paths + SHA 绑定为准：生产源码 / tests / migrations·schema / 构建配置 + **依赖声明 + lockfile** / TASK_BRIEF / IMPLEMENTATION_PLAN / QUALITY_GATES），漏项即拒审**。**任一不满足 → 在审查正文前输出「快照不一致」（写明失败项与实际观察值）并拒审，不得继续。**
 * **代码 / 测试 / 验收文件**：审 `git diff <review_base_sha>..<review_tip_sha>` 这个确切范围，不是工作树。若 `git status --porcelain -- <review_sensitive_paths>` 非空，或 `git diff --quiet <review_tip_sha> -- <review_sensitive_paths>` 不通过 → 停下报告"快照不一致"，不要改审工作树。
 * **docs/ai/HANDOFF.md 与 docs/ai/last_test_run.txt**：**直接读工作树当前文件**（当前 HEAD = handoff_snapshot_sha <由 Author 填>）。**不要**用 `git show <review_tip_sha>:docs/ai/HANDOFF.md` —— 这两个文件不在 review_sensitive_paths 内、按流程提交在 tip 之后，从 tip 取会拿到过期版本。
 
@@ -140,7 +140,7 @@ git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff �
 盲审隔离（硬性）：
 * **忽略 diff 中 docs/ai/IMPLEMENTATION_PLAN.md 的全部内容**（该文件在 review_sensitive_paths 内、必然出现在 diff 里；一律视作未提供），也不得单独打开它。
 * 本轮不应存在任何其它 Reviewer 的输出。检查须覆盖被 .gitignore 忽略的文件（用 `git status --porcelain --ignored`，或对下述模式做显式文件扫描——普通 `git status --porcelain` 看不见 ignored 残留）；工作树里若存在**未提交或被 ignore** 的 review verdict / raw log 模式文件（`9A*.md` / `9B*.md` / `.codex-review-*` / `review_9*` / `review-*` / `codex_review_*` / `*_raw.log`）→ 视为污染，**不要读**，在审查正文前报告污染并**拒审**（该轮双审隔离不成立）。已提交进历史的审查产物（`docs/ai/archive/**`、上一轮已落账的 `docs/ai/review_9*.md`）不算本轮污染，但同样**不要读**。
-* 你审的是 review_tip_sha 这个确切 commit，不是工作树。**审前快照自检（先于一切审查动作，结果记入 verdict 证据首行）**：`git rev-parse HEAD` 必须 == handoff_snapshot_sha；`git status --porcelain`（**全工作树**，不只 review_sensitive_paths）必须为空 → 记 worktree_clean；`git diff --quiet <handoff_snapshot_sha> -- docs/ai/HANDOFF.md docs/ai/last_test_run.txt` 必须通过；`git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt` → 记 handoff_blob_sha / last_test_run_blob_sha；**逐字抄出 HANDOFF 的 `review_sensitive_paths` 原文 → 记 review_sensitive_paths_snapshot，并逐项核它覆盖 `git diff --name-only <base>..<tip>` 中全部生产/测试/迁移/构建配置/验收文件，漏项即拒审**。**任一不满足 → 在审查正文前报告「快照不一致」（写明失败项与实际观察值）并拒审。**
+* 你审的是 review_tip_sha 这个确切 commit，不是工作树。**审前快照自检（先于一切审查动作，结果记入 verdict 证据首行）**：`git rev-parse HEAD` 必须 == handoff_snapshot_sha；`git status --porcelain`（**全工作树**，不只 review_sensitive_paths）必须为空 → 记 worktree_clean；`git diff --quiet <handoff_snapshot_sha> -- docs/ai/HANDOFF.md docs/ai/last_test_run.txt` 必须通过；`git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt` → 记 handoff_blob_sha / last_test_run_blob_sha；**逐字抄出 HANDOFF 的 `review_sensitive_paths` 原文 → 记 review_sensitive_paths_snapshot，并逐项核它覆盖 `git diff --name-only <base>..<tip>` 中全部必含类别的文件（类别以 `AGENTS.md` → review-sensitive paths + SHA 绑定为准：生产源码 / tests / migrations·schema / 构建配置 + **依赖声明 + lockfile** / TASK_BRIEF / IMPLEMENTATION_PLAN / QUALITY_GATES），漏项即拒审**。**任一不满足 → 在审查正文前报告「快照不一致」（写明失败项与实际观察值）并拒审。**
 
 不要 git archive 重建副本、不要重装依赖、不要重跑全量测试——以 docs/ai/last_test_run.txt 产物 + 读 git diff 推理为准；需要验证的具体行为列出来，由 Author 在正常终端代跑。
 

@@ -80,9 +80,10 @@ Your final message IS the review verdict — the Author captures it verbatim via
 `codex exec -o` while the full process log goes to a separate raw log in the
 same out-of-tree holding directory — never inside the repository work tree.
 So make the final message self-contained and keep the structured format: first
-the snapshot-evidence lines (`read_handoff_from` / `handoff_current_phase` /
-`observed_head_sha` / `handoff_blob_sha` / `last_test_run_blob_sha` /
-`worktree_clean` — exact commands come inlined in the review prompt), then Review
+the snapshot-evidence lines (seven fields: `read_handoff_from` /
+`handoff_current_phase` / `observed_head_sha` / `handoff_blob_sha` /
+`last_test_run_blob_sha` / `worktree_clean` / `review_sensitive_paths_snapshot`
+— exact commands come inlined in the review prompt), then Review
 Verdict / Blocking Issues / Non-Blocking Suggestions / Test Coverage Gaps /
 Cannot Verify From Diff / Verification Needed / Debt Verdict / Recommended Next Step.
 
