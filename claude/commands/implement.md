@@ -7,7 +7,7 @@ description: 实现命令。日常任务默认走文首「Routine 模式」（�
 > 日常改动 = Claude 改 → 人类扫 diff → 人类 commit/merge。**不需要** TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF / SHA 账本 / Reviewer。Safety Rules、零暗债红线与「真实执行才可下结论」照常适用。
 
 1. 读相关代码、现有模式与项目规则；给出简短方向（可只在对话中），仅在真实歧义会改变结果时提问。
-2. 做任务范围内的最小充分修改，不夹带无关改动或重构。
+2. 做任务范围内的最小充分修改，不夹带无关改动或重构；diff 将超 2000 行时停下报告人类（见 `AGENTS.md` → 单轮任务 diff 预算）。
 3. 运行能直接证明本次行为的测试/检查（目标测试 + 直接相关套件；**未运行的部分明确说明**）。测试输出原样展示——真实执行、真实退出码，不允许凭推理断言"通过"。
 4. 展示 diff + 验证证据 + 残余风险，交人类扫 diff 并 commit/merge。
 5. **升级建议（只建议，不得自行升级）**：改动触及 认证/授权/密钥、金钱/账单、数据库迁移或不可逆数据操作、部署/回滚/CI 核心、公共 API 或兼容性契约、跨多架构层大改，或人类明确要求严格流程 → 建议启用 Critical，**等人类确认**后才进入下方正式流程。任务级「做吧 / 直接做」不构成 Critical 模式确认；触发上述风险面时，必须在修改文件或安装依赖前停下，并按全局 `CLAUDE.md` → Mode Routing 获得针对模式的明确确认；启用 Critical 后仍须经过其正常计划批准门。
@@ -25,7 +25,7 @@ description: 实现命令。日常任务默认走文首「Routine 模式」（�
    此外确认 `IMPLEMENTATION_PLAN.md` 有 `Frozen Acceptance` 节（改实现前冻结的验收标准，禁反推自实现）——缺则回 `/plan` 补。
    一次性全列出交人类裁决，不要边做边撞。无问题则 Work Log 记"Pre-Flight 通过"。
 2. 严格按计划执行，只做任务相关修改。
-3. 发现计划不合理先暂停说明，不擅自扩大范围。
+3. 发现计划不合理先暂停说明，不擅自扩大范围；实际 diff 将超出计划预估的预算（`AGENTS.md` → 单轮任务 diff 预算）同样停下交人类裁决。
 4. 完成后（**顺序严格**，让 `tested_sha` 真含本次实现）：
    1. **清除临时 probe / mutation harness**（值得留的行为先重写为正式 regression test，预期来自验收契约）。
    2. **创建 author commit**：`git commit -m "wip(author): [任务名] implementation"`——这是被测/被审的 tip。

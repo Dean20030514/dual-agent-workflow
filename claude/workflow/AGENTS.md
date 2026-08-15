@@ -30,12 +30,23 @@
 * Do not bypass validation, authentication, or error handling.
 * Do not introduce new dependencies unless explicitly approved by the human — via the approved plan in Critical, or explicit in-conversation approval in Routine.
 * Do not do unrelated refactors. Keep changes minimal and task-scoped. (Scoping only — this constrains touching *unrelated* code, NOT which approach you pick: select the minimal sufficient, long-term-correct approach per CLAUDE.md → Decision Making, then keep the diff scoped to it. "Minimal" ≠ pick the smallest/laziest solution.)
+* Keep one task's diff under ~2000 lines (see 单轮任务 diff 预算 below); when it is heading past that, stop and ask the human to split — never quietly finish an oversized task.
 * Do not modify lockfiles unless dependencies actually changed.
 * Do not commit secrets, tokens, or API keys.
 * Do not claim tests passed without real execution evidence — Routine: show the real command, full output, and exit code in conversation; Critical: write actual output to docs/ai/last_test_run.txt.
 * Do not state uncertain conclusions as certain.
 * Do not perform destructive operations without stating the risk first.
 * Never edit the Human Approval Status field in IMPLEMENTATION_PLAN.md.
+
+## 单轮任务 diff 预算（唯一定义处；两种模式恒适用）
+
+**一个任务分支相对 base 的 diff 尽量不超过 2000 行**——按 `git diff --shortstat <base>..<tip>` 的增删合计，**含测试与 `docs/ai/` 产物**（不是只算生产代码）。
+
+* **规划时**：按此切片。切不到 2000 行以内 → 在计划里写明理由并请人类批准整体推进（同「架构层拆分评估」的处理方式，**不按行数机械拒绝**）。
+* **实现中**：发现将要超出 → **停下报告人类**，由人类决定拆分、缩范围或批准超限；不得默默做完再交一个超大 diff。
+* **超限时优先砍哪一边**：先看 `docs/ai/` 证据面占比。若证据面接近或超过生产面，说明这个任务的产物仪式已重于交付本身——先减仪式，别先减需求。
+
+> **来历（2026-08-15 实测）**：三个真实项目的当轮任务 diff 分别为 4556 / 5738 / 2820 行，**全部以 `stopped, NOT converged` 或硬停收场**；其中 `docs/ai` 证据面占 74% / 42% / 41%，而后段审查轮的 blocking 几乎全是 `[Verification]`（证据是否证明得了声称），**多轮零 `[Product]`**。超大 diff 同时放大审查面与证据面，是多轮返工与 Fix-Loop 硬停的主要相关因素。
 
 ## Reviewer-Lightweight Protocol（唯一定义处）
 
