@@ -180,7 +180,7 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
 
 **与收敛门的衔接（否则本出口是死条文）**：含 `[Verification Blocking]` 的 verdict 按分类语义必然为「不通过」，故收敛门"每份 verdict 皆通过"在本出口生效时的**等价满足条件**为：① 该轮两审**零 `[Product Blocking]`**；② 剩余 Verification 项的修复**全部落在下述文件范围内**；③ 人类逐条确认并在 HANDOFF 落账（列出条目 + 确认人 + 日期）。三条同时成立才可标「已收敛」，缺一条则仍为 `stopped, NOT converged`。**本条是收敛门的唯一例外，不得类推扩大。**
 
-**出口的文件范围（硬边界，不可解释放宽）**：本出口**只覆盖 `review_sensitive_paths` 之外的纯账目修正**——HANDOFF 措辞与计数、叙述性文档、落账格式等。**凡修改落在 `review_sensitive_paths` 内**（生产源码、tests、migrations/schema、构建配置与依赖声明、TASK_BRIEF、IMPLEMENTATION_PLAN、QUALITY_GATES）**一律仍须独立复审**，即使该 blocking 被标为 Verification。**本出口对任何 `[Product Blocking]` 一律不适用。**
+**出口的文件范围（硬边界，不可解释放宽）**：本出口**只覆盖 `review_sensitive_paths` 之外的纯账目修正**——HANDOFF 措辞与计数、叙述性文档、落账格式等。**凡修改落在 `review_sensitive_paths` 内**（**范围只以本文件 → review-sensitive paths + SHA 绑定 的必含清单为准，此处不复述类别**）**一律仍须独立复审**，即使该 blocking 被标为 Verification。**本出口对任何 `[Product Blocking]` 一律不适用。**
 > 反滥用示例（本出口明令禁止的用法）：Reviewer 报「认证测试没走真实路径」→ Author 改测试或认证配置 → 人类确认后不再审即标收敛。**改动落在 tests / 配置内 = review-sensitive，必须复审**；出口给的是"不必为改一句 HANDOFF 措辞再跑一整轮"，不是"人类确认可替代独立审查"。
 > 理由（2026-08-15 实测）：证据层修复本身会产出新的证据层瑕疵，若每次都要求再审一轮，只要 Reviewer 在证据层永远挑得出一条，收敛在构造上就不可能——某任务第 7 轮两审双双「不通过」，争的是**一条文档计数**，其修复方式是把手写计数整条删掉。
 
