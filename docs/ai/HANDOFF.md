@@ -2,6 +2,10 @@
 
 > 当前无进行中任务。本文件是仓库现状的极简交接;历史任务全部在 `docs/ai/archive/<日期-任务>/`。
 
+## 状态(2026-08-15 更新)
+* **流程修正(2026-08-15)**:四个真实项目的 Critical 任务**全部** `stopped, NOT converged`/硬停,诊断出三病——① 证据层自指螺旋(后段 blocking 几乎全 `[Verification]`,多轮双审零 `[Product]`,docs/ai 证据面占 diff 41–74%);② 声称被**无区分力样本**验过(某 AC 的七个探针中五个本该被拒的全部通过,此前"验证通过"样本在机制不存在时也会照样通过);③ **判定权不在命令而在人读**(退出码类 AC 四轮零缺陷,"Reviewer 逐条核散文清单"类 AC 逐轮产新 blocking)。已落库五条修正:**单轮 diff 预算 ~2000 行**(`9dd07e1`)+ **streak 只由 `[Product]` 递增 / 轮次上限 3 轮 / 证据层出口 / 负向对照扩到一切守护声称 / 验收必须可机检**(`018579b`),定义均在 `claude/workflow/AGENTS.md` 各自唯一定义处,`/plan` `/implement` 只放指针。完整诊断与实测数据:auto-memory `critical-mode-diagnosis-2026-08-15`。
+* **四个停滞任务未合并**:各自 HANDOFF 均记录当前不可合并(「Author 不得标 Ready to Commit」/「双审通过后才 merge」而双审未过 / 任务进行中 / 6 条 blocking 未修复已移交),待人类逐个裁决「带如实登记的限制交付 vs 按新预算重拆」。
+
 ## 状态(2026-08-12 更新)
 * **Commit B 落地(2026-08-07)**:Reviewer 调用形态收敛入 `claude/workflow/reviewer-prompt.md` 双审隔离协议 ③(唯一定义处)——显式 sandbox/model/效力档 + `--ephemeral --ignore-user-config --ignore-rules` + 机器键 `-c windows.sandbox="elevated"`(缺它则全命令被 policy 拒,冒烟实测)。**read-only 未晋升**:六轮行为冒烟证实明文 HTTP 出网在两种沙箱模式下均放行(实拉真页面 200/559B),「网络阻断」验收不成立——继续显式 workspace-write(fallback 形态已在一次性 fixture 仓行为验证);沙箱≠网络边界已记为已知风险,复测晋升需人类明确决定。
 * **Commit A + mini A/B 结案(2026-08-06,Complete)**:Routine/Critical 模式路由已落地并部署(`3925b5c` 主体 + `83985f5` 措辞修正);Routine 减重与 Critical 完整性均有**行为级**证据;复发即重开裁决,不得静默。全档:`archive/2026-08-06-routine-critical-routing/HANDOFF.md`。
