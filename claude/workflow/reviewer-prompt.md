@@ -61,8 +61,9 @@ git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt   # → handoff_blo
 ```
 ## Review Verdict            通过 / 有条件通过 / 不通过
                             （硬规则：Blocking Issues 非空 → 必须"不通过"；"有条件通过"不得与任何 Product/Verification Blocking 并存；Process Debt、Suggestion 不影响通过）
-## Blocking Issues           无则 "None"。每条标 [Product Blocking]（用户可见正确性/用户数据错误/安全）
-                            或 [Verification Blocking]（验证不健全：probe 冒充证据/测试不走真实路径/审后弱化测试或改验收/绕过 validation·auth·删测试藏错）
+## Blocking Issues           无则 "None"。每条标 [Product Blocking]（用户可见正确性/用户数据错误/安全——**包括为过测试而真实弱化 validation·auth、删测试藏错**）
+                            或 [Verification Blocking]（**仅限没有产品影响的**证据充分性缺陷：probe 冒充证据/测试不走真实路径但被测行为本身正确/审后弱化验收标准）
+                            **分类优先级（唯一判据见 AGENTS.md → Reviewer verdict 分类语义）**：只要已造成或可能造成用户行为·数据·安全影响 → 一律 Product；存疑按 Product 记。**不得用分类规避硬停。**
                             + caused_by_last_fix: yes/no（由你 Reviewer 判定，非 Author 自述；来源有争议标 dispute 交人类裁决）。**默认只有 Blocking Issues 阻止合并。**
 ## Non-Blocking Suggestions  无则 "None"。
 ## Test Coverage Gaps        无则 "None"。

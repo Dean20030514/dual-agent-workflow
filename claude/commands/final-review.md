@@ -26,7 +26,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 
 **合并门（默认阻止合并只由 Product/Verification Blocking）**：Review Verdict 非"通过"、或有未解决 Product/Verification Blocking → 不得可提交；Process Debt（Debt Verdict: Noted/Deferred）与 Suggestion **记录但不默认阻止**。
 
-**收敛门（硬）**：标 `可以提交 / Ready to Commit / 已收敛` 要求 **当前 review-sensitive 内容 == HANDOFF 的 `review_tip_sha`，且本轮实际跑过的每份 verdict 都 = 通过**（默认双审 = `review_verdict_9A` 与 `review_verdict_9B` 皆通过；减档只跑 9A 时 9B 记 N/A + 减档原因）（最后一轮 review-sensitive 生产改动都已独立审查；失效判定用内容比对见 AGENTS）。**人类因成本叫停 ≠ 质量通过**：记 `stopped, NOT converged`，未经审代码不得标已收敛/可提交。
+**收敛门（硬）**：标 `可以提交 / Ready to Commit / 已收敛` 的全部条件——含 `review_tip_sha` 内容绑定、verdict 通过要求、**证据层出口的等价满足条件**、以及失效判定的内容比对法——**一律以 `AGENTS.md` → 最后一轮独立审查门（唯一定义处）为准，本文件不复述**。恒记住其结论：**人类因成本叫停 ≠ 质量通过**，记 `stopped, NOT converged`，未经审代码不得标已收敛/可提交。
 
 输出（6 节不得空白或合并；Evidence 要引具体 diff/测试位置；PR Description 5 子项缺一不可）：
 
@@ -60,7 +60,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 7. 阶段 commit 齐全：计划批准 commit（快速版以 Human Approval Evidence 替代）、author commit、review-fix commit（如有）。
 8. 有 Remaining Risks 说明、commit message 和 PR description。
 9. Reviewer 未重建副本/重装依赖/重跑全量测试；其 Verification Needed 已由 Author 代跑并产物化；scratch 目录经人类确认后清理。
-10. Author 最终审查结论是"可以提交"，**且过收敛门**：当前 review-sensitive 内容 == `review_tip_sha`，本轮跑过的每份 verdict 皆 = 通过（默认 `review_verdict_9A` + `review_verdict_9B`），且双审隔离成立（同一 tip、窗口内无人写入、两份 verdict 分开保存）；无未解决 Product/Verification Blocking；**人类成本叫停记 `stopped, NOT converged`、不算收敛**。
+10. Author 最终审查结论是"可以提交"，**且过收敛门**（条件以 `AGENTS.md` → 最后一轮独立审查门为准，含证据层出口的等价满足条件），且双审隔离成立（同一 tip、窗口内无人写入、两份 verdict 分开保存）；**人类成本叫停记 `stopped, NOT converged`、不算收敛**。
 11. **零暗债结论**：所有妥协要么已修，要么已在 HANDOFF 写成带触发偿还的 `[DEBT]` 明账；diff 中无 later/temporary/for now 等模糊遗留；若触碰挂债文件，该债已还或已显式申请降级。
 12. **适用维度验收闭环**：0.1 标「关注」的每维验收项已满足（过设计/质量清单）；标 N/A 的已写原因。扫描与闸门状态已记录（正式在 TASK_BRIEF + HANDOFF Quality Gates；快速版在 HANDOFF）。无"既没做也没记原因"的维度。
 13. **真实产品的度量与归属**（门控）：若为真实可发布产品，成功度量定义与上线后归属已记入 PRODUCT_BRIEF；关键埋点已验证可触发的证据在 last_test_run.txt 或 HANDOFF；用户/市场判断已区分证据/假设，高影响假设已验证或降级。非真实产品标 N/A。

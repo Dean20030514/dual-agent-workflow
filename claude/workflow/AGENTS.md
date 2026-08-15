@@ -30,7 +30,7 @@
 * Do not bypass validation, authentication, or error handling.
 * Do not introduce new dependencies unless explicitly approved by the human — via the approved plan in Critical, or explicit in-conversation approval in Routine.
 * Do not do unrelated refactors. Keep changes minimal and task-scoped. (Scoping only — this constrains touching *unrelated* code, NOT which approach you pick: select the minimal sufficient, long-term-correct approach per CLAUDE.md → Decision Making, then keep the diff scoped to it. "Minimal" ≠ pick the smallest/laziest solution.)
-* Keep one task's diff under ~2000 lines (see 单轮任务 diff 预算 below); when it is heading past that, stop and ask the human to split — never quietly finish an oversized task.
+* Respect the per-task diff budget — threshold, counting method and over-budget handling are defined once in 单轮任务 diff 预算 below; never quietly finish an oversized task.
 * Do not modify lockfiles unless dependencies actually changed.
 * Do not commit secrets, tokens, or API keys.
 * Do not claim tests passed without real execution evidence — Routine: show the real command, full output, and exit code in conversation; Critical: write actual output to docs/ai/last_test_run.txt.
@@ -127,6 +127,7 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
 * **与验证三分类的边界**：装置及其变异 spec 是**常驻项目脚手架**，不属 diagnostic probe；运行期变异必须还原并产物化。Author 不得自证规则保持不变——Reviewer 不运行装置，只核产物完整性与字段自洽（见 reviewer-prompt 9A）。
 * **负向对照：适用范围扩展到一切守护声称（2026-08-15）**——本节的"区分力"要求**不限于测试守护**。任何「机制 X 会拒绝 Y」的声称（构建/编译配置、lint 规则、类型检查、CI 门禁、扫描器等）都必须提供**负向对照**：样本须「**若移除 X 则会通过**」，以证明拒绝确由 X 造成——**用「本来就会失败」的样本验证守护 = 无效验证，等同空守护测试**。
   * **覆盖范围决定样本数，不是"至少一个"**：对照必须**覆盖声称所主张的全部等价类**（如声称"拒绝一切内置模块导入"，则静态 import / 动态 import / 模板串 / 变量串 / 类型标注串等每一类都要有样本）。**一个合格样本只证明该等价类，不证明整条声称。** 覆盖不到的类，声称必须当场收窄到覆盖得到的范围。
+  * **等价类的封闭方式（防止"永远还有一类"的新回归）**：等价类必须**枚举自一个人类批准并冻结的输入域**（语言语法子集 / 接口取值域 / 威胁模型条目），该枚举写进 `IMPLEMENTATION_PLAN.md` 的 Frozen Acceptance，冻结后即为本任务的完整集。**Reviewer 主张"还有一类未覆盖"时，必须给出该域内的具体反例**（能实际触发漏过的输入）——给得出即为有效 `[Verification Blocking]`；**给不出则记 Non-Blocking Suggestion，不阻止收敛**。域本身需要扩大 = 验收变更，走人类批准，不在本轮 fix-loop 内解决。
   * 还须核对**失败原因**：拒绝必须由目标机制以预期诊断产生，而非编译错误、解析失败、依赖缺失等无关原因。
   > 实证（2026-08-15）：某项目声称 `tsconfig` 的 `"types": []` 能拒绝 Node 内置模块导入，并写进验收、测试产物与配置注释三处。实测七个探针中**五个本该被拒的全部通过**（含最朴素的 `import 'node:fs'`）。根因：此前所有"验证通过"的样本要么是**环境全局**（`module`/`require`/`process`——移除该配置也照样被拒），要么是**未安装的包**（拒绝原因是解析不到）。**每个通过的样本，就算机制完全不存在也会照样通过。**
 
@@ -134,7 +135,8 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
 
 **每条验收条款（AC）的「判定方式」必须同时满足两条：① 可复现——换个人、换一轮，按同一步骤得到同一结论；② 有区分力——存在一个「若该性质不成立则判定会失败」的对照。** 命令 + 退出码是首选形态，但**命令形态本身不等于合格**：一个永远返回 0 的脚本、一个只检查字段存在的扫描，都满足形态而没有区分力（见「守护有效性装置」的负向对照要求）。
 
-* **能自动化的一律自动化**；不能可靠自动化的**产品 / 安全 / 合规**性质**仍可作 AC 并阻止合并**，但必须写成**明确的人类判定步骤**：给出判定人、逐条判据、以及"什么情况判不通过"的反例。
+* **能自动化的一律自动化**；不能可靠自动化的**产品 / 安全 / 合规**性质**仍可作 AC 并阻止合并**，但必须写成**明确的人类判定步骤**：给出判定人、固定的判定输入（具体文件/界面/数据的确定指向）、逐条判据、以及"什么情况判不通过"的反例。
+* **反例必须实际触发失败，不接受纸面反例**：AC 落地时须留下产物，证明**把该反例喂给这套判定方法时，判定确实判不通过**（自动化的记退出码，人工的记判定人 + 判定结论 + 时间）。只写出反例而从未让它跑一次 = 无区分力，等同空守护测试。**判定人之间有分歧 → 交人类裁决，不得由 Author 择一采信。**
 * **不合格的是"无判据的散文对读"**：判定方式写成「Reviewer 逐条核对 / 对照两表核 / 核清单完整性」而不给判据与反例的，**不是验收条款**——降级为 Non-Blocking Suggestion 或移交清单条目，**不得阻止收敛**。这类性质通常可以改写成有区分力的形式（清单条目数 == 源表条目数、某扫描命令零命中、某路径必被真实生产入口覆盖）。
 * **声称不得超出判定实际覆盖的范围**——超出即 `[Verification Blocking]`。
 
@@ -150,6 +152,8 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
 * **不得把 Author 的自我总结 / "已修复" 叙述当作证据。**
 
 ## review-sensitive paths + SHA 绑定（唯一定义处）
+
+**该清单本身是 review-sensitive（2026-08-15 补）**：`review_sensitive_paths` 在双审窗口开启时即**冻结**——审后**不得缩窄**（移除条目、改窄 glob、把文件移出清单皆属缩窄）。清单本身的任何变更**使本轮审查失效**，须重跑；扩大清单同样须重跑（新纳入的路径未经审）。Reviewer 在审前快照自检时**逐字记录该清单原文**进 verdict 证据首行，落账时与 HANDOFF 比对；两者不一致 → 该轮作废。**理由**：出口与失效判定都以此清单为边界，清单可事后修改 = 边界可事后自定，整套绑定失去意义。
 
 **review_sensitive_paths（审查/测试共用同一份精确 pathspec，每任务在 HANDOFF 显式列出）** 至少含：生产源码、tests、migrations/schema、构建配置 + 依赖声明 + lockfile、`docs/ai/TASK_BRIEF.md`、**整个 `docs/ai/IMPLEMENTATION_PLAN.md`**（含 Frozen Acceptance——用整文件，因无法对"某一节"做 Git pathspec）、`docs/ai/QUALITY_GATES.md`。**排除**：普通说明文档。**审查后弱化测试或修改验收标准 = `review_sensitive_paths` 变化 → 使审查失效。** **测试与审查用同一份 `review_sensitive_paths`（不另设单独的测试清单）。**
 
@@ -173,6 +177,8 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
 标记"已收敛 / Ready to Commit"要求：**最后一轮所有 review-sensitive 生产改动都已被独立审查**（当前 review-sensitive 内容 == `review_tip_sha`，且**本轮实际跑过的每一份 verdict 都 = 通过**——默认双审即 `review_verdict_9A` 与 `review_verdict_9B` 皆通过；减档只跑 9A 时 9B 记 N/A + 减档原因）。**人类因成本叫停 ≠ 质量通过**：记为 `stopped, NOT converged`，未经审代码**不得**标已收敛/已提交。
 
 **证据层出口（2026-08-15 新增，斩断无限回归）**：若某轮**两审均零 `[Product Blocking]`**，则其剩余 `[Verification Blocking]` 的修复**可由人类确认后直接收口**，不再要求为此另跑一整轮独立审查（HANDOFF 记「人类确认收口 + 所修条目」）。
+
+**与收敛门的衔接（否则本出口是死条文）**：含 `[Verification Blocking]` 的 verdict 按分类语义必然为「不通过」，故收敛门"每份 verdict 皆通过"在本出口生效时的**等价满足条件**为：① 该轮两审**零 `[Product Blocking]`**；② 剩余 Verification 项的修复**全部落在下述文件范围内**；③ 人类逐条确认并在 HANDOFF 落账（列出条目 + 确认人 + 日期）。三条同时成立才可标「已收敛」，缺一条则仍为 `stopped, NOT converged`。**本条是收敛门的唯一例外，不得类推扩大。**
 
 **出口的文件范围（硬边界，不可解释放宽）**：本出口**只覆盖 `review_sensitive_paths` 之外的纯账目修正**——HANDOFF 措辞与计数、叙述性文档、落账格式等。**凡修改落在 `review_sensitive_paths` 内**（生产源码、tests、migrations/schema、构建配置与依赖声明、TASK_BRIEF、IMPLEMENTATION_PLAN、QUALITY_GATES）**一律仍须独立复审**，即使该 blocking 被标为 Verification。**本出口对任何 `[Product Blocking]` 一律不适用。**
 > 反滥用示例（本出口明令禁止的用法）：Reviewer 报「认证测试没走真实路径」→ Author 改测试或认证配置 → 人类确认后不再审即标收敛。**改动落在 tests / 配置内 = review-sensitive，必须复审**；出口给的是"不必为改一句 HANDOFF 措辞再跑一整轮"，不是"人类确认可替代独立审查"。
