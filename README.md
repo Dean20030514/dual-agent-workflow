@@ -29,7 +29,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 | `claude/commands/` | `~/.claude/commands/` | 7 个阶段 slash command：`/define` `/explore` `/plan` `/design-check` `/implement` `/debug` `/final-review` |
 | `codex/AGENTS.md` | `~/.codex/AGENTS.md` | Reviewer（Codex CLI）侧长期规则 |
 | `codex/config.example.toml` | `~/.codex/config.toml`（缺失时播种） | Codex 持久偏好（信任目录表等本机生成段刻意省略） |
-| `portable/` | — | 便携单文件版 v3.1（**旧快照**：零写入、快照绑定等新机制尚未移植；v3.2 受控迁移待母本全部前置任务闭合后执行，勿手改此文件补课） |
+| `portable/` | — | 便携单文件版。**`通用prompt-v3.2.txt` = 当前版**（2026-08-15 按 `main` 母本整体重新生成：模式路由/Routine · Reviewer 零写入 · 双审隔离与 SHA 绑定 · 归因与 Fix-Loop 硬停 · 轮次上限 · 单轮 diff 预算 · 守护有效性装置与负向对照 · 验收可复现判定 · 证据层出口 · 修法必附）。`通用prompt-v3.1.txt` = 2026-07-25 旧快照，仅作对照，**勿据其开工**。母本再变时同样**整体重新生成**，勿逐条打补丁 |
 | `install.ps1` | — | 上述一切的一键部署脚本 |
 
 ## 核心机制（2026-08 版）
