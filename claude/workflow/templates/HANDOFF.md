@@ -42,7 +42,7 @@ Planning / Author Implementation / Independent Review / Final Review / Ready to 
 ## Fix-Loop Counter（review-fix 循环用；无则 "None"）
 每轮记一行：`[轮次] | 改了什么 | 本轮 Reviewer 判定的 blocking：[Product/Verification/ProcessDebt/Suggestion] + caused_by_last_fix(yes/no/dispute)`。
 * streak（当前连续计数）: [数]
-> 递增/重置/停止规则见 `AGENTS.md` → Fix-Loop 计数与跨轮硬停（要点：某轮有 ≥1 个经确认 `caused_by_last_fix: yes` 的 **Product/Verification** Blocking 才计 1；9A/9B 同一问题不重复计；来源 `dispute` 交人类不自动计；某轮 0 计则 streak 归 0；**连续 2 → 立即停编码，只能回退 / 重拆 / 请人类批准架构升级，禁"再试一轮"**）。**`caused_by_last_fix` 由 Reviewer 在其 verdict 判定；Author 只能逐字转录进本表（附 review 文件/轮次来源），不得自行判断或改写。**
+> 递增/重置/停止/轮次上限及其与合并门的优先级，**一律以 `AGENTS.md` → Fix-Loop 计数与跨轮硬停为准**（本模板不复述判据，避免与母本漂移）。**`caused_by_last_fix` 由 Reviewer 在其 verdict 判定；Author 只能逐字转录进本表（附 review 文件/轮次来源），不得自行判断或改写。**
 
 ## Remaining Risks / Debt
 技术债唯一落点。无债写 "Debt: none"。格式（见 AGENTS.md）：

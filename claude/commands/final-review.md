@@ -18,7 +18,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 
 **禁止 performative agreement**：不写"完全正确！""好建议！"——用动作代替表态，改了 diff 本身就证明你听进去了。
 
-**跨轮硬停（规则见 `AGENTS.md` → Fix-Loop 计数）**：读 HANDOFF 的 Fix-Loop Counter——streak 由 **Reviewer 判定 `caused_by_last_fix: yes` 的 Product/Verification Blocking** 递增（Author 不得自填来源；来源争议交人类）；**连续达 2 → 立即停止编码**，只能 回退 / 重新拆任务 / 请求人类批准架构升级，**禁"再试一轮"**。修任何 blocking 一律走回归安全修复协议（blast-radius 枚举 + 全量相关套件），不许只盯触发点。
+**跨轮硬停**：读 HANDOFF 的 Fix-Loop Counter，按 **`AGENTS.md` → Fix-Loop 计数与跨轮硬停（唯一定义处）** 判定——递增条件、重置、硬停阈值、轮次上限、以及三者与合并门的优先级**全部以母本为准，本文件不复述**。执行纪律：`caused_by_last_fix` 由 Reviewer 判定、Author 逐字转录（不得自填来源），争议交人类。修任何 blocking 一律走回归安全修复协议（blast-radius 枚举 + 全量相关套件），不许只盯触发点。
 
 > 本节先于下面"重点判断"：先确定哪些意见真该采纳，再逐条确认是否已解决。
 

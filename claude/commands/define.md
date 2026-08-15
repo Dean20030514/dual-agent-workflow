@@ -65,7 +65,7 @@ argument-hint: [本次任务 / 需求简述]
 
 产出直接喂给 TASK_BRIEF（Goal/Acceptance）与 IMPLEMENTATION_PLAN（Proposed Changes/Testing）。
 * **用户故事**：`As a <role>, I want <capability>, so that <value>.`
-* **可验证验收**：每条配 1~N 条 `Given/When/Then`，避免"好用/流畅"，能对应测试命令/可截图者优先。
+* **可验证验收**：每条配 1~N 条 `Given/When/Then`，避免"好用/流畅"。判定方式须**可复现且有区分力**（首选测试命令/可截图；不可自动化的产品·安全性质写成明确的人类判定步骤）——判据见 `AGENTS.md` → 验收条款必须可复现判定。
 * **优先级**：MoSCoW 或 P0/P1/P2，二选一全局一致。
 * **范围边界**（强制）：显式列 In scope / Out of scope；模棱两可一律放 Out of scope。
 
