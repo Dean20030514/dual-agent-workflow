@@ -65,7 +65,8 @@ git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt   # → handoff_blo
                             或 [Verification Blocking]（**仅限没有产品影响的**证据充分性缺陷：probe 冒充证据/测试不走真实路径但被测行为本身正确/审后弱化验收标准）
                             **分类优先级（唯一判据见 AGENTS.md → Reviewer verdict 分类语义）**：只要已造成或可能造成用户行为·数据·安全影响 → 一律 Product；存疑按 Product 记。**不得用分类规避硬停。**
                             + caused_by_last_fix: yes/no（由你 Reviewer 判定，非 Author 自述；来源有争议标 dispute 交人类裁决）。**默认只有 Blocking Issues 阻止合并。**
-## Non-Blocking Suggestions  无则 "None"。
+                            **+ Proposed Fix（每条 Blocking 必填，见下方「修法必附」）**
+## Non-Blocking Suggestions  无则 "None"。**每条同样必附 Proposed Fix。**
 ## Test Coverage Gaps        无则 "None"。
 ## Cannot Verify From Diff   验收点实现落在未改代码里、光看 diff 判不了的，逐条列出交 Author 自核
                             （区别于 Verification Needed：那是"需跑命令"，这是"去未改代码里确认实现存在且正确"）。无则 "None"。
@@ -73,6 +74,10 @@ git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt   # → handoff_blo
 ## Debt Verdict              Clean / Noted / Deferred（**无 "Blocking" 值**）：Noted=未触发 Payback-on-Touch 的普通存量债（行数债等，不阻止）；
                             Deferred=触发但已获人类批准延期（不阻止）；**触发未还且无批准延期 → 不写这里，移入 Blocking Issues 标 [Verification Blocking]**。
 ```
+
+* **修法必附（2026-08-15 新增，唯一定义处）**：**每条 Blocking 与 Suggestion 都必须附 `Proposed Fix`**——写清**具体怎么改**（改哪个文件/哪一节、加什么或删什么、判据如何变），而不只是"应当明确/应当收紧"这类方向性表述。有多种合理修法时给出**首选 + 备选并说明取舍**；若你认为无法给出具体修法（如需要人类裁决取舍），写 `Proposed Fix: 需人类裁决 — <待定的选项与各自后果>`。
+  * **Author 侧对称义务**：Author 必须**逐条对每个 Proposed Fix 表态**——`采纳` / `修改后采纳（写明改了什么、为何）` / `不采纳（带技术理由反驳）`，**不得沉默跳过、不得只改不说、也不得只说不改**（见 `~/.claude/commands/final-review.md` 的 receiving-review 纪律）。
+  * **为什么强制**：只报"哪里错了"而不给修法，Author 只能反推 Reviewer 的意图，双方极易各说各话、多轮不收敛；把修法摆到台面上，分歧就从"猜对方想要什么"变成"对同一个具体方案表态"，一轮内即可裁决。
 
 * **契约首行（两版共用，快照证据必填）**：在 `## Review Verdict` 之前先写六行 —— `read_handoff_from: <工作树 / git show tip>`、`handoff_current_phase: <你读到的 HANDOFF 里 Current Phase 原文>`、`observed_head_sha: <git rev-parse HEAD 实际输出>`、`handoff_blob_sha: <git hash-object docs/ai/HANDOFF.md 实际输出>`、`last_test_run_blob_sha: <git hash-object docs/ai/last_test_run.txt 实际输出>`、`worktree_clean: <yes/no，全树 git status --porcelain 是否为空>`。作用：把"读没读到审前快照"从声明变成可机检、可事后比对的持久化证据（自检命令见 ⑤）。`read_handoff_from` 若是 `git show tip`、或 `observed_head_sha` ≠ prompt 里的 `handoff_snapshot_sha`、或 `worktree_clean: no` —— 该轮审查建立在过期/污染证据上，**直接作废重跑**（详见 ① 的血泪注）。
 * **9A 末节追加**：`## Recommended Next Step`——**只写建议 Author 做什么**。本轮你不得改代码、不得改 HANDOFF、不得 commit（双审隔离协议 ②）；review-fix 由 Author 在双审窗口结束后按 `/debug` 执行、commit 仍用 `wip(review-fix): [说明]`。

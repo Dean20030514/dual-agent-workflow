@@ -14,6 +14,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 2. **VERIFY**：回代码核对——现象/缺陷真存在吗？
 3. **EVALUATE**：在这个 codebase 里技术上成立吗？照改会否破坏现有功能？它看了全上下文吗？
 4. **决定**：成立就改；不成立就**带技术理由反驳**（disagree 要逐条说理，不默默忽略也不默默照办）。
+5. **逐条对 Reviewer 的 `Proposed Fix` 表态**（契约见 `reviewer-prompt.md` → 修法必附）：`采纳` / `修改后采纳`（写明改了什么、为何比原方案好）/ `不采纳`（带技术理由）。**不得沉默跳过，不得只改不说，也不得只说不改**；表态逐条落进 HANDOFF Work Log，供下一轮 Reviewer 核对。Reviewer 写 `需人类裁决` 的，原样上交人类，Author 无裁定权。
 5. **YAGNI**：要求"补全 X"时先 grep 确认真有人用；没人用就反提"按 YAGNI 删掉"。
 
 **禁止 performative agreement**：不写"完全正确！""好建议！"——用动作代替表态，改了 diff 本身就证明你听进去了。
