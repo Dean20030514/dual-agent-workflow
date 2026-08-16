@@ -128,7 +128,7 @@
 
 本任务派给哪些 sub-agent / 角色（按需勾选）：
 
-> **环境不提供对应 sub-agent 时，该角色职责由 Author 本人承担并在 HANDOFF 注明 —— 只降级执行方式，不降级职责。**（本机现状：这批专家 agent 曾由 `ecc` 插件提供，该插件已于 2026-07-25 **卸载**，故本机一个专家 agent 都没有 —— 降级路径见 `~/.claude/rules/common/agents.md`）
+> **环境不提供对应 sub-agent 时，该角色职责由 Author 本人承担并注明（**Critical** 记 HANDOFF；**Routine** 在对话里说明）—— 只降级执行方式，不降级职责。**（本机现状：这批专家 agent 曾由 `ecc` 插件提供，该插件已于 2026-07-25 **卸载**，故本机一个专家 agent 都没有 —— 降级路径见 `~/.claude/rules/common/agents.md`）
 
 * [ ] **planner** — 复杂功能/重构，先出实现计划。
 * [ ] **architect** — 涉及架构决策/跨模块边界。
@@ -141,7 +141,7 @@
 > 并行优先：相互独立的审查/分析用并行 Task 派发。派 sub-agent 时要求继承主对话模型不降级（成本理由见 `~/.claude/workflow/workflow-design-notes.md`）。
 
 人类负责（不可代劳）：
-* [ ] 批准产品定义(Phase 0)与实现计划；PLAN 的 Human Approval Status 是唯一受保护字段，只能人类改。
+* [ ] 批准真实改动——**Critical**：批准产品定义(Phase 0)与实现计划，PLAN 的 Human Approval Status 是唯一受保护字段、只能人类改；**Routine**：扫 diff 后由人类 commit/merge。
 * [ ] 检查 diff、决定取舍、对模糊需求与设计争议拍板。
 * [ ] 最终 commit/squash；确认后才清理 Reviewer scratch 目录。
 

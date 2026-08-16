@@ -17,11 +17,11 @@
 
 项目是什么、技术栈、主要目录。[填写]
 
-## Build / Test / Lint Commands
+## Build / Test / Lint Commands（**两模式恒适用**）
 
 只列项目中真实存在的命令，不存在的不要编造。[填写]
 
-## Code Style Rules
+## Code Style Rules（**两模式恒适用**）
 
 命名规则、目录结构、格式化工具、测试习惯、错误处理方式。[填写]
 
@@ -173,12 +173,12 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 
 > **来历（2026-08-15 实测）**：某任务 AC1/AC2（退出码类）四轮零缺陷；AC5/AC9/AC13（"Reviewer 对照…逐条核"、判定对象是散文清单的完整性）逐轮产出新 blocking，第 4 轮又挑出 7 条遗漏。**散文完整性永远可以再被挑出一条——拿它当 blocking 依据，等于在构造上把收敛做成不可能。**
 
-## Reviewer verdict 分类语义（唯一定义处；**Reviewer 实际运行时适用**——其中 streak 计数与 Debt Verdict 的 `Deferred` 依赖 Critical 账本，Routine 不适用。reviewer-prompt / final-review 引用本节，不得产生冲突契约）
+## Reviewer verdict 分类语义（唯一定义处；**Reviewer 实际运行时适用**——分类语义与 Debt Verdict 取值两模式通用；**`caused_by_last_fix` 与 streak 计数仅 Critical**（Routine 无 Fix-Loop 账本，见 Mode Scope）。reviewer-prompt / final-review 引用本节，不得产生冲突契约）
 
 顶层输出字段保持不变（兼容 Codex 强制结构），语义分类如下：
-* **Blocking Issues** 每条标 `[Product Blocking]`（用户可见正确性 / 用户数据错误 / 安全）或 `[Verification Blocking]`（验证不健全：probe 冒充证据、测试不走真实路径、审后弱化测试或改验收、绕过 validation/auth/删测试藏错），并由 **Reviewer** 标 `caused_by_last_fix: yes/no`。**只有 Blocking Issues（Product/Verification）默认阻止合并。**（**阻止合并 ≠ 计入硬停**：streak 只由 `[Product Blocking]` 递增，见「Fix-Loop 计数与跨轮硬停」；两审零 Product 时 Verification 的收口方式见「最后一轮独立审查门 → 证据层出口」。）
+* **Blocking Issues** 每条标 `[Product Blocking]`（用户可见正确性 / 用户数据错误 / 安全）或 `[Verification Blocking]`（验证不健全：probe 冒充证据、测试不走真实路径、审后弱化测试或改验收、绕过 validation/auth/删测试藏错），并由 **Reviewer** 标 `caused_by_last_fix: yes/no`（**仅 Critical** ——该字段只服务 Fix-Loop streak；Routine 无此账本，不填）。**只有 Blocking Issues（Product/Verification）默认阻止合并。**（**阻止合并 ≠ 计入硬停**：streak 只由 `[Product Blocking]` 递增，见「Fix-Loop 计数与跨轮硬停」；两审零 Product 时 Verification 的收口方式见「最后一轮独立审查门 → 证据层出口」。）
 * **分类优先级（两类重叠时的唯一判据）**：**只要已造成或可能造成用户可见行为、用户数据或安全/隐私影响 → 一律 `[Product Blocking]`**，不论它同时是否符合 Verification 的举例。`[Verification Blocking]` **仅限没有产品影响的证据充分性缺陷**。故「为过测试而弱化认证/绕过 validation」属 **Product**（它改变了真实的安全行为），而「认证测试没走真实路径、但认证本身正确」属 Verification。**分类不得被用来规避硬停**——归类存疑时按 Product 记，交人类裁决。
-* **Debt Verdict** 取值 **`Clean / Noted / Deferred`**（**无 "Blocking" 值**）：**Clean**=无债；**Noted**=**未触发** Payback-on-Touch 的普通存量债（行数债等，不阻止合并，**不得与用户数据错误等价**）；**Deferred**=触发 Payback-on-Touch 但**已获人类批准延期**（不阻止）。**触发 Payback-on-Touch 但未偿还、又无批准延期 → 不是 Process Debt，移入 Blocking Issues 标 `[Verification Blocking]`**（与本文件 Payback-on-Touch "otherwise must not be committed" 一致，消除矛盾）。
+* **Debt Verdict** 取值 **`Clean / Noted / Deferred`**（**无 "Blocking" 值**）：**Clean**=无债；**Noted**=**未触发** Payback-on-Touch 的普通存量债（行数债等，不阻止合并，**不得与用户数据错误等价**）；**Deferred**=触发 Payback-on-Touch 但**已获人类批准延期**（不阻止）——**Critical** 凭批准的 plan，**Routine** 凭对话内人类明确批准（见 Payback-on-Touch）。**触发 Payback-on-Touch 但未偿还、又无批准延期 → 不是 Process Debt，移入 Blocking Issues 标 `[Verification Blocking]`**（与本文件 Payback-on-Touch "otherwise must not be committed" 一致，消除矛盾）。
 * **Review Verdict 语义**：Blocking Issues 非空 → **必须"不通过"**；"有条件通过"**不得**与任何 Product/Verification Blocking 并存；Process Debt、Suggestion 本身不影响"通过"。
 * **不得把 Author 的自我总结 / "已修复" 叙述当作证据。**
 
