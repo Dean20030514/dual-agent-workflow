@@ -74,7 +74,7 @@
 
 ### 两模式恒适用的红线（不因模式而减）
 
-4.1 的 Safety Rules、★ 单轮任务 diff 预算、★ No-Hidden-Debt / `[DEBT]`、★ Payback-on-Touch、★ 证据 vs 假设标签，以及上方矩阵中标「恒适用」的各行。
+4.1 的 Safety Rules、★ 单轮任务 diff 预算、★ No-Hidden-Debt / `[DEBT]`、★ Payback-on-Touch、★ 证据 vs 假设标签、★ 停止事件优先级，以及上方矩阵中标「恒适用」的各行。**本清单与 4.1 Mode Scope 的恒适用枚举必须一致。**
 
 ## 核心原则（三栏：恒适用的实质 / Routine 的形式 / Critical 的形式）
 
@@ -353,7 +353,7 @@ Banned vague phrasings hiding a compromise as untracked debt (presence = unregis
 （Plain code TODO comments still go to plan/TODO docs, not this debt log; but a code TODO that actually hides a compromise must ALSO be registered here.）
 
 ### ★ Payback-on-Touch（唯一强制偿还机制，优先于任何 due date）
-Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt"). A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay it in the same commit (or explicitly request to downgrade/defer it in the plan, with a reason); otherwise this change must not be committed. Debt follows the code, not a list — it finds you the next time you touch the file.
+Before modifying a file/module, scan whatever debt ledger the project has: **Critical** — the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt"); **Routine** — there is no live HANDOFF, but **any `docs/ai/archive/**/HANDOFF.md` debts still bind**, so scan those. This rule itself is always-on in both modes; only the ledger's location differs. A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay it in the same commit (or explicitly request to downgrade/defer it in the plan, with a reason); otherwise this change must not be committed. Debt follows the code, not a list — it finds you the next time you touch the file.
 
 ### ★ 证据 vs 假设标签（反脑补，唯一定义处）
 任何关于用户/市场/需求的判断必须区分「证据」与「假设」，不得把假设当事实：
@@ -570,7 +570,7 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
 
 > 门控：0.1 第 4/5/6/15 维；无界面或面向用户内容则整节跳过。
 > 三道复核：Phase 0/规划期先勾（预判，未想清算 Open Question）→ 实现完成自检 → Reviewer 复核（受 §9.0 约束）。
-> 产物化：需渲染才能判定的项，证据须为截图，命名 `docs/ai/screenshots/<task>-<断点>.png`，HANDOFF 指向；无截图不得勾过。响应式/多主题分别覆盖项目声明的最小/最大断点与各主题，不支持则该项 N/A。
+> 产物化：需渲染才能判定的项，证据须为截图——**Critical**：命名 `docs/ai/screenshots/<task>-<断点>.png`，HANDOFF 指向；**Routine**：在对话里贴出截图即可（无 HANDOFF，也不得为此创建）。两模式一样的是**无截图不得勾过**。响应式/多主题分别覆盖项目声明的最小/最大断点与各主题，不支持则该项 N/A。
 
 ## 5.1 交互设计 UX
 * [ ] 核心任务流顺畅：一眼看出"下一步做什么"，主路径不被次要操作打断。

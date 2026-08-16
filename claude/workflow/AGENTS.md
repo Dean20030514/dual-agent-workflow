@@ -7,7 +7,7 @@
 
 > 路由定义唯一出处：全局 `CLAUDE.md` → Mode Routing。默认 **Routine**；**Critical** 仅人类明确启用。
 
-* **两种模式恒适用**：Safety Rules、真实执行证据（真实命令 / 完整输出 / 退出码）、**单轮任务 diff 预算**、No-Hidden-Debt / `[DEBT]` 红线。
+* **两种模式恒适用**：Safety Rules、真实执行证据（真实命令 / 完整输出 / 退出码）、**单轮任务 diff 预算**、No-Hidden-Debt / `[DEBT]` 红线、**Payback-on-Touch**、**证据 vs 假设标签**、**停止事件优先级**。（本清单即完整枚举；下方各节若无 Critical 限定词即属恒适用，两处口径必须一致——本轮就是因为 diff 预算漏列才被下游报上来。）
 * **仅 Critical 适用**：TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF 交接文件、`docs/ai/last_test_run.txt` 持久化、SHA 绑定、任务分支与阶段 commit（Git Discipline）、Reviewer 与双审协议（AI Collaboration Rules 及各审查相关节）。
 * **Reviewer 零写入**：只要有 Reviewer 实际运行——任何模式——零写入规则恒适用。
 * **「Routine + 临时 Reviewer」是合法状态，且不构成模式升级**：人类可以在不启用 Critical 的前提下临时要求跑一次独立审查。此时继承零写入 + Reviewer-Lightweight Protocol **第一层**（资源纪律），并按**第二层**取 **Routine 证据载体**；**不继承 Critical 账本**——不产生 HANDOFF / `last_test_run.txt` / SHA 绑定 / Fix-Loop 账本，**也不得为审查临时创建它们**。要这些账本 → 由人类明确启用 Critical。
@@ -107,7 +107,7 @@ Banned vague phrasings that hide a compromise as untracked debt (their presence 
 
 ## Payback-on-Touch（唯一强制偿还机制，优先于任何 due date）
 
-Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt" sections). A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay that debt in the same commit (or explicitly request to downgrade/defer it in the plan, with a reason); otherwise this change must not be committed. Debt does not follow a list — it follows the code and finds you the next time you touch it.
+Before modifying a file/module, scan whatever debt ledger the project has: **Critical** — the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt" sections); **Routine** — there is no live HANDOFF, but **any `docs/ai/archive/**/HANDOFF.md` debts still bind**, so scan those. This rule itself is always-on in both modes; only the ledger's location differs. A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay that debt in the same commit (or explicitly request to downgrade/defer it in the plan, with a reason); otherwise this change must not be committed. Debt does not follow a list — it follows the code and finds you the next time you touch it.
 
 ## 证据 vs 假设标签（反脑补，唯一定义处）
 

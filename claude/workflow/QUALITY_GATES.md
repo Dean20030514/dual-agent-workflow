@@ -7,7 +7,7 @@
 
 > 门控：0.1 第 4/5/6/15 维；无界面或面向用户内容则整组跳过（**§5 清单唯一定义处**，`/design-check` 与 Reviewer 都读本节）。
 > 三道复核：Phase 0/规划期先勾（预判，未想清算 Open Question）→ 实现完成自检 → Reviewer 复核（受 Reviewer-Lightweight Protocol 约束）。
-> 产物化：需渲染才能判定的项，证据须为截图，命名 `docs/ai/screenshots/<task>-<断点>.png`，HANDOFF 指向；无截图不得勾过。响应式/多主题分别覆盖项目声明的最小/最大断点与各主题，不支持则该项 N/A。
+> 产物化：需渲染才能判定的项，证据须为截图——**Critical**：命名 `docs/ai/screenshots/<task>-<断点>.png`，HANDOFF 指向；**Routine**：在对话里贴出截图即可（无 HANDOFF，也不得为此创建）。两模式一样的是**无截图不得勾过**。响应式/多主题分别覆盖项目声明的最小/最大断点与各主题，不支持则该项 N/A。
 
 ## 5.1 交互设计 UX
 * [ ] 核心任务流顺畅：一眼看出"下一步做什么"，主路径不被次要操作打断。
