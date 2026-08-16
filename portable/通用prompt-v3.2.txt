@@ -74,7 +74,7 @@
 
 ### 两模式恒适用的红线（不因模式而减）
 
-4.1 的 Safety Rules、★ 单轮任务 diff 预算、★ No-Hidden-Debt / `[DEBT]`、★ Payback-on-Touch、★ 证据 vs 假设标签、★ 停止事件优先级，以及上方矩阵中标「恒适用」的各行。**本清单与 4.1 Mode Scope 的恒适用枚举必须一致。**
+4.1 的 Safety Rules、真实执行证据（真实命令 / 完整输出 / 退出码）、★ 单轮任务 diff 预算、★ No-Hidden-Debt / `[DEBT]`、★ Payback-on-Touch、★ 证据 vs 假设标签、★ 停止事件优先级，以及上方矩阵中标「恒适用」的各行。**本清单与 4.1 Mode Scope 的恒适用枚举是同一集合，改一处必须同步另一处**；两者都只是跨全流程的红线，**不是全文规则的完整目录**。
 
 ## 核心原则（三栏：恒适用的实质 / Routine 的形式 / Critical 的形式）
 
@@ -287,7 +287,8 @@
 
 ### Mode Scope
 路由定义唯一出处 = 本工作流 prompt 的「★ 模式路由」节。默认 Routine；Critical 仅人类明确启用。
-* **两种模式恒适用**：Safety Rules、真实执行证据（真实命令 / 完整输出 / 退出码）、单轮任务 diff 预算、No-Hidden-Debt / `[DEBT]` 红线。
+* **两种模式恒适用**：Safety Rules、真实执行证据（真实命令 / 完整输出 / 退出码）、单轮任务 diff 预算、No-Hidden-Debt / `[DEBT]` 红线、Payback-on-Touch、证据 vs 假设标签、停止事件优先级。
+  > 本清单列的是**跨全流程的红线**，**不是全文规则的完整目录**。其余各节的模式适用**以该节自身的标注为准**。**不存在「未标注即恒适用」这条默认规则**：漏标是缺陷，按缺陷修，不得据此反推作用域。
 * **仅 Critical 适用**：TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF 交接文件、`docs/ai/last_test_run.txt` 持久化、SHA 绑定、任务分支与阶段 commit、Reviewer 与双审协议。
 * **Reviewer 零写入**：只要有 Reviewer 实际运行——任何模式——零写入规则恒适用。
 * **「Routine + 临时 Reviewer」是合法状态，且不构成模式升级**：人类可以在不启用 Critical 的前提下临时要求跑一次独立审查。此时继承零写入 + Reviewer-Lightweight Protocol **第一层**（资源纪律），并按**第二层**取 **Routine 证据载体**；**不继承 Critical 账本**——不产生 HANDOFF / `last_test_run.txt` / SHA 绑定 / Fix-Loop 账本，**也不得为审查临时创建它们**。要这些账本 → 由人类明确启用 Critical。
@@ -353,7 +354,7 @@ Banned vague phrasings hiding a compromise as untracked debt (presence = unregis
 （Plain code TODO comments still go to plan/TODO docs, not this debt log; but a code TODO that actually hides a compromise must ALSO be registered here.）
 
 ### ★ Payback-on-Touch（唯一强制偿还机制，优先于任何 due date）
-Before modifying a file/module, scan whatever debt ledger the project has: **Critical** — the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt"); **Routine** — there is no live HANDOFF, but **any `docs/ai/archive/**/HANDOFF.md` debts still bind**, so scan those. This rule itself is always-on in both modes; only the ledger's location differs. A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay it in the same commit (or explicitly request to downgrade/defer it in the plan, with a reason); otherwise this change must not be committed. Debt follows the code, not a list — it finds you the next time you touch the file.
+Before modifying a file/module, scan whatever debt ledger the project has: **Critical** — the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt"); **Routine** — there is no live HANDOFF, but **any `docs/ai/archive/**/HANDOFF.md` debts still bind**, so scan those. This rule itself is always-on in both modes; only the ledger's location differs. A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay it in the same commit (or explicitly request to downgrade/defer it — **Critical**: in the approved plan, with a reason; **Routine**: in the conversation, with a reason, and only proceed after the human explicitly approves); otherwise this change must not be committed. Debt follows the code, not a list — it finds you the next time you touch the file.
 
 ### ★ 证据 vs 假设标签（反脑补，唯一定义处）
 任何关于用户/市场/需求的判断必须区分「证据」与「假设」，不得把假设当事实：
@@ -1027,7 +1028,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 
 # 十三、组织与角色分配（轻量）
 
-> 只做"本任务派给谁"的一次性分工记录，不展开成组织设计文档。落点：HANDOFF 的 Next Step 附近一两行，或 PLAN 的 Execution Steps 标注负责角色。
+> 只做"本任务派给谁"的一次性分工记录，不展开成组织设计文档。落点按模式取：**Critical** — HANDOFF 的 Next Step 附近一两行，或 PLAN 的 Execution Steps 标注负责角色；**Routine** — 在对话里说明即可（无 HANDOFF / PLAN，也不得为此创建）。
 
 ## 13.1 本任务派给哪些 sub-agent / 角色（按需勾选）
 
@@ -1054,9 +1055,9 @@ Author 探索/规划/实现/修测试/更新交接；Reviewer 只做独立轻量
 
 ## 13.4 项目管理（轻量，第 17 维落点）
 默认由开发主干隐式覆盖；跨多人/多里程碑时显式过：
-* [ ] 任务已拆到可独立验收的步骤，落入 PLAN 的 Execution Steps。
+* [ ] 任务已拆到可独立验收的步骤（**Critical** 落入 PLAN 的 Execution Steps；**Routine** 在对话里列出）。
 * [ ] 依赖/阻塞已识别并写明。
-* [ ] 交付节奏/里程碑记入 HANDOFF 的 Next Step。
+* [ ] 交付节奏/里程碑记录下来（**Critical** 记入 HANDOFF 的 Next Step；**Routine** 在对话里写明）。
 
 ---
 

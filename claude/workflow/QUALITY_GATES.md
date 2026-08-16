@@ -124,7 +124,7 @@
 
 # 组织与角色分配（轻量）
 
-> 只做"本任务派给谁"的一次性分工记录。落点：HANDOFF 的 Next Step 附近一两行，或 PLAN 的 Execution Steps 标注负责角色。
+> 只做"本任务派给谁"的一次性分工记录。落点按模式取：**Critical** — HANDOFF 的 Next Step 附近一两行，或 PLAN 的 Execution Steps 标注负责角色；**Routine** — 在对话里说明即可（无 HANDOFF / PLAN，也不得为此创建）。
 
 本任务派给哪些 sub-agent / 角色（按需勾选）：
 
@@ -146,6 +146,6 @@
 * [ ] 最终 commit/squash；确认后才清理 Reviewer scratch 目录。
 
 项目管理（第 17 维，轻量）：默认由开发主干隐式覆盖；跨多人/多里程碑时显式过：
-* [ ] 任务已拆到可独立验收的步骤，落入 PLAN 的 Execution Steps。
+* [ ] 任务已拆到可独立验收的步骤（**Critical** 落入 PLAN 的 Execution Steps；**Routine** 在对话里列出）。
 * [ ] 依赖/阻塞已识别并写明。
-* [ ] 交付节奏/里程碑记入 HANDOFF 的 Next Step。
+* [ ] 交付节奏/里程碑记录下来（**Critical** 记入 HANDOFF 的 Next Step；**Routine** 在对话里写明）。
