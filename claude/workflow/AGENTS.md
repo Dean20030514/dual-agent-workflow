@@ -3,7 +3,7 @@
 > 本文件是项目长期规则与**禁止事项的唯一出处**，以及全流程所有重复硬规则（Reviewer 轻量协议、`[DEBT]` 格式、证据/假设标签）的**单一定义处**。其他文件和 prompt 只引用本文件，不再罗列，引用写法："Follow the Safety Rules in AGENTS.md" / "Follow the Reviewer-Lightweight Protocol in AGENTS.md"。
 > 已存在则先读再增量更新，永不覆盖重写。
 
-## Mode Scope（2026-08-05 裁决）
+## Mode Scope（2026-08-05 裁决；**两模式恒适用**——本节定义路由本身）
 
 > 路由定义唯一出处：全局 `CLAUDE.md` → Mode Routing。默认 **Routine**；**Critical** 仅人类明确启用。
 
@@ -25,7 +25,7 @@
 
 命名规则、目录结构、格式化工具、测试习惯、错误处理方式。[填写]
 
-## Safety Rules
+## Safety Rules（**两模式恒适用**）
 
 * Do not remove or skip tests to make them pass.
 * Do not comment out core logic to bypass errors.
@@ -40,7 +40,7 @@
 * Do not perform destructive operations without stating the risk first.
 * Never edit the Human Approval Status field in IMPLEMENTATION_PLAN.md.
 
-## 单轮任务 diff 预算（唯一定义处；两种模式恒适用）
+## 单轮任务 diff 预算（唯一定义处；**两模式恒适用**）
 
 **一个任务分支相对 base 的 diff 尽量不超过 2000 行**——按 `git diff --shortstat <base>..<tip>` 的增删合计，**含测试与 `docs/ai/` 产物**（不是只算生产代码）。
 
@@ -50,7 +50,7 @@
 
 > **来历（2026-08-15 实测）**：三个真实项目的当轮任务 diff 分别为 4556 / 5738 / 2820 行，**全部以 `stopped, NOT converged` 或硬停收场**；其中 `docs/ai` 证据面占 74% / 42% / 41%，而后段审查轮的 blocking 几乎全是 `[Verification]`（证据是否证明得了声称），**多轮零 `[Product]`**。超大 diff 同时放大审查面与证据面，是多轮返工与 Fix-Loop 硬停的主要相关因素。
 
-## 停止事件优先级（唯一定义处；两种模式恒适用。`/debug`、`/final-review` 只引用，不复述阈值与权限）
+## 停止事件优先级（唯一定义处；**两模式恒适用**。`/debug`、`/final-review` 只引用，不复述阈值与权限）
 
 同一时刻可能有多个"该停了"的信号。**按下列顺序判，命中即按该条处置，不再往下走**：
 
@@ -106,11 +106,11 @@ Banned vague phrasings that hide a compromise as untracked debt (their presence 
 
 （Plain code TODO comments still follow the global rule — they go to plan/TODO docs, not this debt log; but a code TODO that actually hides a compromise must ALSO be registered here as a [DEBT] line.）
 
-## Payback-on-Touch（唯一强制偿还机制，优先于任何 due date）
+## Payback-on-Touch（唯一强制偿还机制，优先于任何 due date；**两模式恒适用**——账本位置与延期出口按模式取，见本节）
 
 Before modifying a file/module, scan whatever debt ledger the project has: **Critical** — the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt" sections); **Routine** — there is no live HANDOFF, but **any `docs/ai/archive/**/HANDOFF.md` debts still bind**, so scan those. This rule itself is always-on in both modes; only the ledger's location differs. A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay that debt in the same commit (or explicitly request to downgrade/defer it — **Critical**: in the approved plan, with a reason; **Routine**: in the conversation, with a reason, and only proceed after the human explicitly approves); otherwise this change must not be committed. Debt does not follow a list — it follows the code and finds you the next time you touch it.
 
-## 证据 vs 假设标签（反脑补，唯一定义处）
+## 证据 vs 假设标签（反脑补，唯一定义处；**两模式恒适用**）
 
 任何关于用户/市场/需求的判断必须区分「证据」与「假设」，不得把假设当事实：
 
@@ -219,7 +219,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 
 Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码，见 AI Collaboration Rules），且**只允许改当前 blocking 所需的最小生产范围**。要新增模块 / 改公共接口 / 扩大架构 → **停止并重新计划**（走 /plan），不在 fix 循环里做。
 
-## Git Discipline（Critical 模式内全程强制；Routine 不建任务分支、不由 Agent commit——人类扫 diff 后 commit/merge）
+## Git Discipline（**按模式取**：Critical 全程强制；Routine 不建任务分支、不由 Agent commit——人类扫 diff 后 commit/merge）
 
 * 任务开始从主分支建任务分支：`git checkout -b task/[简短任务名]`。
 * 阶段性 commit 强制：计划批准由人类 commit（即批准凭证）；Author 实现 `wip(author): ...`；交接产物（`last_test_run.txt` + `HANDOFF.md`）在 HANDOFF 更新完毕后单独 `docs(handoff): ...`；review 修复 `wip(review-fix): ...`（**由 Author 在双审窗口结束后创建**）。

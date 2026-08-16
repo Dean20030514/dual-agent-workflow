@@ -63,7 +63,7 @@
 
 **要 SHA 绑定、跨轮 streak 或正式 verdict 账本 → 必须由人类明确启用 Critical。** 跑过一次 Reviewer 不产生这些，也不隐式升级模式。
 
-### ★ 停止事件优先级（唯一定义处；第八、十节只引用，不复述阈值与权限）
+### ★ 停止事件优先级（唯一定义处；**两模式恒适用**。第八、十节只引用，不复述阈值与权限）
 
 同一时刻可能有多个"该停了"的信号。**按下列顺序判，命中即按该条处置，不再往下走**：
 
@@ -279,13 +279,13 @@
 ### Project Overview
 项目是什么、技术栈、主要目录。[填写]
 
-### Build / Test / Lint Commands
+### Build / Test / Lint Commands（**两模式恒适用**）
 只列项目中真实存在的命令，不存在的不要编造。[填写]
 
-### Code Style Rules
+### Code Style Rules（**两模式恒适用**）
 命名、目录结构、格式化工具、测试习惯、错误处理。[填写]
 
-### Mode Scope
+### Mode Scope（**两模式恒适用**——本节定义路由本身）
 路由定义唯一出处 = 本工作流 prompt 的「★ 模式路由」节。默认 Routine；Critical 仅人类明确启用。
 * **两种模式恒适用**：Safety Rules、真实执行证据（真实命令 / 完整输出 / 退出码）、单轮任务 diff 预算、No-Hidden-Debt / `[DEBT]` 红线、Payback-on-Touch、证据 vs 假设标签、停止事件优先级。
   > 本清单列的是**跨全流程的红线**，**不是全文规则的完整目录**。其余各节的模式适用**以该节自身的标注为准**。**不存在「未标注即恒适用」这条默认规则**：漏标是缺陷，按缺陷修，不得据此反推作用域。
@@ -293,7 +293,7 @@
 * **Reviewer 零写入**：只要有 Reviewer 实际运行——任何模式——零写入规则恒适用。
 * **「Routine + 临时 Reviewer」是合法状态，且不构成模式升级**：人类可以在不启用 Critical 的前提下临时要求跑一次独立审查。此时继承零写入 + Reviewer-Lightweight Protocol **第一层**（资源纪律），并按**第二层**取 **Routine 证据载体**；**不继承 Critical 账本**——不产生 HANDOFF / `last_test_run.txt` / SHA 绑定 / Fix-Loop 账本，**也不得为审查临时创建它们**。要这些账本 → 由人类明确启用 Critical。
 
-### Safety Rules
+### Safety Rules（**两模式恒适用**）
 * Do not remove or skip tests to make them pass.
 * Do not comment out core logic to bypass errors.
 * Do not bypass validation, authentication, or error handling.
@@ -307,7 +307,7 @@
 * Do not perform destructive operations without stating the risk first.
 * Never edit the Human Approval Status field in IMPLEMENTATION_PLAN.md.
 
-### ★ 单轮任务 diff 预算（唯一定义处；两种模式恒适用）
+### ★ 单轮任务 diff 预算（唯一定义处；**两模式恒适用**）
 一个任务分支相对 base 的 diff 尽量不超过 **2000 行**——按 `git diff --shortstat <base>..<tip>` 的增删合计，**含测试与 `docs/ai/` 产物**（不是只算生产代码）。
 * **规划时**：按此切片。切不到 2000 行以内 → 在计划里写明理由并请人类批准整体推进（同「架构层拆分评估」的处理方式，**不按行数机械拒绝**）。
 * **实现中**：发现将要超出 → **停下报告人类**，由人类决定拆分、缩范围或批准超限；不得默默做完再交一个超大 diff。
@@ -353,10 +353,10 @@ Banned vague phrasings hiding a compromise as untracked debt (presence = unregis
 `later / temporary / for now / should be fine / probably ok / 暂时 / 先这样 / 回头再说 / a TODO or known-issue without a payback trigger`.
 （Plain code TODO comments still go to plan/TODO docs, not this debt log; but a code TODO that actually hides a compromise must ALSO be registered here.）
 
-### ★ Payback-on-Touch（唯一强制偿还机制，优先于任何 due date）
+### ★ Payback-on-Touch（唯一强制偿还机制，优先于任何 due date；**两模式恒适用**——账本位置与延期出口按模式取，见本节）
 Before modifying a file/module, scan whatever debt ledger the project has: **Critical** — the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt"); **Routine** — there is no live HANDOFF, but **any `docs/ai/archive/**/HANDOFF.md` debts still bind**, so scan those. This rule itself is always-on in both modes; only the ledger's location differs. A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay it in the same commit (or explicitly request to downgrade/defer it — **Critical**: in the approved plan, with a reason; **Routine**: in the conversation, with a reason, and only proceed after the human explicitly approves); otherwise this change must not be committed. Debt follows the code, not a list — it finds you the next time you touch the file.
 
-### ★ 证据 vs 假设标签（反脑补，唯一定义处）
+### ★ 证据 vs 假设标签（反脑补，唯一定义处；**两模式恒适用**）
 任何关于用户/市场/需求的判断必须区分「证据」与「假设」，不得把假设当事实：
 * 每条判断后紧跟标注：`[证据] <来源>`（访谈/数据/现有反馈/竞品事实）或 `[假设]`。
   * 例：`用户每天手工导出报表 3 次以上 [证据] 来自 5 次访谈`；`用户愿为自动化付费 [假设]`
@@ -1042,7 +1042,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 * [ ] **language-specific reviewer**（python-reviewer / rust-reviewer / …）— 按栈选。
 * [ ] **doc-updater / refactor-cleaner / e2e-runner** — 按任务性质选。
 
-> 并行优先：相互独立的审查/分析用并行 Task 派发。派 sub-agent 时**必须继承主对话模型，不降级**（成本理由见附录二）。**无法保证继承主模型时，不派该 sub-agent**——改由 Author 本人承担该职责并在 HANDOFF 注明（同上方 fallback：只降级执行方式，不降级职责）。**不存在"降级后记一笔就行"的第三条路。**
+> 并行优先：相互独立的审查/分析用并行 Task 派发。派 sub-agent 时**必须继承主对话模型，不降级**（成本理由见附录二）。**无法保证继承主模型时，不派该 sub-agent**——改由 Author 本人承担该职责并注明（**Critical** 记 HANDOFF；**Routine** 在对话里说明）（同上方 fallback：只降级执行方式，不降级职责）。**不存在"降级后记一笔就行"的第三条路。**
 
 ## 13.2 人类负责（不可代劳）
 * [ ] 批准真实改动——**Critical**：批准产品定义(Phase 0)与实现计划，PLAN 的 Human Approval Status 是唯一受保护字段、只能人类改；**Routine**：扫 diff 后由人类 commit/merge。
