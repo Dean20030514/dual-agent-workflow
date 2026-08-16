@@ -56,7 +56,9 @@ commands under "Verification Needed" — the Author runs them in a normal termin
 
 **Layer 2 — what you reason from (mode-scoped).**
 
-- **Critical**: `docs/ai/last_test_run.txt` + the `git diff` only. Read
+- **Critical**: the handoff files applicable to this review type (see the Critical
+  reading list below — blind review omits `IMPLEMENTATION_PLAN.md` only) + the
+  `git diff` + `docs/ai/last_test_run.txt`. Read
   `last_test_run.txt` critically: check that each command actually exists in the
   project, that the output is complete, and that the stated conclusion matches the
   output — never rerun it yourself to "double-check". Verification Needed items come
