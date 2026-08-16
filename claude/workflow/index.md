@@ -23,7 +23,7 @@
 8. 适用性门控：18 维按任务触发，不相关者标 N/A + 原因；小任务走快速版。
 9. 外部制衡（双 Agent + 人类门 + 产物化）+ 内部自律（三处反合理化手法）互补，缺一不可。
 
-> 原理详解（核心原则 9、不降级成本直觉等）见 `docs/workflow-design-notes.md`。
+> 原理详解（核心原则 9、不降级成本直觉等）见 `~/.claude/workflow/workflow-design-notes.md`。
 
 ## 命令 → 阶段 → 文件对照
 
@@ -47,4 +47,4 @@
 | Reviewer 独立审查 prompt（复制给 Codex） | `reviewer-prompt.md` |
 | 最终完成标准 | 见 `.claude/commands/final-review.md` 末尾 |
 | 小任务快速版 | 见 `.claude/commands/implement.md` 的「快速版」节 |
-| 设计原理 / 文档维护规范 | `docs/workflow-design-notes.md` |
+| 设计原理 / 文档维护规范 | `~/.claude/workflow/workflow-design-notes.md` |

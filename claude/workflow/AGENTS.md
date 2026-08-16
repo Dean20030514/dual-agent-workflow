@@ -7,9 +7,10 @@
 
 > 路由定义唯一出处：全局 `CLAUDE.md` → Mode Routing。默认 **Routine**；**Critical** 仅人类明确启用。
 
-* **两种模式恒适用**：Safety Rules、真实执行证据（真实命令 / 完整输出 / 退出码）、No-Hidden-Debt / `[DEBT]` 红线。
+* **两种模式恒适用**：Safety Rules、真实执行证据（真实命令 / 完整输出 / 退出码）、**单轮任务 diff 预算**、No-Hidden-Debt / `[DEBT]` 红线。
 * **仅 Critical 适用**：TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF 交接文件、`docs/ai/last_test_run.txt` 持久化、SHA 绑定、任务分支与阶段 commit（Git Discipline）、Reviewer 与双审协议（AI Collaboration Rules 及各审查相关节）。
 * **Reviewer 零写入**：只要有 Reviewer 实际运行——任何模式——零写入规则恒适用。
+* **「Routine + 临时 Reviewer」是合法状态，且不构成模式升级**：人类可以在不启用 Critical 的前提下临时要求跑一次独立审查。此时继承零写入 + Reviewer-Lightweight Protocol **第一层**（资源纪律），并按**第二层**取 **Routine 证据载体**；**不继承 Critical 账本**——不产生 HANDOFF / `last_test_run.txt` / SHA 绑定 / Fix-Loop 账本，**也不得为审查临时创建它们**。要这些账本 → 由人类明确启用 Critical。
 
 ## Project Overview
 
@@ -48,19 +49,45 @@
 
 > **来历（2026-08-15 实测）**：三个真实项目的当轮任务 diff 分别为 4556 / 5738 / 2820 行，**全部以 `stopped, NOT converged` 或硬停收场**；其中 `docs/ai` 证据面占 74% / 42% / 41%，而后段审查轮的 blocking 几乎全是 `[Verification]`（证据是否证明得了声称），**多轮零 `[Product]`**。超大 diff 同时放大审查面与证据面，是多轮返工与 Fix-Loop 硬停的主要相关因素。
 
+## 停止事件优先级（唯一定义处；两种模式恒适用。`/debug`、`/final-review` 只引用，不复述阈值与权限）
+
+同一时刻可能有多个"该停了"的信号。**按下列顺序判，命中即按该条处置，不再往下走**：
+
+1. **Critical 正式硬停已触发**（streak 达阈值 / 双审轮次上限——阈值与出路见下方 Fix-Loop 计数与跨轮硬停）→ **只走该节中与触发项（streak 硬停 / 轮次上限）对应的那组出路，且一律先停下交人类裁决：未获人类确认，不得继续编码、不得再审、不得自行选定某条出路往下走。** **此时禁止 fresh-context 重启**：它是重新开始的手段，**不是绕过硬停的第四条出路**。
+2. **同一处修复连续两次失败（两模式恒适用）** → **立即停手、报告人类**（试了什么、真实报错原文、根因查到哪一步）。**不自动回退、不自动重启，也不在同一回合继续往下调查**——把控制权交回人类。（调试循环内"一个假设被证伪就换下一个"不受此限；触发本条的是**已落地的修复尝试**连续两次失败。）
+3. **① ② 都未命中，或人类已明确要求"回退并重新开始"** → 才可进入 `/debug` 的 fresh-context 分支。
+4. **任何回退动作之前**：先说明会丢弃哪些未提交改动并等人类确认——**不得默默丢弃人类的在途修改**。
+
 ## Reviewer-Lightweight Protocol（唯一定义处）
 
 > 背景（2026-06-10 Codex 配额事故）：Codex 沙箱读不了 node_modules(EPERM)；若允许它"自己验证"会用 git archive 重建整仓 + 重装依赖 + 每轮最高档重跑全量测试，一天耗尽配额。
 
-每个 review / re-review prompt 必须原样包含这句：
+**本协议分两层，别混用**——第一层与模式无关，第二层的证据载体按模式取。
 
-> **不要 git archive 重建副本、不要重装依赖、不要重跑全量测试——以 docs/ai/last_test_run.txt 产物 + 读 git diff 推理为准；需要验证的具体行为列出来，由 Author 在正常终端代跑。**
+**第一层 · 资源纪律与零写入（任何模式，只要 Reviewer 实际运行就恒适用）**
 
-执行规则：
-* Reviewer 一切结论只基于：交接文件 + git diff + last_test_run.txt。
-* 对 last_test_run.txt"批判性地读"：命令是否真实存在、输出是否完整、结论是否与输出一致——不自己重跑复核。
-* 必须实跑才能下结论的，写进输出的 Verification Needed，由 Author 代跑、追加输出、再 re-review。
+每个 review / re-review prompt 必须携带"不重建副本 / 不重装依赖 / 不重跑全量测试；需实跑的列出来交 Author"这条语义，**具体落笔时从第二层直接复制对应模式的整句，不要自己拼**（载体半句嵌在句中，所以第一层不是可独立出现的连续字串——**不要机械检查"第一层整句是否原样出现"**；要机械检查就检查第二层那两条整句）。
+
+* **不重建副本 / 不重装依赖 / 不重跑全量测试。**
+* **对仓库零写入**：不改任何文件（含 HANDOFF）、不创建任何 commit；verdict 与 raw log 一律落仓库工作树之外的 holding。
+* 证据不足以下结论的，写进输出的 Verification Needed，由 Author 代跑，**Reviewer 自己不跑**。
 * scratch 清理归属：**Reviewer 不删除仓库工作树内的任何文件**；仓内遗留的 review-* / .codex-review-* scratch 由 **Author 在人类确认后清理**；Reviewer 只清理自己仓外 holding 里的临时产物。
+
+**第二层 · 证据载体（按模式取）**
+
+**要放进 prompt 的整句，按模式从下面直接复制**（纯文本，无强调符号；Critical 那条是配额事故的守门句，须与 `reviewer-prompt.md` 的 9A/9B 逐字一致）：
+
+```text
+Critical：
+不要 git archive 重建副本、不要重装依赖、不要重跑全量测试——以 docs/ai/last_test_run.txt 产物 + 读 git diff 推理为准；需要验证的具体行为列出来，由 Author 在正常终端代跑。
+
+Routine + 临时 Reviewer：
+不要 git archive 重建副本、不要重装依赖、不要重跑全量测试——以人类指定的文件 / diff + 对话内展示的真实命令输出与退出码为准；需要验证的具体行为列出来，由 Author 在正常终端代跑。
+```
+
+* **Critical**：结论只基于 交接文件 + git diff + `last_test_run.txt`。对 `last_test_run.txt`「批判性地读」：命令是否真实存在、输出是否完整、结论是否与输出一致——不自己重跑复核。Verification Needed 由 Author 代跑、把真实输出**追加进 `last_test_run.txt`**、再 re-review。审前快照自检与 SHA 绑定适用（见 `reviewer-prompt.md` → 双审隔离协议）。
+* **Routine + 临时 Reviewer**：结论基于人类指定的文件 / diff + 对话内展示的真实命令输出与退出码。**没有交接文件，也没有 `last_test_run.txt`——不得为此临时创建，也不得因其缺失而拒审**；**不执行审前快照自检、不做 SHA 绑定**（Routine 无此账本）。证据不够就在 verdict 里直说"证据不足 + 缺哪一项"，**不要求 Author 补造 Critical 产物**。Verification Needed 由 Author 代跑后把完整输出与退出码**贴回对话**。
+  > 不拆这一层会出真问题：把 Critical 的输入清单原样套到 Routine，Reviewer 会去找根本不存在的交接文件，要么拒审、要么反过来逼 Author 临时造一份假交接。
 
 ## No-Hidden-Debt + [DEBT] 格式（唯一定义处）
 
@@ -115,7 +142,10 @@ Before modifying a file/module, scan the current `docs/ai/HANDOFF.md` plus `docs
 
 > 实证依据：2026-07-28 翻译项目 4 个空守护测试（删掉被守护代码测试仍绿）致全绿闸门失效、整轮回退；2026-07-29 SeedLink turbo 缓存回放假通过（`TURBO_FORCE=true` 才暴露）。
 
-* **义务**：需要声称「回归用例有效（红→绿）」的项目必须提供**技术栈适配的守护有效性命令/脚本**（常驻脚手架；命令名项目自定，记录在项目文档与 HANDOFF）。**该声称的唯一可接受证据 = 装置产出的结构化产物**——不接受自然语言自述（含"删码变红"口头叙述）。
+* **★ 模式分流（先读这条，再读下面全部条款）**：本节的**判据**——负向对照必须有区分力、下述四条失败判据、声称不得超出已覆盖范围——**两模式恒适用**；本节的**证据形式**按模式取：
+  * **Critical**：下述全部条款按字面执行（常驻装置、必填字段产物、`tested_sha`、`IMPLEMENTATION_PLAN.md` 的 Frozen Acceptance 冻结输入域、Reviewer 复核、HANDOFF 落账与 `[DEBT]`）。
+  * **Routine**：**没有 HANDOFF / PLAN / `tested_sha` / Reviewer 落账，也不得为此创建**（见 Mode Scope）。**判据一条不减**——等价形式是**把同一套协议在对话里跑完并逐步展示**：① 基线绿（命令 + 完整输出 + 退出码）→ ② 撤销/变异目标生产行为（说明改了哪些文件的什么）→ ③ 目标测试**因预期断言**而红（完整输出 + 退出码，**禁 grep 判红**）→ ④ 还原并确认内容与基线一致 → ⑤ 复跑变绿（完整输出 + 退出码）→ ⑥ 说明执行真实性（缓存旁路方式，或"无缓存层"）。输入域与等价类由**人类当场确认**。**少任何一步 = 未证明**，此时必须当场把声称收窄到已覆盖范围、或撤回声称并报告风险——不允许用"Routine 没有装置"当借口把未验证的守护说成已启用。**省掉的只有产物形式（八字段文件 / `tested_sha` / HANDOFF 落账），不是判据。**
+* **义务（Critical 形式）**：需要声称「回归用例有效（红→绿）」的项目必须提供**技术栈适配的守护有效性命令/脚本**（常驻脚手架；命令名项目自定，记录在项目文档与 HANDOFF）。**该声称的唯一可接受证据 = 装置产出的结构化产物**——不接受自然语言自述（含"删码变红"口头叙述）。
 * **协议**：基线绿 → 撤销或变异目标生产行为 → 目标测试红 → 还原（内容哈希验证）→ 复绿；全程由装置执行并记录。
 * **产物必填字段**：① 目标测试（文件 + 用例名）；② 被撤销/变异的生产行为（逐文件）；③ 基线绿退出码；④ 负向运行退出码；⑤ 预期失败断言/原因；⑥ 恢复后绿退出码 + 还原哈希验证结果；⑦ tested_sha（产物绑定被测 commit——tested_sha 失效连带产物失效，按 SHA 绑定语义回炉）；⑧ 执行真实性证据（证明测试确实执行而非缓存回放：缓存旁路方式或"无缓存层"说明，**按构建系统提供**——Turborepo 项目用 `TURBO_FORCE=true` 只是实例，直跑 runner 的记"无缓存层"；不存在跨技术栈唯一方式）。
 * **失败判据**（任一不满足 → 产物不构成守护证据）：

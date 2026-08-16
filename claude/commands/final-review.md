@@ -19,7 +19,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 
 **禁止 performative agreement**：不写"完全正确！""好建议！"这类赞美套话——用动作证明你听进去了。**但这不替代步骤 5 的逐条三选一表态**：diff 本身不能代替表态，每条仍须一句话写明 `采纳 / 修改后采纳 / 不采纳`。
 
-**跨轮硬停**：读 HANDOFF 的 Fix-Loop Counter，按 **`AGENTS.md` → Fix-Loop 计数与跨轮硬停（唯一定义处）** 判定——递增条件、重置、硬停阈值、轮次上限、以及三者与合并门的优先级**全部以母本为准，本文件不复述**。执行纪律：`caused_by_last_fix` 由 Reviewer 判定、Author 逐字转录（不得自填来源），争议交人类。修任何 blocking 一律走回归安全修复协议（blast-radius 枚举 + 全量相关套件），不许只盯触发点。
+**跨轮硬停**：先按 **`AGENTS.md` → 停止事件优先级** 判该停什么；Critical 的 streak 计数值再读 HANDOFF 的 Fix-Loop Counter，按 **`AGENTS.md` → Fix-Loop 计数与跨轮硬停（唯一定义处）** 判定——递增条件、重置、硬停阈值、轮次上限、以及三者与合并门的优先级**全部以母本为准，本文件不复述**。执行纪律：`caused_by_last_fix` 由 Reviewer 判定、Author 逐字转录（不得自填来源），争议交人类。修任何 blocking 一律走回归安全修复协议（blast-radius 枚举 + 全量相关套件），不许只盯触发点。
 
 > 本节先于下面"重点判断"：先确定哪些意见真该采纳，再逐条确认是否已解决。
 

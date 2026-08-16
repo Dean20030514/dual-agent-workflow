@@ -17,7 +17,7 @@
 * 已知内容漂移已于 2026-08-05 直接修复(b13859d);后续发现漂移随手修,不再登记豁免。
 
 ## Safety / Workflow(2026-08-05 起,五规则三闸门)
-* **日常改动(文档/配置)= Claude 改 + 人类扫 diff + 人类 commit/merge**。五条核心规则:快照仓 SSOT / 真改动人类批准 / Author 交真实测试产物 / Reviewer 零写入 / 连续 blocking 硬停(递增条件/阈值/轮次上限/与合并门优先级,唯一定义处 = `claude/workflow/AGENTS.md` → Fix-Loop 计数与跨轮硬停;此处不复述判据);三个机械闸门:审查 SHA 绑定干净工作树、实际 diff 不超批准范围、测试真实执行退出码可信。裁决落点:`docs/ai/archive/2026-08-05-h5a-validator-foundation-stopped/HANDOFF.md` 账目㉒。
+* **日常改动(文档/配置)= Claude 改 + 人类扫 diff + 人类 commit/merge**。五条核心规则:快照仓 SSOT / 真改动人类批准 / Author 交真实测试产物 / Reviewer 零写入 / 连续 blocking 硬停(递增条件/阈值/轮次上限/与合并门优先级,唯一定义处 = `claude/workflow/AGENTS.md` → Fix-Loop 计数与跨轮硬停;此处不复述判据);三个机械闸门**按模式取用**:**审查 SHA 绑定干净工作树仅 Critical**(Routine 一律记 N/A,含人类临时要求跑一次 Reviewer 的情形——那不构成模式升级)、**实际 diff 不超批准范围**与**测试真实执行退出码可信**两模式恒适用。裁决落点:`docs/ai/archive/2026-08-05-h5a-validator-foundation-stopped/HANDOFF.md` 账目㉒。
 * 重流程(9A/9B 双审、Frozen Acceptance、批准门,全文仍在 `claude/workflow/AGENTS.md`)仅在人类明确要求的真项目任务启用;**任何新增流程/规则/登记表/检查项默认「不」**,除非一句话说清净收益。
 * per-task 交接文件在 `docs/ai/`,旧任务归档 `docs/ai/archive/<日期-任务>/`。
 * 共识基线引用方式:一律指 tag `plan-v1.1`(现为参考材料),不要复述 SHA;artifact 身份链见 `docs/ai/archive/2026-07-30-improvement-plan-v1.1-landing/HANDOFF.md` 与 commit trailers。
