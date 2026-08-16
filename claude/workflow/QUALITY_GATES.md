@@ -1,6 +1,6 @@
 # QUALITY_GATES.md（设计层闸门 + 横切质量·安全·隐私·可访问性 + 上线后）
 
-> 本文件是被多处引用的持久化质量清单：实现自查（`/implement`）、Reviewer 审查（`reviewer-prompt.md`）、最终标准（`/final-review`）都引用它。Reviewer 独立进程读本文件即可，无需 Author 每次粘贴。
+> 本文件是被多处引用的持久化质量清单：实现自查（`/implement`）、Reviewer 审查（`~/.claude/workflow/reviewer-prompt.md`）、最终标准（`/final-review`）都引用它。Reviewer 独立进程读本文件即可，无需 Author 每次粘贴。
 > 四组逐项可勾选，每组注明触发条件；不触发的组在 0.1 标 N/A 整组跳过——**唯一例外 11.2 基础安全对所有代码任务恒查**。本文件只定义"查什么"，禁止事项唯一出处仍是 `AGENTS.md`。
 
 # 设计层闸门（UX / UI / 美术内容 / 文案）

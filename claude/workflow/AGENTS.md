@@ -79,7 +79,7 @@
 
 **第二层 · 证据载体（按模式取）**
 
-**要放进 prompt 的整句，按模式从下面直接复制**（纯文本，无强调符号；Critical 那条是配额事故的守门句，须与 `reviewer-prompt.md` 的 9A/9B 逐字一致）：
+**要放进 prompt 的整句，按模式从下面直接复制**（纯文本，无强调符号；Critical 那条是配额事故的守门句，须与 `~/.claude/workflow/reviewer-prompt.md` 的 9A/9B 逐字一致）：
 
 ```text
 Critical：
@@ -89,7 +89,7 @@ Routine + 临时 Reviewer：
 不要 git archive 重建副本、不要重装依赖、不要重跑全量测试——以人类指定的文件 / diff + 对话内展示的真实命令输出与退出码为准；需要验证的具体行为列出来，由 Author 在正常终端代跑。
 ```
 
-* **Critical**：结论只基于 交接文件 + git diff + `last_test_run.txt`。对 `last_test_run.txt`「批判性地读」：命令是否真实存在、输出是否完整、结论是否与输出一致——不自己重跑复核。Verification Needed 由 Author 代跑、把真实输出**追加进 `last_test_run.txt`**、再 re-review。审前快照自检与 SHA 绑定适用（见 `reviewer-prompt.md` → 双审隔离协议）。
+* **Critical**：结论只基于 交接文件 + git diff + `last_test_run.txt`。对 `last_test_run.txt`「批判性地读」：命令是否真实存在、输出是否完整、结论是否与输出一致——不自己重跑复核。Verification Needed 由 Author 代跑、把真实输出**追加进 `last_test_run.txt`**、再 re-review。审前快照自检与 SHA 绑定适用（见 `~/.claude/workflow/reviewer-prompt.md` → 双审隔离协议）。
 * **Routine + 临时 Reviewer**：结论基于人类指定的文件 / diff + 对话内展示的真实命令输出与退出码。**没有交接文件，也没有 `last_test_run.txt`——不得为此临时创建，也不得因其缺失而拒审**；**不执行审前快照自检、不做 SHA 绑定**（Routine 无此账本）。证据不够就在 verdict 里直说"证据不足 + 缺哪一项"，**不要求 Author 补造 Critical 产物**。Verification Needed 由 Author 代跑后把完整输出与退出码**贴回对话**。
   > 不拆这一层会出真问题：把 Critical 的输入清单原样套到 Routine，Reviewer 会去找根本不存在的交接文件，要么拒审、要么反过来逼 Author 临时造一份假交接。
 
@@ -111,7 +111,7 @@ Banned vague phrasings that hide a compromise as untracked debt (their presence 
 
 ## Payback-on-Touch（唯一强制偿还机制，优先于任何 due date；**两模式恒适用**——账本位置与延期出口按模式取，见本节）
 
-Before modifying a file/module, scan whatever debt ledger the project has: **Critical** — the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt" sections); **Routine** — there is no live HANDOFF, but **any `docs/ai/archive/**/HANDOFF.md` debts still bind**, so scan those. This rule itself is always-on in both modes; only the ledger's location differs. A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay that debt in the same commit (or explicitly request to downgrade/defer it — **Critical**: in the approved plan, with a reason; **Routine**: in the conversation, with a reason, and only proceed after the human explicitly approves); otherwise this change must not be committed. Debt does not follow a list — it follows the code and finds you the next time you touch it.
+Before modifying a file/module, scan whatever debt ledger the project has: **Critical** — the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt" sections); **Routine** — there is no live HANDOFF, but any `docs/ai/archive/**/HANDOFF.md` debts **still bind**, so scan those. This rule itself is always-on in both modes; only the ledger's location differs. A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay that debt in the same commit (or explicitly request to downgrade/defer it — **Critical**: in the approved plan, with a reason; **Routine**: in the conversation, with a reason, and only proceed after the human explicitly approves); otherwise this change must not be committed. Debt does not follow a list — it follows the code and finds you the next time you touch it.
 
 ## 证据 vs 假设标签（反脑补，唯一定义处；**两模式恒适用**）
 
@@ -121,7 +121,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
   * 例：`用户每天手工导出报表 3 次以上 [证据] 来自 5 次访谈`
   * 例：`用户愿为自动化付费 [假设]`
 * 所有 `[假设]` 进待验证清单并写明最低成本验证方式；没有验证方式的 `[假设]` = 脑补，审查打回。
-* 标「唯一依据 = 是」的高影响假设，进入实现前必须已验证转 `[证据]` 或显式降级；否则计划停在 Pending。
+* 标「唯一依据 = 是」的高影响假设，进入实现前必须已验证转 `[证据]` 或显式降级；否则**不得进入实现**——**Critical**：计划停在 Pending；**Routine**：停下向人类说明该假设与影响，等人类确认后再动手。
 * 工具能力与行为断言必须以官方文档、官方 changelog 或源码等一手来源为依据；次级文章仅可作为检索线索，不得单独作为采纳或晋升证据。
 
 ## AI Collaboration Rules（仅 Critical 模式）
@@ -130,8 +130,8 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 * The Reviewer agent reviews the git diff independently. It never implements anything — every fix, including for a blocking issue it found, is made by the Author after the dual-review window closes.
 * Before any work, read docs/ai/HANDOFF.md and docs/ai/last_test_run.txt.
 * After implementing or fixing, the Author updates docs/ai/HANDOFF.md and re-runs tests with output piped to docs/ai/last_test_run.txt.
-* **The Reviewer writes NOTHING into the repository — not even HANDOFF.md, and never a commit.** Its verdict goes to the out-of-tree holding file the Author passes via `codex exec -o` (see reviewer-prompt.md → 双审隔离协议). It never runs tests — it lists what to verify under "Verification Needed" for the Author to run. Any fix, including `wip(review-fix)`, is made by the **Author after the dual-review window closes**.
-* **双审窗口冻结（9A/9B 真独立的前置）**：从第一个 Reviewer 启动到两份 verdict 都产出为止，Author 与两个 Reviewer 都不得改生产代码 / `review_sensitive_paths` / HANDOFF，也不得 commit。两份 verdict 分开保存、互不可见（9B 先跑，不接收 9A 输出）；两份都完成后 Author 才**一次性**更新 HANDOFF。协议全文与调用范式见 `reviewer-prompt.md` → 双审隔离协议（唯一定义处）。
+* **The Reviewer writes NOTHING into the repository — not even HANDOFF.md, and never a commit.** Its verdict goes to the out-of-tree holding file the Author passes via `codex exec -o` (see `~/.claude/workflow/reviewer-prompt.md` → 双审隔离协议). It never runs tests — it lists what to verify under "Verification Needed" for the Author to run. Any fix, including `wip(review-fix)`, is made by the **Author after the dual-review window closes**.
+* **双审窗口冻结（9A/9B 真独立的前置）**：从第一个 Reviewer 启动到两份 verdict 都产出为止，Author 与两个 Reviewer 都不得改生产代码 / `review_sensitive_paths` / HANDOFF，也不得 commit。两份 verdict 分开保存、互不可见（9B 先跑，不接收 9A 输出）；两份都完成后 Author 才**一次性**更新 HANDOFF。协议全文与调用范式见 `~/.claude/workflow/reviewer-prompt.md` → 双审隔离协议（唯一定义处）。
 
 ## 验证三分类（唯一定义处；**两模式恒适用**）
 
@@ -158,7 +158,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
   3. 还原必须经内容哈希验证，且恢复后重跑变绿；
   4. 产物含执行真实性证据（字段 ⑧）。
 * **无装置项目**：不得把该能力写成已启用；装置落地前「回归用例有效」= 未证明——**Critical**：列 Reviewer Verification Needed 并记 `[DEBT]`（Payback trigger：下次需要守护证据时先落地装置）；**Routine**：在对话里说明未证明，并按 No-Hidden-Debt 的 Routine 分支当场向人类提出（无 HANDOFF 可记）。两模式都可在当前任务顺带落地装置。
-* **与验证三分类的边界**：装置及其变异 spec 是**常驻项目脚手架**，不属 diagnostic probe；运行期变异必须还原并产物化。Author 不得自证规则保持不变——Reviewer 不运行装置，只核产物完整性与字段自洽（见 reviewer-prompt 9A）。
+* **与验证三分类的边界**：装置及其变异 spec 是**常驻项目脚手架**，不属 diagnostic probe；运行期变异必须还原并产物化。Author 不得自证规则保持不变——Reviewer 不运行装置，只核产物完整性与字段自洽（见 `~/.claude/workflow/reviewer-prompt.md` 9A）。
 * **负向对照：适用范围扩展到一切守护声称（2026-08-15）**——本节的"区分力"要求**不限于测试守护**。任何「机制 X 会拒绝 Y」的声称（构建/编译配置、lint 规则、类型检查、CI 门禁、扫描器等）都必须提供**负向对照**：样本须「**若移除 X 则会通过**」，以证明拒绝确由 X 造成——**用「本来就会失败」的样本验证守护 = 无效验证，等同空守护测试**。
   * **覆盖范围决定样本数，不是"至少一个"**：对照必须**覆盖声称所主张的全部等价类**（如声称"拒绝一切内置模块导入"，则静态 import / 动态 import / 模板串 / 变量串 / 类型标注串等每一类都要有样本）。**一个合格样本只证明该等价类，不证明整条声称。** 覆盖不到的类，声称必须当场收窄到覆盖得到的范围。
   * **等价类的封闭方式（防止"永远还有一类"的新回归）**：等价类必须**枚举自一个人类批准并冻结的输入域**（语言语法子集 / 接口取值域 / 威胁模型条目），该枚举**Critical** 写进 `IMPLEMENTATION_PLAN.md` 的 Frozen Acceptance、**Routine** 由人类在对话里确认并复述一遍，冻结后即为本任务的完整集。**Reviewer 主张"还有一类未覆盖"时，必须给出该域内的具体反例**（能实际触发漏过的输入）——给得出即为有效 `[Verification Blocking]`；**给不出则记 Non-Blocking Suggestion，不阻止收敛**。域本身需要扩大 = 验收变更，走人类批准，不在本轮 fix-loop 内解决。
@@ -172,11 +172,11 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 * **能自动化的一律自动化**；不能可靠自动化的**产品 / 安全 / 合规**性质**仍可作 AC 并阻止合并**，但必须写成**明确的人类判定步骤**：给出判定人、固定的判定输入（具体文件/界面/数据的确定指向）、逐条判据、以及"什么情况判不通过"的反例。
 * **反例必须实际触发失败，不接受纸面反例**：AC 落地时须留下产物，证明**把该反例喂给这套判定方法时，判定确实判不通过**（自动化的记退出码，人工的记判定人 + 判定结论 + 时间）。只写出反例而从未让它跑一次 = 无区分力，等同空守护测试。**判定人之间有分歧 → 交人类裁决，不得由 Author 择一采信。**
 * **不合格的是"无判据的散文对读"**：判定方式写成「Reviewer 逐条核对 / 对照两表核 / 核清单完整性」而不给判据与反例的，**不是验收条款**——降级为 Non-Blocking Suggestion 或移交清单条目，**不得阻止收敛**。这类性质通常可以改写成有区分力的形式（清单条目数 == 源表条目数、某扫描命令零命中、某路径必被真实生产入口覆盖）。
-* **声称不得超出判定实际覆盖的范围**——超出即 `[Verification Blocking]`。
+* **声称不得超出判定实际覆盖的范围**——**Critical / 有 Reviewer 运行时**：超出即 `[Verification Blocking]`；**Routine 无 Reviewer 时**：由人类判定，Author 须当场把声称收窄到已覆盖范围或撤回并报告风险（没有 Reviewer 可签发该分类，**不得因此静默拉一个进来**）。
 
 > **来历（2026-08-15 实测）**：某任务 AC1/AC2（退出码类）四轮零缺陷；AC5/AC9/AC13（"Reviewer 对照…逐条核"、判定对象是散文清单的完整性）逐轮产出新 blocking，第 4 轮又挑出 7 条遗漏。**散文完整性永远可以再被挑出一条——拿它当 blocking 依据，等于在构造上把收敛做成不可能。**
 
-## Reviewer verdict 分类语义（唯一定义处；**Reviewer 实际运行时适用**——分类语义与 Debt Verdict 取值两模式通用；**`caused_by_last_fix` 与 streak 计数仅 Critical**（Routine 无 Fix-Loop 账本，见 Mode Scope）。reviewer-prompt / final-review 引用本节，不得产生冲突契约）
+## Reviewer verdict 分类语义（唯一定义处；**Reviewer 实际运行时适用**——分类语义与 Debt Verdict 取值两模式通用；**`caused_by_last_fix` 与 streak 计数仅 Critical**（Routine 无 Fix-Loop 账本，见 Mode Scope）。`~/.claude/workflow/reviewer-prompt.md` / `/final-review` 引用本节，不得产生冲突契约）
 
 顶层输出字段保持不变（兼容 Codex 强制结构），语义分类如下：
 * **Blocking Issues** 每条标 `[Product Blocking]`（用户可见正确性 / 用户数据错误 / 安全）或 `[Verification Blocking]`（验证不健全：probe 冒充证据、测试不走真实路径、审后弱化测试或改验收、绕过 validation/auth/删测试藏错），并由 **Reviewer** 标 `caused_by_last_fix: yes/no`（**仅 Critical** ——该字段只服务 Fix-Loop streak；Routine 无此账本，不填）。**只有 Blocking Issues（Product/Verification）默认阻止合并。**（**阻止合并 ≠ 计入硬停**：streak 只由 `[Product Blocking]` 递增，见「Fix-Loop 计数与跨轮硬停」；两审零 Product 时 Verification 的收口方式见「最后一轮独立审查门 → 证据层出口」。）
@@ -193,7 +193,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 
 **SHA 绑定语义**（HANDOFF 记 `review_base_sha / review_tip_sha / review_verdict_9A / review_verdict_9B / tested_sha / handoff_snapshot_sha` + 该任务 `review_sensitive_paths`；`handoff_snapshot_sha` 由 **Author 在统一落账时记入**——快照 commit 本身无法自记自身 sha；**9A、9B 必须绑定同一个 `review_tip_sha`**，减档只跑 9A 时 `review_verdict_9B` 记 `N/A — 人类减档 + 原因`）：
 * `review_tip_sha` / `tested_sha` **仅在**满足下列时才算有效快照绑定：① 所有 `review_sensitive_paths` 文件已进入对应 commit；② 这些路径无未提交修改；③ 这些路径无未跟踪文件。**带未提交/未跟踪的 review-sensitive 改动去跑正式测试或提审 = 不算 SHA 绑定，必须先形成明确的 reviewable commit。**
-* **HANDOFF 与 last_test_run.txt 不在 `review_sensitive_paths` 内，按 `/implement` 顺序提交在 `review_tip_sha` 之后**（先更新 HANDOFF 再 docs commit）。故 **tip 里装的是过期 HANDOFF**：任何 Reviewer 都必须**从工作树读**这两个文件，禁止 `git show <review_tip_sha>:docs/ai/HANDOFF.md`。Author 在两份 review prompt 里写明同一个 `handoff_snapshot_sha`（= 双审窗口开启时的 HEAD）作为"同一份审前 HANDOFF"的凭证。**该凭证必须经 Reviewer 侧核验并落账为证据**——两份 verdict 各自记录 `observed_head_sha` + HANDOFF 与 last_test_run.txt 的 blob hash + 全工作树干净（命令与拒审规则唯一定义处：reviewer-prompt.md → 双审隔离协议 ⑤）；仅两份 prompt 数值相同**不构成**绑定。
+* **HANDOFF 与 last_test_run.txt 不在 `review_sensitive_paths` 内，按 `/implement` 顺序提交在 `review_tip_sha` 之后**（先更新 HANDOFF 再 docs commit）。故 **tip 里装的是过期 HANDOFF**：任何 Reviewer 都必须**从工作树读**这两个文件，禁止 `git show <review_tip_sha>:docs/ai/HANDOFF.md`。Author 在两份 review prompt 里写明同一个 `handoff_snapshot_sha`（= 双审窗口开启时的 HEAD）作为"同一份审前 HANDOFF"的凭证。**该凭证必须经 Reviewer 侧核验并落账为证据**——两份 verdict 各自记录 `observed_head_sha` + HANDOFF 与 last_test_run.txt 的 blob hash + 全工作树干净（命令与拒审规则唯一定义处：`~/.claude/workflow/reviewer-prompt.md` → 双审隔离协议 ⑤）；仅两份 prompt 数值相同**不构成**绑定。
 * **失效判定用内容比对、非 HEAD 相等**（可执行）：`git diff --quiet <review_tip_sha> -- <review_sensitive_paths>` 且 `git diff --quiet <tested_sha> -- <review_sensitive_paths>` 且 `git status --porcelain -- <review_sensitive_paths>` 为空 → 审查/测试仍有效。**不在 `review_sensitive_paths` 内的纯文档提交改变 HEAD 不使审查失效。**
 
 ## Fix-Loop 计数与跨轮硬停（唯一定义处；**仅 Critical**——Routine 无 Fix-Loop 账本，其停手判据见「停止事件优先级」②。/debug、/final-review 引用）

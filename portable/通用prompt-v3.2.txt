@@ -357,14 +357,14 @@ Banned vague phrasings hiding a compromise as untracked debt (presence = unregis
 （Plain code TODO comments still go to plan/TODO docs, not this debt log; but a code TODO that actually hides a compromise must ALSO be registered here.）
 
 ### ★ Payback-on-Touch（唯一强制偿还机制，优先于任何 due date；**两模式恒适用**——账本位置与延期出口按模式取，见本节）
-Before modifying a file/module, scan whatever debt ledger the project has: **Critical** — the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt"); **Routine** — there is no live HANDOFF, but **any `docs/ai/archive/**/HANDOFF.md` debts still bind**, so scan those. This rule itself is always-on in both modes; only the ledger's location differs. A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay it in the same commit (or explicitly request to downgrade/defer it — **Critical**: in the approved plan, with a reason; **Routine**: in the conversation, with a reason, and only proceed after the human explicitly approves); otherwise this change must not be committed. Debt follows the code, not a list — it finds you the next time you touch the file.
+Before modifying a file/module, scan whatever debt ledger the project has: **Critical** — the current `docs/ai/HANDOFF.md` plus `docs/ai/archive/**/HANDOFF.md` ("Remaining Risks / Debt"); **Routine** — there is no live HANDOFF, but any `docs/ai/archive/**/HANDOFF.md` debts **still bind**, so scan those. This rule itself is always-on in both modes; only the ledger's location differs. A `[DEBT]` Payback trigger must name a concrete file/module path or glob. If a trigger matches the file/module you are about to touch, repay it in the same commit (or explicitly request to downgrade/defer it — **Critical**: in the approved plan, with a reason; **Routine**: in the conversation, with a reason, and only proceed after the human explicitly approves); otherwise this change must not be committed. Debt follows the code, not a list — it finds you the next time you touch the file.
 
 ### ★ 证据 vs 假设标签（反脑补，唯一定义处；**两模式恒适用**）
 任何关于用户/市场/需求的判断必须区分「证据」与「假设」，不得把假设当事实：
 * 每条判断后紧跟标注：`[证据] <来源>`（访谈/数据/现有反馈/竞品事实）或 `[假设]`。
   * 例：`用户每天手工导出报表 3 次以上 [证据] 来自 5 次访谈`；`用户愿为自动化付费 [假设]`
 * 所有 `[假设]` 进待验证清单并写明最低成本验证方式；没有验证方式的 `[假设]` = 脑补，审查打回。
-* 标「唯一依据 = 是」的高影响假设，进入实现前必须已验证转 `[证据]` 或显式降级；否则计划停在 Pending。
+* 标「唯一依据 = 是」的高影响假设，进入实现前必须已验证转 `[证据]` 或显式降级；否则**不得进入实现**——**Critical**：计划停在 Pending；**Routine**：停下向人类说明该假设与影响，等人类确认后再动手。
 * **工具能力与行为断言必须以官方文档、官方 changelog 或源码等一手来源为依据**；次级文章仅可作检索线索，不得单独作为采纳或晋升证据。
 
 ### AI Collaboration Rules（仅 Critical 模式）
@@ -410,7 +410,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 * **能自动化的一律自动化**；不能可靠自动化的**产品 / 安全 / 合规**性质**仍可作 AC 并阻止合并**，但必须写成**明确的人类判定步骤**：判定人、固定的判定输入（具体文件/界面/数据的确定指向）、逐条判据、以及"什么情况判不通过"的反例。
 * **反例必须实际触发失败，不接受纸面反例**：AC 落地时须留下产物，证明**把该反例喂给这套判定方法时，判定确实判不通过**（自动化的记退出码，人工的记判定人 + 判定结论 + 时间）。只写出反例而从未让它跑一次 = 无区分力。**判定人之间有分歧 → 交人类裁决，不得由 Author 择一采信。**
 * **不合格的是"无判据的散文对读"**：判定方式写成「Reviewer 逐条核对 / 对照两表核 / 核清单完整性」而不给判据与反例的，**不是验收条款**——降级为 Non-Blocking Suggestion 或移交清单条目，**不得阻止收敛**。这类性质通常可改写成有区分力的形式（清单条目数 == 源表条目数、某扫描命令零命中、某路径必被真实生产入口覆盖）。
-* **声称不得超出判定实际覆盖的范围**——超出即 `[Verification Blocking]`。
+* **声称不得超出判定实际覆盖的范围**——**Critical / 有 Reviewer 运行时**：超出即 `[Verification Blocking]`；**Routine 无 Reviewer 时**：由人类判定，Author 须当场把声称收窄到已覆盖范围或撤回并报告风险（没有 Reviewer 可签发该分类，**不得因此静默拉一个进来**）。
 > 来历（实测）：某任务退出码类 AC 四轮零缺陷；"Reviewer 对照…逐条核"、判定对象是散文清单完整性的 AC 逐轮产出新 blocking，第 4 轮又挑出 7 条遗漏。**散文完整性永远可以再被挑出一条——拿它当 blocking 依据，等于在构造上把收敛做成不可能。**
 
 ### ★ Reviewer verdict 分类语义（唯一定义处；**Reviewer 实际运行时适用**——分类语义与 Debt Verdict 取值两模式通用；**`caused_by_last_fix` 与 streak 计数仅 Critical**）
