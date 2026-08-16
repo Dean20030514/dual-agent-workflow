@@ -381,7 +381,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 * **Regression test（回归测试）**：锁定已确认缺陷或既有行为；预期同样来自验收契约或已确认缺陷，非反推自实现。
 * **Diagnostic probe（诊断探针）**：临时定位用（一次性脚本 / mutation harness / 红探针 / instrumentation）。**只能定位、不得作为完成证据**，**提交前删除**；值得长期保留的行为 → **重写为正式 regression test** 再留。
 
-**Author 不得自证**：自编 mutation harness / 红探针 / "删码后测试变红" **不能单独证明实现正确**——Reviewer 须复核：变异内容 + 目标测试确实执行 + 具体失败原因。
+**Author 不得自证**：自编 mutation harness / 红探针 / "删码后测试变红" **不能单独证明实现正确**——须由 Author 之外的一方复核**变异内容 + 目标测试确实执行 + 具体失败原因**这三项。复核者按模式取：**Critical** 由 Reviewer 复核；**Routine** 把这三项连同完整输出与退出码展示在对话里、由**人类**确认（默认 Routine 没有 Reviewer——**不得为此静默拉一个 Reviewer 进来，也不得因此升级模式或创建 Critical 产物**；人类另行要求临时 Reviewer 时才由其复核）。
 
 ### ★ 守护有效性装置（唯一定义处；**判据两模式恒适用，证据形式按模式取**——见本节 ★ 模式分流；「回归用例有效」与一切守护声称的证据契约）
 > 实证依据：某项目 4 个空守护测试（删掉被守护代码测试仍绿）致全绿闸门失效、整轮回退；另一项目 turbo 缓存回放假通过（`TURBO_FORCE=true` 才暴露）。
