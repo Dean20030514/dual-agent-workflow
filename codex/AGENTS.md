@@ -10,24 +10,36 @@ project-specific topics. The full phased workflow and prompt templates live in
 ## Role: independent, lightweight Reviewer
 
 In the dual-agent model (Claude Code = Author, Codex CLI = Reviewer), Codex's job
-is **independent code review only** — its value is fresh context and a different
+is **independent lightweight review only** — the 9P plan review and the 9A/9B
+implementation reviews; its value is fresh context and a different
 model's perspective, not doing the Author's work. Do not implement anything — no
 feature work, no fixes, no commits. A blocking issue you find goes into your
-verdict only; every fix is made by the Author, never by you. **Critical**: fixes
-(including `wip(review-fix)`) happen after the dual-review window closes. **Routine
+verdict only; every fix is made by the Author, never by you. **Critical
+implementation reviews (9A/9B)**: fixes (including `wip(review-fix)`) happen after
+the dual-review window closes. **Critical plan review (9P)**: there is no
+dual-review window — the Author revises the plan directly after your verdict. **Routine
 ad-hoc**: there is no dual-review window — your single verdict goes back to the human,
 and the Author acts on it from there. Do not tell a Routine Author to wait for a
 window or a second verdict that will never exist.
 
 ## Review modes (read first — it decides what everything below means)
 
-Two kinds of review reach you. They differ in **what evidence exists**, not in how
+Three kinds of review reach you. They differ in **what evidence exists**, not in how
 careful you are.
 
 - **Critical review** — the project runs the full dual-agent workflow.
   `docs/ai/TASK_BRIEF.md`, `IMPLEMENTATION_PLAN.md`, `HANDOFF.md`,
   `docs/ai/last_test_run.txt` and the SHA ledger all exist. 9A/9B dual review, the
   pre-review snapshot self-check and SHA binding all apply.
+- **Critical plan review (9P)** — a pre-approval single review of the *plan itself*,
+  run after `/plan` sets Approval Status to Pending and before the human approves.
+  The planning files (`docs/ai/TASK_BRIEF.md`, `IMPLEMENTATION_PLAN.md`, plus
+  `PRODUCT_BRIEF.md` / `QUALITY_GATES.md` if present) exist **in the working tree
+  only** — there is no implementation diff, no `docs/ai/last_test_run.txt`, no
+  approval commit and no SHA ledger yet. **Do not demand them, and do not run the
+  pre-review snapshot self-check**; record only the three anchor hashes the 9P
+  prompt specifies. Its blocking findings never enter the Fix-Loop counter. The 9P
+  prompt always states itself as such.
 - **Routine ad-hoc review** — a human asked for one independent read *without*
   enabling Critical. **None of those handoff artifacts exist, and they must not be
   created for the review** — not by you, and not by asking the Author to produce
@@ -58,11 +70,20 @@ commands under "Verification Needed" — the Author runs them in a normal termin
 
 - **Critical**: the handoff files applicable to this review type (see the Critical
   reading list below — blind review omits `IMPLEMENTATION_PLAN.md` only) + the
-  `git diff` + `docs/ai/last_test_run.txt`. Read
+  **filtered content diff the review prompt specifies** (9A excludes
+  `docs/ai/review_9*.md` and `docs/ai/archive/**`; 9B additionally excludes
+  `docs/ai/IMPLEMENTATION_PLAN.md`; never take an unfiltered full diff as content
+  input — unfiltered `git diff --name-only` serves only the snapshot coverage
+  check) + `docs/ai/last_test_run.txt`. Read
   `last_test_run.txt` critically: check that each command actually exists in the
   project, that the output is complete, and that the stated conclusion matches the
   output — never rerun it yourself to "double-check". Verification Needed items come
   back as real output appended to `last_test_run.txt`, then a re-review.
+- **Critical plan review (9P)**: the working-tree planning files (see the 9P reading
+  list below) + read-only repo browsing to check the plan's claims. No diff, no
+  `last_test_run.txt`, no SHA ledger — do not demand them and never refuse over
+  their absence. Verification Needed items come back as facts the Author uses to
+  revise the plan (there is no `last_test_run.txt` to append to yet).
 - **Routine ad-hoc**: the files / diff the human named, plus the real command output
   and exit codes shown in the conversation — apply the same critical reading to those.
   **`docs/ai/last_test_run.txt` does not exist and must not be created.** If the
@@ -78,8 +99,16 @@ commands under "Verification Needed" — the Author runs them in a normal termin
 2. `docs/ai/TASK_BRIEF.md`
 3. `docs/ai/IMPLEMENTATION_PLAN.md` (omit for blind review)
 4. `docs/ai/HANDOFF.md`
-5. The task branch's full `git diff` against the **base branch** (per HANDOFF; default `main` if unspecified).
+5. The content diff against the **base branch** (per HANDOFF; default `main` if unspecified), using the exclusion-pathspec command the review prompt specifies — never an unfiltered full diff as content input (9A excludes `docs/ai/review_9*.md` / `docs/ai/archive/**`; 9B additionally excludes `docs/ai/IMPLEMENTATION_PLAN.md`; unfiltered `--name-only` is only for the snapshot coverage check and file-existence metadata).
 6. `docs/ai/last_test_run.txt`
+
+**Critical plan review (9P):**
+
+1. `AGENTS.md` — this file plus the project's; obey the Safety Rules.
+2. `docs/ai/TASK_BRIEF.md` and `docs/ai/IMPLEMENTATION_PLAN.md` from the working
+   tree, plus `PRODUCT_BRIEF.md` / `QUALITY_GATES.md` if present.
+3. Read-only repo browsing as needed to check the plan's claims. No diff and no
+   `last_test_run.txt` — their absence is expected, not grounds to refuse.
 
 **Routine ad-hoc:**
 
@@ -115,11 +144,15 @@ Also check the task's applicable quality gates — design gates (if UI/content) 
 
 - The Reviewer writes NOTHING into the repository work tree — no file edits (not
   even `docs/ai/HANDOFF.md`), and never a commit. Your verdict goes to the
-  out-of-tree file the Author passes via `codex exec -o`. **Critical**: `docs/ai/HANDOFF.md`
-  is updated by the Author alone, once, after BOTH verdicts are complete. **Routine
+  out-of-tree file the Author passes via `codex exec -o`. **Critical implementation
+  reviews (9A/9B)**: `docs/ai/HANDOFF.md` is updated by the Author alone, once, after
+  BOTH verdicts are complete. **Critical plan review (9P)**: single verdict — the
+  Author collects it into `docs/ai/review_9P.md` (its responses and any waiver
+  record live only in that file, never in HANDOFF prose) and fills the
+  `plan_review_9P` status line; no dual window exists. **Routine
   ad-hoc**: there is no HANDOFF and no second verdict — your verdict simply goes back
   to the human; do not ask for a ledger to be created.
-- **Critical only** — before the review body, run the pre-review snapshot self-check
+- **Critical implementation reviews (9A/9B) only** — before the review body, run the pre-review snapshot self-check
   exactly as the review prompt instructs (`git rev-parse HEAD` vs
   `handoff_snapshot_sha`, full-tree `git status --porcelain` empty, worktree HANDOFF /
   `last_test_run.txt` content vs the snapshot commit) and record the evidence
@@ -146,7 +179,10 @@ Verdict / Blocking Issues / Non-Blocking Suggestions / Test Coverage Gaps /
 Cannot Verify From Diff / Verification Needed / Debt Verdict / Recommended Next Step.
 **In a Routine ad-hoc review the seven snapshot fields do not apply — omit them**
 (they describe a ledger that does not exist); keep the rest of the structure, and
-follow whatever section contract the review prompt specifies.
+follow whatever section contract the review prompt specifies. **In a 9P plan
+review**, follow the 9P contract from the prompt instead: three anchor-hash lines,
+then Plan Verdict / Blocking Issues / Non-Blocking Suggestions / Assumption
+Challenges / Verification Needed / Recommended Next Step.
 
 **Cannot Verify From Diff** — when an acceptance point (**Critical**: from `TASK_BRIEF`;
 **Routine ad-hoc**: from the human's stated request in the conversation) is implemented in

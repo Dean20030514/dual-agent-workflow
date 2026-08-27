@@ -16,7 +16,7 @@ The Feature Implementation Workflow describes the development pipeline: research
 
 1. **Plan First**
    - Routine: state a brief plan/direction inline (in conversation); ask only when a real ambiguity would change the outcome.
-   - Critical: create the full planning docs via `/plan` (TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF, per `~/.claude/workflow/templates/`), then stop for human approval.
+   - Critical: create the full planning docs via `/plan` (TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF, per `~/.claude/workflow/templates/`), run the default 9P plan review (single fresh-context pass on the plan; see `~/.claude/workflow/reviewer-prompt.md` → 9P), then stop for human approval.
    - In both modes: identify dependencies and risks; break large work into phases.
 
 2. **Test as You Implement**

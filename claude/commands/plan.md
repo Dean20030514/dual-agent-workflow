@@ -16,12 +16,13 @@ description: 探索完成后撰写正式实现计划。当需要把方向落成�
    * **单轮 diff 预算**：预估本任务分支相对 base 的 diff 是否超预算；超出则优先切片，切不动就在计划里写明理由请人类批准整体推进。阈值、计法与超限处置见 `AGENTS.md` → **单轮任务 diff 预算**（唯一定义处）。
    * **冻结验收标准（改实现前）**：在 `IMPLEMENTATION_PLAN.md` 的 `Frozen Acceptance` 节先列 要成立的性质 / 适用范围 / 明确例外 / 正反案例 / 边界 / 必经真实路径，**来源 TASK_BRIEF·接口契约·批准计划·人工确认，禁从当前实现反推**。
 5. **Unknown 即 blocking**：进 Approval=Pending 前，任何"不确定会否引入妥协/破坏现有行为"都算 Unknown；标「唯一依据=是」的高影响假设未验证也算 Unknown。带 Unknown 的计划是草稿——必须在探索阶段查清，降为"确定不引入债 / 已写成 `[DEBT]` 明账"或"假设已验证/已降级"之一才能停 Pending；不允许把 Unknown 留到实现阶段边做边看。
-6. `IMPLEMENTATION_PLAN.md` 的 Approval Status 写 Pending，停止，等人类批准。
+6. `IMPLEMENTATION_PLAN.md` 的 Approval Status 写 Pending。
+7. **9P 计划审（默认必跑；唯一定义处 = `~/.claude/workflow/reviewer-prompt.md` → 9P）**：用该节 prompt 对工作树规划文件发起一次 fresh-context 单跑审查（调用模板同双审隔离协议 ③，verdict 与 raw log 落仓外 holding）；收 verdict 进 `docs/ai/review_9P.md`，按「修法必附」契约逐条三选一表态——**表态附在同文件的 Author Responses 节**——并修订计划（9P blocking 不进 Fix-Loop）。verdict/表态/减免记录**只放该文件**：HANDOFF 的 `plan_review_9P` 行与 Work Log 只记状态词 + 文件指针、不复述内容（防止经 HANDOFF 污染后续 9A/9B）。**人类明示减免时才可跳过**，减免记录（谁/何时/理由）写 `docs/ai/review_9P.md`。完成后停止，等人类批准。
 
 输出：
 * **Planning Files Created/Updated**
 * **Recommended Plan Summary**
 * **Files Planned for Modification**
-* **Awaiting Approval**：提醒人类——审阅计划 → **先**由人类亲自在 `IMPLEMENTATION_PLAN.md` 填 `Status: Approved / Approved by / Date` → **再** `git add` 本阶段创建/更新的**全部规划产物**（不止计划文件）并创建批准 commit（建议消息 `docs(plan): approve <task>`；Approved 状态因此在批准 commit 内、工作树干净；该 commit 即批准凭证）→ 之后才允许开始 `/implement`。批准 commit SHA 由 Author 在下一次交接文档 commit 补录进 `HANDOFF.md`（`approval_commit_sha` 行）。
+* **Awaiting Approval**：提醒人类——审阅计划 + `docs/ai/review_9P.md`（9P verdict 与 Author 逐条表态；人类减免则为减免记录）→ **先**由人类亲自在 `IMPLEMENTATION_PLAN.md` 填 `Status: Approved / Approved by / Date` → **再** `git add` 本阶段创建/更新的**全部规划产物**（不止计划文件，含 `docs/ai/review_9P.md`）并创建批准 commit（建议消息 `docs(plan): approve <task>`；Approved 状态因此在批准 commit 内、工作树干净；该 commit 即批准凭证）→ 之后才允许开始 `/implement`。批准 commit SHA 由 Author 在下一次交接文档 commit 补录进 `HANDOFF.md`（`approval_commit_sha` 行）。
 
 > 长期规则（Safety / [DEBT] / 证据假设标签）见 `AGENTS.md`，无需在计划里复述。

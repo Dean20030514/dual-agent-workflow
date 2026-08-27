@@ -8,7 +8,7 @@
 ## 双 Agent 协作模式
 
 * **Author**（默认 Claude Code）：探索、规划、实现、修测试、更新交接文件。
-* **Reviewer**（默认 Codex CLI）：独立 code review。价值在 fresh context 与不同模型视角，不替 Author 干活。
+* **Reviewer**（默认 Codex CLI）：独立轻量审查（9P 计划审 + 9A/9B 实现审）。价值在 fresh context 与不同模型视角，不替 Author 干活。
 * **人类**：批准计划、检查 diff、决定取舍、最终提交。
 
 ## 核心原则（精简）
@@ -31,7 +31,7 @@
 |------|------|---------|---------|
 | Phase 0 产品定义 | `/define` | `.claude/commands/define.md` | PRODUCT_BRIEF / TASK_BRIEF |
 | Phase 1 只读探索 | `/explore` | `.claude/commands/explore.md` | 探索输出 → PLAN 起草 |
-| Phase 2 正式规划 | `/plan` | `.claude/commands/plan.md` | IMPLEMENTATION_PLAN（Pending）|
+| Phase 2 正式规划 | `/plan` | `.claude/commands/plan.md` | IMPLEMENTATION_PLAN（Pending）+ 9P 计划审 verdict（review_9P）|
 | 设计层闸门 | `/design-check` | `.claude/commands/design-check.md` | HANDOFF Quality Gates |
 | Phase 3 实现 | `/implement` | `.claude/commands/implement.md` | 代码 + last_test_run.txt + HANDOFF |
 | 调试（横切）| `/debug` | `.claude/commands/debug.md` | 修复 + 回归用例 |
@@ -44,7 +44,7 @@
 | Safety Rules / [DEBT] / Reviewer 协议 / 证据假设标签 / Git 纪律 | `AGENTS.md` |
 | 四个交接文件模板 | `docs/ai/templates/` |
 | 横切质量·安全·隐私·可访问性清单 + 设计闸门（供 Reviewer 读） | `docs/ai/QUALITY_GATES.md` |
-| Reviewer 独立审查 prompt（复制给 Codex） | `reviewer-prompt.md` |
+| Reviewer 独立审查 prompt（9P/9A/9B，复制给 Codex） | `reviewer-prompt.md` |
 | 最终完成标准 | 见 `.claude/commands/final-review.md` 末尾 |
 | 小任务快速版 | 见 `.claude/commands/implement.md` 的「快速版」节 |
 | 设计原理 / 文档维护规范 | `~/.claude/workflow/workflow-design-notes.md` |

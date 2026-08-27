@@ -79,17 +79,21 @@
 
 **第二层 · 证据载体（按模式取）**
 
-**要放进 prompt 的整句，按模式从下面直接复制**（纯文本，无强调符号；Critical 那条是配额事故的守门句，须与 `~/.claude/workflow/reviewer-prompt.md` 的 9A/9B 逐字一致）：
+**要放进 prompt 的整句，按模式从下面直接复制**（纯文本，无强调符号；Critical 那条是配额事故的守门句，须与 `~/.claude/workflow/reviewer-prompt.md` 的 9A/9B 逐字一致；Critical 计划审那条须与同文件 9P prompt 逐字一致）：
 
 ```text
 Critical：
 不要 git archive 重建副本、不要重装依赖、不要重跑全量测试——以 docs/ai/last_test_run.txt 产物 + 读 git diff 推理为准；需要验证的具体行为列出来，由 Author 在正常终端代跑。
+
+Critical 计划审（9P）：
+不要 git archive 重建副本、不要重装依赖、不要跑任何测试——此时尚无实现与测试产物；以工作树中的规划文件 + 只读检索仓库现状为准；需要实跑确认的具体命令列出来，由 Author 在正常终端代跑。
 
 Routine + 临时 Reviewer：
 不要 git archive 重建副本、不要重装依赖、不要重跑全量测试——以人类指定的文件 / diff + 对话内展示的真实命令输出与退出码为准；需要验证的具体行为列出来，由 Author 在正常终端代跑。
 ```
 
 * **Critical**：结论只基于 交接文件 + git diff + `last_test_run.txt`。对 `last_test_run.txt`「批判性地读」：命令是否真实存在、输出是否完整、结论是否与输出一致——不自己重跑复核。Verification Needed 由 Author 代跑、把真实输出**追加进 `last_test_run.txt`**、再 re-review。审前快照自检与 SHA 绑定适用（见 `~/.claude/workflow/reviewer-prompt.md` → 双审隔离协议）。
+* **Critical 计划审（9P）**：结论只基于 工作树中的规划文件（TASK_BRIEF / IMPLEMENTATION_PLAN，+ PRODUCT_BRIEF / QUALITY_GATES 如有）+ 只读检索仓库现状。**没有实现 diff、没有 `last_test_run.txt`、没有批准 commit 与 SHA 账本——不得因缺失拒审、不得要求补造**；不执行审前快照自检（锚定只记 `observed_head_sha` + 两个规划文件的 blob sha 三行，定义见 `~/.claude/workflow/reviewer-prompt.md` → 9P）。Verification Needed 由 Author 代跑，结果用于修订计划（此时无 `last_test_run.txt` 可追加）。
 * **Routine + 临时 Reviewer**：结论基于人类指定的文件 / diff + 对话内展示的真实命令输出与退出码。**没有交接文件，也没有 `last_test_run.txt`——不得为此临时创建，也不得因其缺失而拒审**；**不执行审前快照自检、不做 SHA 绑定**（Routine 无此账本）。证据不够就在 verdict 里直说"证据不足 + 缺哪一项"，**不要求 Author 补造 Critical 产物**。Verification Needed 由 Author 代跑后把完整输出与退出码**贴回对话**。
   > 不拆这一层会出真问题：把 Critical 的输入清单原样套到 Routine，Reviewer 会去找根本不存在的交接文件，要么拒审、要么反过来逼 Author 临时造一份假交接。
 
@@ -127,10 +131,11 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 ## AI Collaboration Rules（仅 Critical 模式）
 
 * The Author agent plans, implements, fixes tests, and updates docs/ai/HANDOFF.md.
-* The Reviewer agent reviews the git diff independently. It never implements anything — every fix, including for a blocking issue it found, is made by the Author after the dual-review window closes.
-* Before any work, read docs/ai/HANDOFF.md and docs/ai/last_test_run.txt.
+* In implementation reviews (9A/9B), the Reviewer reviews the git diff independently. It never implements anything — every fix, including for a blocking issue it found, is made by the Author (after the dual-review window closes for 9A/9B; as a direct plan revision for 9P, which has no window).
+* **计划批准前的 9P 计划审**（正式路径默认必跑；人类可明示减免；快速版 N/A）同属 Reviewer 职责：单跑、零写入、只审工作树规划文件，发生在实现与双审窗口之前；其 blocking 不进 Fix-Loop Counter。定义与 prompt：`~/.claude/workflow/reviewer-prompt.md` → 9P。
+* Before any implementation-review work, read docs/ai/HANDOFF.md and docs/ai/last_test_run.txt（9P 计划审改读工作树规划文件——彼时 `last_test_run.txt` 尚不存在，见下条）。
 * After implementing or fixing, the Author updates docs/ai/HANDOFF.md and re-runs tests with output piped to docs/ai/last_test_run.txt.
-* **The Reviewer writes NOTHING into the repository — not even HANDOFF.md, and never a commit.** Its verdict goes to the out-of-tree holding file the Author passes via `codex exec -o` (see `~/.claude/workflow/reviewer-prompt.md` → 双审隔离协议). It never runs tests — it lists what to verify under "Verification Needed" for the Author to run. Any fix, including `wip(review-fix)`, is made by the **Author after the dual-review window closes**.
+* **The Reviewer writes NOTHING into the repository — not even HANDOFF.md, and never a commit.** Its verdict goes to the out-of-tree holding file the Author passes via `codex exec -o` (see `~/.claude/workflow/reviewer-prompt.md` → 双审隔离协议). It never runs tests — it lists what to verify under "Verification Needed" for the Author to run. Any fix, including `wip(review-fix)`, is made by the **Author after the dual-review window closes** (9P has no dual-review window — the Author revises the plan directly after collecting the verdict).
 * **双审窗口冻结（9A/9B 真独立的前置）**：从第一个 Reviewer 启动到两份 verdict 都产出为止，Author 与两个 Reviewer 都不得改生产代码 / `review_sensitive_paths` / HANDOFF，也不得 commit。两份 verdict 分开保存、互不可见（9B 先跑，不接收 9A 输出）；两份都完成后 Author 才**一次性**更新 HANDOFF。协议全文与调用范式见 `~/.claude/workflow/reviewer-prompt.md` → 双审隔离协议（唯一定义处）。
 
 ## 验证三分类（唯一定义处；**两模式恒适用**）
@@ -198,7 +203,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 
 ## Fix-Loop 计数与跨轮硬停（唯一定义处；**仅 Critical**——Routine 无 Fix-Loop 账本，其停手判据见「停止事件优先级」②。/debug、/final-review 引用）
 
-* **递增（仅 Product 计数）**：某一轮**只要存在至少一个经确认的 `caused_by_last_fix: yes` 的 `[Product Blocking]`**，该轮 streak 计 1。**`[Verification Blocking]` 不计入 streak**——照常如实落账、照常修复，但**不触发硬停**。9A、9B **重复发现同一问题不重复计数**（按问题去重）。
+* **递增（仅 Product 计数）**：某一轮**只要存在至少一个经确认的 `caused_by_last_fix: yes` 的 `[Product Blocking]`**，该轮 streak 计 1。**`[Verification Blocking]` 不计入 streak**——照常如实落账、照常修复，但**不触发硬停**。9A、9B **重复发现同一问题不重复计数**（按问题去重）。**9P 计划审的 blocking 发生在实现之前、不属任何 review-fix 轮，一律不计入 streak，也不计入轮次上限**（见 `~/.claude/workflow/reviewer-prompt.md` → 9P）。
   > 理由（2026-08-15 实测）：硬停的本意是防「修 A 坏 B」的产品级恶化。三个真实任务后段的 blocking 几乎全是 `[Verification]`（证据能否证明声称），多轮**双审零 `[Product]`**，却被自己的记账瑕疵逼到 streak=6 / 硬停。账本瑕疵与用户数据错误不同级，不应等价计数。
 * **判定权与写入**：`caused_by_last_fix` **由 Reviewer 在其 verdict 里判定**；Author 只能把该值**逐字转录**进 HANDOFF（附 review 文件/轮次来源），**不得自行判断或改写**（Reviewer 对仓库零写入、verdict 产于仓外 holding——见 AI Collaboration Rules；故 HANDOFF 里的该字段只能由 Author 落账时逐字转录，Author 无裁定权）。Reviewer 标 `dispute` → **不自动计数、交人类裁决**。
 * **重置**：某一轮无"修复引入的 `[Product Blocking]`"（该轮 0 计），streak 归 0。
