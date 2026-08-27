@@ -31,8 +31,13 @@ careful you are.
   `docs/ai/TASK_BRIEF.md`, `IMPLEMENTATION_PLAN.md`, `HANDOFF.md`,
   `docs/ai/last_test_run.txt` and the SHA ledger all exist. 9A/9B dual review, the
   pre-review snapshot self-check and SHA binding all apply.
-- **Critical plan review (9P)** — a pre-approval single review of the *plan itself*,
-  run after `/plan` sets Approval Status to Pending and before the human approves.
+- **Critical plan review (9P)** — a pre-approval review of the *plan itself*: one
+  single-Reviewer run per round, iterated until the Plan Verdict passes. The prompt
+  carries a mandatory `9P round: <n>` field; for rounds after the first it MUST
+  also carry the immediately preceding round's blocking and Author-response
+  summary — if that summary is missing, refuse and ask the Author to supply it
+  instead of reviewing. Runs after `/plan` sets Approval Status to Pending and before the human
+  approves.
   The planning files (`docs/ai/TASK_BRIEF.md`, `IMPLEMENTATION_PLAN.md`, plus
   `PRODUCT_BRIEF.md` / `QUALITY_GATES.md` if present) exist **in the working tree
   only** — there is no implementation diff, no `docs/ai/last_test_run.txt`, no
@@ -146,10 +151,11 @@ Also check the task's applicable quality gates — design gates (if UI/content) 
   even `docs/ai/HANDOFF.md`), and never a commit. Your verdict goes to the
   out-of-tree file the Author passes via `codex exec -o`. **Critical implementation
   reviews (9A/9B)**: `docs/ai/HANDOFF.md` is updated by the Author alone, once, after
-  BOTH verdicts are complete. **Critical plan review (9P)**: single verdict — the
-  Author collects it into `docs/ai/review_9P.md` (its responses and any waiver
-  record live only in that file, never in HANDOFF prose) and fills the
-  `plan_review_9P` status line; no dual window exists. **Routine
+  BOTH verdicts are complete. **Critical plan review (9P)**: one verdict per round — the
+  Author appends each round's verdict into `docs/ai/review_9P.md` (responses and
+  any waiver record live only in that file, never in HANDOFF prose) and fills the
+  `plan_review_9P` status line with the final round's verdict; no dual window
+  exists. **Routine
   ad-hoc**: there is no HANDOFF and no second verdict — your verdict simply goes back
   to the human; do not ask for a ledger to be created.
 - **Critical implementation reviews (9A/9B) only** — before the review body, run the pre-review snapshot self-check

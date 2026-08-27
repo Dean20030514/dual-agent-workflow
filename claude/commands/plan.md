@@ -17,12 +17,13 @@ description: 探索完成后撰写正式实现计划。当需要把方向落成�
    * **冻结验收标准（改实现前）**：在 `IMPLEMENTATION_PLAN.md` 的 `Frozen Acceptance` 节先列 要成立的性质 / 适用范围 / 明确例外 / 正反案例 / 边界 / 必经真实路径，**来源 TASK_BRIEF·接口契约·批准计划·人工确认，禁从当前实现反推**。
 5. **Unknown 即 blocking**：进 Approval=Pending 前，任何"不确定会否引入妥协/破坏现有行为"都算 Unknown；标「唯一依据=是」的高影响假设未验证也算 Unknown。带 Unknown 的计划是草稿——必须在探索阶段查清，降为"确定不引入债 / 已写成 `[DEBT]` 明账"或"假设已验证/已降级"之一才能停 Pending；不允许把 Unknown 留到实现阶段边做边看。
 6. `IMPLEMENTATION_PLAN.md` 的 Approval Status 写 Pending。
-7. **9P 计划审（默认必跑；唯一定义处 = `~/.claude/workflow/reviewer-prompt.md` → 9P）**：用该节 prompt 对工作树规划文件发起一次 fresh-context 单跑审查（调用模板同双审隔离协议 ③，verdict 与 raw log 落仓外 holding）；收 verdict 进 `docs/ai/review_9P.md`，按「修法必附」契约逐条三选一表态——**表态附在同文件的 Author Responses 节**——并修订计划（9P blocking 不进 Fix-Loop）。verdict/表态/减免记录**只放该文件**：HANDOFF 的 `plan_review_9P` 行与 Work Log 只记状态词 + 文件指针、不复述内容（防止经 HANDOFF 污染后续 9A/9B）。**人类明示减免时才可跳过**，减免记录（谁/何时/理由）写 `docs/ai/review_9P.md`。完成后停止，等人类批准。
+7. **9P 计划审（默认必跑、逐轮至收敛；唯一定义处 = `~/.claude/workflow/reviewer-prompt.md` → 9P）**：用该节 prompt 对工作树规划文件发起 fresh-context 审查（每轮单跑；调用模板同双审隔离协议 ③，verdict 与 raw log 落仓外 holding）；每轮收 verdict 依轮次追加进 `docs/ai/review_9P.md`，按「修法必附」契约逐条三选一表态——**表态附在同文件对应轮的 Author Responses 节**——并修订计划，**复审至某轮 Plan Verdict「可批准」**（轮次上限与达限出路见 9P 节；9P blocking 不进 Fix-Loop）。verdict/表态/减免记录**只放该文件**：HANDOFF 的 `plan_review_9P` 行与 Work Log 只记状态词 + 文件指针、不复述内容（防止经 HANDOFF 污染后续 9A/9B）。**人类明示减免时才可跳过**，减免记录（谁/何时/理由）写 `docs/ai/review_9P.md`。每轮 re-review prompt 必填 `9P round: <n>`，round > 1 必须附紧邻上一轮摘要。**收敛 → 停止，进入 Awaiting Approval；达轮次上限未收敛 → 停止，进入 Awaiting Human Adjudication**（两态互斥，见输出节）。
 
 输出：
 * **Planning Files Created/Updated**
 * **Recommended Plan Summary**
 * **Files Planned for Modification**
 * **Awaiting Approval**：提醒人类——审阅计划 + `docs/ai/review_9P.md`（9P verdict 与 Author 逐条表态；人类减免则为减免记录）→ **先**由人类亲自在 `IMPLEMENTATION_PLAN.md` 填 `Status: Approved / Approved by / Date` → **再** `git add` 本阶段创建/更新的**全部规划产物**（不止计划文件，含 `docs/ai/review_9P.md`）并创建批准 commit（建议消息 `docs(plan): approve <task>`；Approved 状态因此在批准 commit 内、工作树干净；该 commit 即批准凭证）→ 之后才允许开始 `/implement`。批准 commit SHA 由 Author 在下一次交接文档 commit 补录进 `HANDOFF.md`（`approval_commit_sha` 行）。
+* **Awaiting Human Adjudication**（仅 9P 达轮次上限未收敛时替代上一条）：列明未闭合 blocking 与「知情批准带未采纳项 / 批准延长复审（逐次批准一轮）/ 重拆任务 / 回退」四条**互斥**出路，停止等待人类裁决；**仅当人类选「知情批准」才转入上一条的批准流程**，选延长则继续复审循环（延长轮跑完回到本判定），选重拆或回退则执行对应出口、不进入批准门。
 
 > 长期规则（Safety / [DEBT] / 证据假设标签）见 `AGENTS.md`，无需在计划里复述。

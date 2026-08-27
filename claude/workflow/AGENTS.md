@@ -42,12 +42,12 @@
 
 ## 单轮任务 diff 预算（唯一定义处；**两模式恒适用**）
 
-**单轮任务的 diff 尽量不超过 2000 行**——增删合计，**含测试与证据产物**（不是只算生产代码）。计法按模式取：
+**单轮任务的 diff 尽量不超过 4000 行**（2026-08-27 人类裁决由 2000 上调：Critical 的 per-task 交接产物本身常占六七百行，2000 过度挤压生产面）——增删合计，**含测试与证据产物**（不是只算生产代码）。计法按模式取：
 
 * **Critical**：`git diff --shortstat <base>..<tip>`（任务分支相对 base），含 `docs/ai/` 产物。
 * **Routine**：`git diff --shortstat HEAD`（本次未提交改动；有新增未跟踪文件时加上其行数）——Routine 不建任务分支、不由 Agent commit，所以计的是"交给人类扫的那一坨"。
 
-* **规划时**：按此切片。切不到 2000 行以内 → 写明理由并请人类批准整体推进（**Critical** 写进计划；**Routine** 在对话里说明）——同「架构层拆分评估」的处理方式，**不按行数机械拒绝**。
+* **规划时**：按此切片。切不到 4000 行以内 → 写明理由并请人类批准整体推进（**Critical** 写进计划；**Routine** 在对话里说明）——同「架构层拆分评估」的处理方式，**不按行数机械拒绝**。
 * **实现中**：发现将要超出 → **停下报告人类**，由人类决定拆分、缩范围或批准超限；不得默默做完再交一个超大 diff。
 * **超限时优先砍哪一边**：先看 `docs/ai/` 证据面占比。若证据面接近或超过生产面，说明这个任务的产物仪式已重于交付本身——**先减叙述性仪式，再减需求**。可减的只有**重复的、非强制的叙述性产物**（同一事实在多处复述、逐轮流水账、可由产物现算的手写数字）。**不得削减**：测试输出与退出码、验收 oracle 与其负向对照、SHA 绑定、安全/隐私相关证据、`[DEBT]` 明账——这些是证据本身，减它们等于用造假换预算。减不动就按上一条请人类批准超限。
 
@@ -132,7 +132,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 
 * The Author agent plans, implements, fixes tests, and updates docs/ai/HANDOFF.md.
 * In implementation reviews (9A/9B), the Reviewer reviews the git diff independently. It never implements anything — every fix, including for a blocking issue it found, is made by the Author (after the dual-review window closes for 9A/9B; as a direct plan revision for 9P, which has no window).
-* **计划批准前的 9P 计划审**（正式路径默认必跑；人类可明示减免；快速版 N/A）同属 Reviewer 职责：单跑、零写入、只审工作树规划文件，发生在实现与双审窗口之前；其 blocking 不进 Fix-Loop Counter。定义与 prompt：`~/.claude/workflow/reviewer-prompt.md` → 9P。
+* **计划批准前的 9P 计划审**（正式路径默认必跑；人类可明示减免；快速版 N/A）同属 Reviewer 职责：每轮单跑、零写入、只审工作树规划文件、**逐轮复审至收敛**（判据与轮次上限见该节），发生在实现与双审窗口之前；其 blocking 不进 Fix-Loop Counter。定义与 prompt：`~/.claude/workflow/reviewer-prompt.md` → 9P。
 * Before any implementation-review work, read docs/ai/HANDOFF.md and docs/ai/last_test_run.txt（9P 计划审改读工作树规划文件——彼时 `last_test_run.txt` 尚不存在，见下条）。
 * After implementing or fixing, the Author updates docs/ai/HANDOFF.md and re-runs tests with output piped to docs/ai/last_test_run.txt.
 * **The Reviewer writes NOTHING into the repository — not even HANDOFF.md, and never a commit.** Its verdict goes to the out-of-tree holding file the Author passes via `codex exec -o` (see `~/.claude/workflow/reviewer-prompt.md` → 双审隔离协议). It never runs tests — it lists what to verify under "Verification Needed" for the Author to run. Any fix, including `wip(review-fix)`, is made by the **Author after the dual-review window closes** (9P has no dual-review window — the Author revises the plan directly after collecting the verdict).
@@ -203,7 +203,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 
 ## Fix-Loop 计数与跨轮硬停（唯一定义处；**仅 Critical**——Routine 无 Fix-Loop 账本，其停手判据见「停止事件优先级」②。/debug、/final-review 引用）
 
-* **递增（仅 Product 计数）**：某一轮**只要存在至少一个经确认的 `caused_by_last_fix: yes` 的 `[Product Blocking]`**，该轮 streak 计 1。**`[Verification Blocking]` 不计入 streak**——照常如实落账、照常修复，但**不触发硬停**。9A、9B **重复发现同一问题不重复计数**（按问题去重）。**9P 计划审的 blocking 发生在实现之前、不属任何 review-fix 轮，一律不计入 streak，也不计入轮次上限**（见 `~/.claude/workflow/reviewer-prompt.md` → 9P）。
+* **递增（仅 Product 计数）**：某一轮**只要存在至少一个经确认的 `caused_by_last_fix: yes` 的 `[Product Blocking]`**，该轮 streak 计 1。**`[Verification Blocking]` 不计入 streak**——照常如实落账、照常修复，但**不触发硬停**。9A、9B **重复发现同一问题不重复计数**（按问题去重）。**9P 计划审的 blocking 发生在实现之前、不属任何 review-fix 轮，一律不计入 streak，也不计入本节 9A/9B 双审的轮次上限**（9P 自有的收敛判据与轮次上限见 `~/.claude/workflow/reviewer-prompt.md` → 9P）。
   > 理由（2026-08-15 实测）：硬停的本意是防「修 A 坏 B」的产品级恶化。三个真实任务后段的 blocking 几乎全是 `[Verification]`（证据能否证明声称），多轮**双审零 `[Product]`**，却被自己的记账瑕疵逼到 streak=6 / 硬停。账本瑕疵与用户数据错误不同级，不应等价计数。
 * **判定权与写入**：`caused_by_last_fix` **由 Reviewer 在其 verdict 里判定**；Author 只能把该值**逐字转录**进 HANDOFF（附 review 文件/轮次来源），**不得自行判断或改写**（Reviewer 对仓库零写入、verdict 产于仓外 holding——见 AI Collaboration Rules；故 HANDOFF 里的该字段只能由 Author 落账时逐字转录，Author 无裁定权）。Reviewer 标 `dispute` → **不自动计数、交人类裁决**。
 * **重置**：某一轮无"修复引入的 `[Product Blocking]`"（该轮 0 计），streak 归 0。

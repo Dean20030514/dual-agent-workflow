@@ -13,7 +13,7 @@ Planning / Author Implementation / Independent Review / Final Review / Ready to 
 * PRODUCT_BRIEF.md(如适用) / TASK_BRIEF.md / IMPLEMENTATION_PLAN.md
 * Base branch / base commit：[Reviewer 按此审 diff]
 * approval_commit_sha: [计划批准 commit 的 SHA（内含 Status: Approved）；Author 在批准后的下一次交接文档 commit 补录；快速版写 N/A——以 Human Approval Evidence 替代]
-* plan_review_9P: [三分支——已跑 9P：Plan Verdict 词 + 指针 docs/ai/review_9P.md；人类减免：`N/A — 人类减免` + 指针 docs/ai/review_9P.md（内含减免记录）；快速版：`N/A — 快速版`（**无** review_9P.md，不写指针）。verdict、Author 逐条表态与减免理由**只放 review_9P.md**（随批准 commit 入库）；本行与 Work Log 不写理由或问题内容；9A/9B 不读该文件正文、不据此行推断]
+* plan_review_9P: [三分支——已跑 9P：末轮 Plan Verdict 词 + 指针 docs/ai/review_9P.md；人类减免：`N/A — 人类减免` + 指针 docs/ai/review_9P.md（内含减免记录）；快速版：`N/A — 快速版`（**无** review_9P.md，不写指针）。verdict、Author 逐条表态与减免理由**只放 review_9P.md**（随批准 commit 入库）；本行与 Work Log 不写理由或问题内容；9A/9B 不读该文件正文、不据此行推断]
 * git log 与当前 branch 的 diff / last_test_run.txt
 
 ## Review & Test Binding（SHA 绑定；final-review 收敛门与 Reviewer 读；语义见 AGENTS.md）

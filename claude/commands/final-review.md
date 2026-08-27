@@ -58,7 +58,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 4. per-task 交接文件齐全且已更新（快速版至少有 HANDOFF）。
 5. last_test_run.txt 有最新真实测试输出且可信。
 6. 没删测试或绕过逻辑（对照 diff 中测试文件改动确认）。
-7. 阶段 commit 齐全：计划批准 commit（正式版内含 `docs/ai/review_9P.md`——该文件含 verdict + Author Responses，或人类减免记录；快速版以 Human Approval Evidence 替代、9P 记 `N/A — 快速版`）、author commit、review-fix commit（如有）。
+7. 阶段 commit 齐全：计划批准 commit（正式版内含 `docs/ai/review_9P.md`——该文件含各轮 verdict + Author Responses，或人类减免记录；快速版以 Human Approval Evidence 替代、9P 记 `N/A — 快速版`）、author commit、review-fix commit（如有）。
 8. 有 Remaining Risks 说明、commit message 和 PR description。
 9. Reviewer 未重建副本/重装依赖/重跑全量测试；其 Verification Needed 已由 Author 代跑并产物化；scratch 目录经人类确认后清理。
 10. Author 最终审查结论是"可以提交"，**且过收敛门**（条件以 `AGENTS.md` → 最后一轮独立审查门为准，含证据层出口的等价满足条件），且双审隔离成立（同一 tip、窗口内无人写入、两份 verdict 分开保存）；**人类成本叫停记 `stopped, NOT converged`、不算收敛**。

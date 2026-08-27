@@ -2,7 +2,7 @@
 
 **实现审默认双审 9A+9B**（9A 对照计划审实现 + 9B 盲审只对需求审，双视角互补——9B 能抓"实现完全符合计划但计划本身错了"，本项目已多次实证 9B 抓到 9A 漏的真 blocking）。配额吃紧或纯小任务时可只跑 **9A 标准版**。
 两版共用同一份输出契约（§契约），只差是否读 PLAN、以及末节。
-**另有 9P 计划审（2026-08-27 新增）**：Critical 正式路径在计划批准前**默认必跑**的单跑审查，审规划文件而非实现——定义、prompt 与专用契约见文末 → 9P 节（**不**共用 9A/9B 的输出契约与审前快照自检）。
+**另有 9P 计划审（2026-08-27 新增）**：Critical 正式路径在计划批准前**默认必跑、逐轮复审至收敛**的审查（每轮单跑），审规划文件而非实现——定义、prompt 与专用契约见文末 → 9P 节（**不**共用 9A/9B 的输出契约与审前快照自检）。
 
 > Author 发起 review 前确认：Reviewer 进程能读到 `docs/ai/QUALITY_GATES.md`（重点检查第 6 条会用到）；读不到则把本任务适用清单条目粘进下面 prompt。
 
@@ -162,13 +162,13 @@ git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff �
 
 ## 9P. Plan Review（计划批准前；2026-08-27 新增，唯一定义处）
 
-**定位**：Critical 正式路径的**默认必跑**步骤——`/plan` 产出规划文件并把 Approval Status 置 Pending 之后、人类批准之前，由 Reviewer 对**规划本身**做一次 fresh-context 单跑审查。价值：把 9B 只能在实现后才抓到的"计划本身错了"提前到实现开销发生之前，并独立检查 9A/9B 都拿来当公理的 TASK_BRIEF（2026-08-15 三病诊断中病 2/病 3 的病灶都在计划期、发作在实现后审查，各烧 5–7 轮）。verdict 是人类批准时的辅助判断材料——**批准权仍只在人类**：人类可在 Author 逐条表态后，知情批准带未采纳项的计划。
+**定位**：Critical 正式路径的**默认必跑**步骤——`/plan` 产出规划文件并把 Approval Status 置 Pending 之后、人类批准之前，由 Reviewer 对**规划本身**做 fresh-context 审查——**每轮单跑，逐轮复审至收敛**（判据与轮次上限见下）。价值：把 9B 只能在实现后才抓到的"计划本身错了"提前到实现开销发生之前，并独立检查 9A/9B 都拿来当公理的 TASK_BRIEF（2026-08-15 三病诊断中病 2/病 3 的病灶都在计划期、发作在实现后审查，各烧 5–7 轮）。verdict 是人类批准时的辅助判断材料——**批准权仍只在人类**：人类可在 Author 逐条表态后，知情批准带未采纳项的计划。
 
 * **必跑与减免**：默认必跑；跳过仅凭**人类明示减免**。减免记录（谁/何时/一句话理由）由 Author 写进 `docs/ai/review_9P.md`（此时该文件只含减免记录），HANDOFF 的 `plan_review_9P` 行只记 `N/A — 人类减免` + 文件指针，**不写理由正文**。快速版（无 `IMPLEMENTATION_PLAN.md` 文件）天然不适用，记 `N/A — 快速版`（无需创建文件）。
-* **单跑，不双审**；默认**一轮**——Author 按「修法必附」契约逐条三选一表态并修订计划即可；计划重大重写后是否复审由人类决定。**9P 的 blocking 不进 Fix-Loop Counter、不触发硬停、不标 `[Product]`/`[Verification]`、不填 `caused_by_last_fix`**（那套分类与计数只服务实现后的 9A/9B 轮）；据 9P 反馈修订计划属正常规划迭代，不是 review-fix。
+* **每轮单跑，不双审；逐轮复审至收敛（2026-08-27 人类裁决，与 9A/9B 同律）**——每轮后 Author 按「修法必附」契约逐条三选一表态并修订计划，再发起下一轮 9P re-review。**每轮 prompt 必填 `9P round: <n>`；round > 1 必须附紧邻上一轮的 blocking 与 Author 全部表态摘要**（历史全文仍只在 review_9P.md；缺失则 Reviewer 拒审要求补齐——9P 审的就是计划，不存在 9B 式盲审隔离问题）。**收敛判据 = 某轮 Plan Verdict 为「可批准」**（与输出契约双向绑定：Blocking None ⇔ 可批准），**未收敛不得进入等待批准——唯一例外 = 达轮次上限后的人类知情批准（见下）**。**轮次上限与 9A/9B 同款：3 轮仍未收敛 → 停止再审、进入 Awaiting Human Adjudication**，交人类在四条**互斥**出路中裁决：「知情批准带未采纳项的计划 / 批准延长复审（逐次批准一轮，延长轮跑完回到本判定）/ 重拆任务 / 回退」——**选知情批准才进入批准门；选延长则继续复审循环；选重拆或回退则执行对应出口，不进入批准门**。**9P 的 blocking 不进 Fix-Loop Counter、不触发硬停、不标 `[Product]`/`[Verification]`、不填 `caused_by_last_fix`，其轮次也不计入 9A/9B 双审的轮次上限**（那套分类与计数只服务实现后的 9A/9B 轮）；据 9P 反馈修订计划属正常规划迭代，不是 review-fix。
 * **审查对象 = 工作树中的规划文件**（此时批准 commit 尚不存在）：`TASK_BRIEF.md`、`IMPLEMENTATION_PLAN.md`（+ `PRODUCT_BRIEF.md` / `QUALITY_GATES.md` 如有）+ 只读检索仓库现状。**没有实现 diff、没有 `last_test_run.txt`、没有 SHA 账本——不适用审前快照自检与七字段证据首行**；锚定只记三行哈希（见 prompt）。证据载体整句 = `AGENTS.md` → Reviewer-Lightweight Protocol 第二层的「Critical 计划审（9P）」条（与下方 prompt 内嵌句逐字一致）。
 * **调用与零写入**：与双审隔离协议 ③ 同一调用模板（显式 sandbox / model / 效力档），一对 `-o` verdict + raw log 落仓外 holding（如 `$HOLD/9P.md` + `$HOLD/9P_raw.log`）；零写入无例外。
-* **落账（9P 例外于「表态记 Work Log」的通用规则——防止经 HANDOFF 污染后续 9A/9B）**：Author 把 verdict 收进 `docs/ai/review_9P.md`，逐条三选一表态**附在同文件的 Author Responses 节**（每条一句话），连同修订后的计划一起交人类。**9P 的 verdict、表态与减免记录只放这一个文件**——HANDOFF 的 `plan_review_9P` 行只记 Plan Verdict 词 + 文件指针，Work Log 只记一行「9P 已跑/已减免 + 指针」，**都不复述发现内容、修改内容或理由**。**人类批准 commit 应包含 `docs/ai/review_9P.md`**——批准凭证自带独立审查证据。该文件命中双审隔离协议的 `review_9*` 污染模式：随批准 commit 入库后属"已提交进历史的审查产物"，后续 9A/9B **不读**（对 9B 尤其如此——读它等于间接读计划）。
+* **落账（9P 例外于「表态记 Work Log」的通用规则——防止经 HANDOFF 污染后续 9A/9B）**：Author 把**每轮** verdict 依轮次追加进 `docs/ai/review_9P.md`，各轮逐条三选一表态**附在同文件对应轮的 Author Responses 节**（每条一句话），收敛后连同修订后的计划一起交人类。**9P 的 verdict、表态与减免记录只放这一个文件**——HANDOFF 的 `plan_review_9P` 行只记 Plan Verdict 词 + 文件指针，Work Log 只记一行「9P 已跑/已减免 + 指针」，**都不复述发现内容、修改内容或理由**。**人类批准 commit 应包含 `docs/ai/review_9P.md`**——批准凭证自带独立审查证据。该文件命中双审隔离协议的 `review_9*` 污染模式：随批准 commit 入库后属"已提交进历史的审查产物"，后续 9A/9B **不读**（对 9B 尤其如此——读它等于间接读计划）。
 * **与 9A/9B 的防污染边界**：9P 与后续 9A/9B 是各自独立的 fresh 进程；9A/9B 的 prompt **不得包含 9P 的结论或内容**，两者也**不读 `docs/ai/review_9P.md` 正文**（见上条落账规则；对 9A 同样适用，其 prompt 已内嵌对应排除句）。**可见的仅限元数据**——未过滤 `git diff --name-only` 输出中该文件的存在（正文 diff 已用 `:(exclude)` 机械排除 `docs/ai/review_9*.md` 与 `docs/ai/archive/**`，见 9A/9B prompt）、HANDOFF `plan_review_9P` 行的 verdict 词与文件指针；Reviewer 不得把这些当作计划质量或实现正确性的证据。
 
 ### 9P prompt（复制给 Codex）
@@ -176,9 +176,13 @@ git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff �
 ```
 你是本项目的独立 plan reviewer（9P 计划审，Critical 模式）。本轮审查对象是**尚未批准的实现计划**，不是实现——此时没有实现 diff、没有 docs/ai/last_test_run.txt、没有批准 commit 与 SHA 账本，**不要索取它们，也不要因其缺失拒审**；不执行审前快照自检。**只审不改**：不得修改任何文件、不得创建任何 commit；发现的问题只写进 verdict。
 
+本轮轮次：9P round: <由 Author 填，从 1 起计>。**round > 1 而本 prompt 未附紧邻上一轮的 9P blocking 与 Author 全部表态摘要 → 不要开审**，输出「上下文缺失：9P round <n> 缺上一轮摘要」并要求 Author 补齐后重发（历史完整内容仍只在 docs/ai/review_9P.md，摘要由 Author 在 prompt 内提供，你不得自行打开该文件）。
+
 先读：1) AGENTS.md（遵守 Safety Rules） 2) docs/ai/TASK_BRIEF.md 3) docs/ai/IMPLEMENTATION_PLAN.md 4) docs/ai/PRODUCT_BRIEF.md（如存在） 5) docs/ai/QUALITY_GATES.md（如存在）。以上一律**读工作树当前文件**。可只读检索仓库任意代码以核对计划的声称。
 
 不要 git archive 重建副本、不要重装依赖、不要跑任何测试——此时尚无实现与测试产物；以工作树中的规划文件 + 只读检索仓库现状为准；需要实跑确认的具体命令列出来，由 Author 在正常终端代跑。
+
+round > 1 时：先逐条核验上一轮 blocking 的闭合情况，再做全量审查——闭合核验不替代全量审查。
 
 核心问题：假设你是第一次接触本项目的资深工程师，**按这份计划做下去，会不会做错东西、做不完整、或做出无法验收的东西？**重点五项：
 1. TASK_BRIEF 内伤：需求与验收是否内部一致；每条 AC 的判定方式是否满足 AGENTS.md → 验收条款必须可复现判定（可复现 + 有区分力；"散文对读"不是验收条款）。
@@ -187,11 +191,12 @@ git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff �
 4. 复用遗漏：方案比较是否真做过复用检索；从零自建的否决理由是否成立；是否重复造仓内已有的轮子。
 5. 假设与范围：Frozen Acceptance 是否从实现反推；Open Questions 是否真收敛（≥1 个未解决 = 草稿）；[假设] 是否都有验证方式；diff 预算预估与架构层拆分评估是否可信。
 
-输出契约（9P 专用；先写三行锚定证据，均为实际命令输出）：
+输出契约（9P 专用；先写四行锚定证据——首行照抄 prompt，后三行为实际命令输出）：
+9P_round: <照抄 prompt 的 9P round 值>
 observed_head_sha: <git rev-parse HEAD>
 task_brief_blob_sha: <git hash-object docs/ai/TASK_BRIEF.md>
 plan_blob_sha: <git hash-object docs/ai/IMPLEMENTATION_PLAN.md>
-## Plan Verdict            可批准 / 修订后可批准 / 不可批准（Blocking Issues 非空 → 不得为"可批准"）
+## Plan Verdict            可批准 / 修订后可批准 / 不可批准（硬规则双向绑定：Blocking Issues 非空 → 只能"修订后可批准"或"不可批准"；Blocking Issues 为 None → 必须"可批准"——Suggestion 与 Assumption Challenges 不影响可批准）
 ## Blocking Issues         无则 "None"。按计划落地会导致做错/做不完整/无法验收的缺陷；每条必附 Proposed Fix（具体改法 + 依赖假设；需取舍写"需人类裁决"）。不标 [Product]/[Verification]、不填 caused_by_last_fix——9P 不进 Fix-Loop。
 ## Non-Blocking Suggestions 无则 "None"。每条同样必附 Proposed Fix。
 ## Assumption Challenges   对 Frozen Acceptance / [假设] 标签 / 高影响前提的挑战，无则 "None"。

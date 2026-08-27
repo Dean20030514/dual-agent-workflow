@@ -36,7 +36,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 - **模式路由（2026-08-05 裁决）**：日常任务默认 **Routine**——对话内简短方向 + 真实验证输出（命令 / 完整输出 / 退出码），人类扫 diff 后 commit/merge，无交接文件仪式；**Critical** 仅人类明确启用，才进入下述完整机制。任务级「做吧」不构成模式确认；触及 auth / 迁移 / 部署 / 资金等高风险面须先建议 Critical 并停下等确认。
 - **交接走文件、验证产物化（Critical）**：交接经 `docs/ai/`，测试输出落 `last_test_run.txt`，下一个 Agent 读产物不信自述；git 作阶段门，回滚靠 revert。
-- **Reviewer 零仓库写入 + 双审隔离**：计划批准前默认必跑 **9P 计划审**（单跑、审规划文件、无快照自检，2026-08-27 新增）；实现审 9B 盲审先行、9A 对照审后行，verdict 与 raw log 一律写仓外 holding；实现审正文前强制快照自检（`review_tip_sha` / `handoff_snapshot_sha` 等 SHA 绑定，不一致即拒审）。
+- **Reviewer 零仓库写入 + 双审隔离**：计划批准前默认必跑 **9P 计划审**（每轮单跑、逐轮复审至收敛、审规划文件、无快照自检，2026-08-27 新增）；实现审 9B 盲审先行、9A 对照审后行，verdict 与 raw log 一律写仓外 holding；实现审正文前强制快照自检（`review_tip_sha` / `handoff_snapshot_sha` 等 SHA 绑定，不一致即拒审）。
 - **Fix-Loop 外部化硬停**：blocking 的归因（`caused_by_last_fix`）由 Reviewer 判、Author 逐字转录，达阈值即停手交人类，禁止原上下文滚补丁；**递增条件、阈值、轮次上限与合并门优先级以 `claude/workflow/AGENTS.md` → Fix-Loop 计数与跨轮硬停为唯一定义处**（本文不复述判据）。
 - **零暗债**：任何妥协要么当场修，要么写成带偿还触发器的 `[DEBT]` 明账；触碰挂债文件必须同 commit 偿还（Payback-on-Touch）。
 - **守护有效性契约**（已定稿；**判据两模式恒适用，证据形式按模式取——下述结构化产物是 Critical 形式，Routine 形式见 `claude/workflow/AGENTS.md` → 守护有效性装置 ★ 模式分流**）：Critical 下「回归用例有效」的唯一可接受证据 = 守护有效性装置的结构化产物——基线绿→变异后因预期断言而红→内容哈希验证还原后复绿，真实退出码为准（禁 grep 判红），并携带按构建系统提供的缓存旁路或等价执行真实性证据；母本只定义契约，脚本由各项目按技术栈实现（首个实现：SeedLink `pnpm guard:verify`）。
