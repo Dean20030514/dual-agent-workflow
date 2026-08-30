@@ -197,7 +197,7 @@ observed_head_sha: <git rev-parse HEAD>
 task_brief_blob_sha: <git hash-object docs/ai/TASK_BRIEF.md>
 plan_blob_sha: <git hash-object docs/ai/IMPLEMENTATION_PLAN.md>
 ## Plan Verdict            可批准 / 修订后可批准 / 不可批准（硬规则双向绑定：Blocking Issues 非空 → 只能"修订后可批准"或"不可批准"；Blocking Issues 为 None → 必须"可批准"——Suggestion 与 Assumption Challenges 不影响可批准）
-## Blocking Issues         无则 "None"。按计划落地会导致做错/做不完整/无法验收的缺陷；每条必附 Proposed Fix（具体改法 + 依赖假设；需取舍写"需人类裁决"）。不标 [Product]/[Verification]、不填 caused_by_last_fix——9P 不进 Fix-Loop。
+## Blocking Issues         无则 "None"。按计划落地会导致做错/做不完整/无法验收的缺陷；每条必附 Proposed Fix（具体改法 + 依赖假设；需取舍写"需人类裁决"）。不标 [Product]/[Verification]、不填 caused_by_last_fix——9P 不进 Fix-Loop。**不得以「计划散文是否完备」立 blocking**：形如"若 X 场景未考虑""建议补充说明 Y"而无法指出按此计划落地会做错什么的条目，一律降级 Non-Blocking Suggestion。判据 = 能否写出一个「按此计划执行会失败」的具体后果。
 ## Non-Blocking Suggestions 无则 "None"。每条同样必附 Proposed Fix。
 ## Assumption Challenges   对 Frozen Acceptance / [假设] 标签 / 高影响前提的挑战，无则 "None"。
 ## Verification Needed     需 Author 在正常终端实跑以核对计划声称的具体命令 + 想确认的事实。无则 "None"。
