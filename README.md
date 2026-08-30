@@ -29,7 +29,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 | `claude/commands/` | `~/.claude/commands/` | 7 个阶段 slash command：`/define` `/explore` `/plan` `/design-check` `/implement` `/debug` `/final-review` |
 | `codex/AGENTS.md` | `~/.codex/AGENTS.md` | Reviewer（Codex CLI）侧长期规则 |
 | `codex/config.example.toml` | `~/.codex/config.toml`（缺失时播种） | Codex 持久偏好（信任目录表等本机生成段刻意省略） |
-| `portable/` | — | 便携单文件版。**`通用prompt-v3.3.txt` = 当前版**（2026-08-30 按 `main` 母本整体重新生成：模式路由/Routine · Reviewer 零写入 · 双审隔离与 SHA 绑定 · 归因与 Fix-Loop 硬停 · 轮次上限 · 单轮 diff 预算 · 守护有效性装置与负向对照 · 验收可复现判定 · 证据层出口 · 修法必附 · 9P 计划审 · 9P 与 `[Verification Blocking]` 的成立门槛）。**每次整体重生即退役旧版**，`portable/` 只保留当前版一份，历史版本查 git 历史（v3.2 见 `git show 76c3138`，v3.1 见 `git show f7dd03f^`）。母本再变时同样**整体重新生成**，勿逐条打补丁 |
+| `portable/` | — | 便携单文件版。**`通用prompt-v3.3.txt` = 当前版**（2026-08-30 按 `main` 母本整体重新生成：模式路由/Routine · Reviewer 零写入 · 双审隔离与 SHA 绑定 · 归因与 Fix-Loop 硬停 · 轮次上限 · 单轮 diff 预算 · 守护有效性装置与负向对照 · 验收可复现判定 · 证据层出口 · 修法必附 · 9P 计划审 · 9P 与 `[Verification Blocking]` 的成立门槛）。**每次整体重生即退役旧版**，`portable/` 只保留当前版一份，历史版本查 git 历史（v3.2 见 `git show 76c3138:portable/通用prompt-v3.2.txt`，v3.1 见 `git show f7dd03f^:portable/通用prompt-v3.1.txt`）。母本再变时同样**整体重新生成**，勿逐条打补丁 |
 | `install.ps1` | — | 上述一切的一键部署脚本 |
 
 ## 核心机制（2026-08 版）

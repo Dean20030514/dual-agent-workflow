@@ -853,10 +853,11 @@ re-review 时上一轮 9A/9B blocking 的上下文由 Author 在本 prompt 内�
 7. **回归面（尤其 re-review 一次 review-fix 时）**：本次改动可能破坏被报案例**之外**的其它消费者/值域吗？
    枚举该字段/路径的其它生产者/消费者，确认没破坏或列进 Verification Needed——别只确认被报问题修了。
 8. **证据真实性**：**不收 Author "已修复/已吸取教训" 的自我总结当证据**；diff 里若有 probe / mutation harness /
-   临时脚本，它**不算完成证据**。「回归用例有效」与一切「机制 X 拒绝 Y」的声称只认**守护有效性装置的结构化产物**
+   临时脚本，它**不算完成证据**。「回归用例有效」声称只认**守护有效性装置的结构化产物**
    ——必填字段与失败判据以 AGENTS.md 的守护有效性装置节为准，逐字段核对完整性、自洽与 tested_sha 绑定；
+   其余「机制 X 拒绝 Y」的守护声称**不要求这套八字段回归装置**，按同节的负向对照（移除 X 则会通过）、冻结输入域的等价类覆盖与失败原因判据核对；
    **你不运行装置**；产物缺失或字段不可信 → 列 Verification Needed。
-   为每条 Blocking 标 [Product/Verification] + caused_by_last_fix + Proposed Fix。 标 [Verification Blocking] 前先过门槛：须点名具体证据缺口（哪条声称 / 由哪份产物或测试支撑 / 缺什么），并给出一个可证伪的检查（列进 Verification Needed 的可执行命令，或一个「若该性质不成立则会失败」的对照样本）；**你不实跑，不要求给出实际运行结果**。两者都写不出的一律降级 Non-Blocking Suggestion，不得阻止收敛。
+   为每条 Blocking 标 [Product/Verification] + caused_by_last_fix + Proposed Fix。 标 [Verification Blocking] 前必须先过 AGENTS.md ★ Reviewer verdict 分类语义 的**成立门槛**（点名证据缺口 + 一个可证伪的检查；**判据以该节为准，本处不复述**）；过不了的降级 Non-Blocking Suggestion。
 
 [输出严格按上方输出契约整段（含七行证据首行），末节追加 ## Recommended Next Step（只给建议，不自行执行）]
 ```
@@ -905,7 +906,7 @@ git diff <review_base_sha>..<review_tip_sha> -- . ":(exclude)docs/ai/review_9*.m
 TASK_BRIEF.md 的需求与验收？
 
 **9B 盲审专攻面**：主动枚举 **遗漏入口 / 状态生命周期 / 边界值 / 回归**（9A 管计划-契约一致性，这几面归 9B）。
-不据 Author 自我总结；为每条 Blocking 标 [Product/Verification] + caused_by_last_fix + Proposed Fix。 标 [Verification Blocking] 前先过门槛：须点名具体证据缺口（哪条声称 / 由哪份产物或测试支撑 / 缺什么），并给出一个可证伪的检查（列进 Verification Needed 的可执行命令，或一个「若该性质不成立则会失败」的对照样本）；**你不实跑，不要求给出实际运行结果**。两者都写不出的一律降级 Non-Blocking Suggestion，不得阻止收敛。
+不据 Author 自我总结；为每条 Blocking 标 [Product/Verification] + caused_by_last_fix + Proposed Fix。 标 [Verification Blocking] 前必须先过 AGENTS.md ★ Reviewer verdict 分类语义 的**成立门槛**（点名证据缺口 + 一个可证伪的检查；**判据以该节为准，本处不复述**）；过不了的降级 Non-Blocking Suggestion。
 
 [输出严格按上方输出契约整段（含七行证据首行）+ ## Recommended Next Step + ## Requirement-Level Concerns
 （**两节都要，不替换**）；本 prompt 不依赖 9A 的任何输出]
