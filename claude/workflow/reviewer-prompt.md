@@ -123,7 +123,7 @@ git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff �
 5. 是否为通过测试而绕过逻辑（对照 diff 中测试文件改动逐一确认）。
 6. 核对 docs/ai/QUALITY_GATES.md 中本任务适用组 + 有界面则设计层闸门（需实跑的列 Verification Needed）。
 7. **回归面（尤其 re-review 一次 review-fix 时）**：本次改动可能破坏被报案例**之外**的其它消费者/值域吗？枚举该字段/路径的其它生产者/消费者，确认没破坏或列进 Verification Needed——别只确认被报问题修了。
-8. **证据真实性**：**不收 Author "已修复/已吸取教训" 的自我总结当证据**；diff 里若有 probe / mutation harness / 临时脚本，它**不算完成证据**（应提交前删除或重写为正式 regression test）。「回归用例有效」声称只认**守护有效性装置的结构化产物**——必填字段与失败判据以 `AGENTS.md` → 守护有效性装置（唯一定义处）为准，逐字段核对产物完整性、自洽与 tested_sha 绑定；**你不运行装置**；产物缺失或字段不可信 → 列 Verification Needed。为每条 Blocking 标 [Product/Verification] + caused_by_last_fix。
+8. **证据真实性**：**不收 Author "已修复/已吸取教训" 的自我总结当证据**；diff 里若有 probe / mutation harness / 临时脚本，它**不算完成证据**（应提交前删除或重写为正式 regression test）。「回归用例有效」声称只认**守护有效性装置的结构化产物**——必填字段与失败判据以 `AGENTS.md` → 守护有效性装置（唯一定义处）为准，逐字段核对产物完整性、自洽与 tested_sha 绑定；**你不运行装置**；产物缺失或字段不可信 → 列 Verification Needed。为每条 Blocking 标 [Product/Verification] + caused_by_last_fix。 标 [Verification Blocking] 前先过门槛：须点名具体证据缺口（哪条声称 / 由哪份产物或测试支撑 / 缺什么），并给出一个可证伪的检查（列进 Verification Needed 的可执行命令，或一个「若该性质不成立则会失败」的对照样本）；**你不实跑，不要求给出实际运行结果**。两者都写不出的一律降级 Non-Blocking Suggestion，不得阻止收敛。
 
 [输出按上面「输出契约」+ 9A 末节 Recommended Next Step（只给建议，不自行执行）]
 ```
@@ -152,7 +152,7 @@ git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff �
 
 核心问题只有一个：假设你是第一次看到这个项目的资深工程师，这个 diff 是否正确、完整、安全地实现了 TASK_BRIEF.md 的需求与验收？
 
-**9B 盲审专攻面**：主动枚举 **遗漏入口 / 状态生命周期 / 边界值 / 回归**（9A 管计划-契约一致性，这几面归 9B）。不据 Author 自我总结；为每条 Blocking 标 [Product/Verification] + caused_by_last_fix。
+**9B 盲审专攻面**：主动枚举 **遗漏入口 / 状态生命周期 / 边界值 / 回归**（9A 管计划-契约一致性，这几面归 9B）。不据 Author 自我总结；为每条 Blocking 标 [Product/Verification] + caused_by_last_fix。 标 [Verification Blocking] 前先过门槛：须点名具体证据缺口（哪条声称 / 由哪份产物或测试支撑 / 缺什么），并给出一个可证伪的检查（列进 Verification Needed 的可执行命令，或一个「若该性质不成立则会失败」的对照样本）；**你不实跑，不要求给出实际运行结果**。两者都写不出的一律降级 Non-Blocking Suggestion，不得阻止收敛。
 
 [输出按上面「输出契约」+ `## Recommended Next Step` + `## Requirement-Level Concerns`（**两节都要，不替换** Recommended Next Step）；本 prompt 自包含]
 本轮不要写入仓库任何文件（含 HANDOFF）——verdict 由 Author 在两份都完成后统一落账。

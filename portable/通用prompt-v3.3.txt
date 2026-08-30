@@ -1,4 +1,4 @@
-# AI 协作开发全流程通用 Prompt (v3.2 · 单文件版)
+# AI 协作开发全流程通用 Prompt (v3.3 · 单文件版)
 
 ## 节级索引 · 按节读取协议（勿整读）
 
@@ -421,8 +421,9 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 
 ### ★ Reviewer verdict 分类语义（唯一定义处；**Reviewer 实际运行时适用**——分类语义与 Debt Verdict 取值两模式通用；**`caused_by_last_fix` 与 streak 计数仅 Critical**）
 顶层输出字段保持不变，语义分类如下：
-* **Blocking Issues** 每条标 `[Product Blocking]`（用户可见正确性 / 用户数据错误 / 安全）或 `[Verification Blocking]`（验证不健全：probe 冒充证据、测试不走真实路径、审后弱化测试或改验收），并由 **Reviewer** 标 `caused_by_last_fix: yes/no`（**仅 Critical**——该字段只服务 Fix-Loop streak；Routine 无此账本，不填）。**只有 Blocking Issues 默认阻止合并。**（**阻止合并 ≠ 计入硬停**：streak 只由 `[Product Blocking]` 递增。）
+* **Blocking Issues** 每条标 `[Product Blocking]`（用户可见正确性 / 用户数据错误 / 安全）或 `[Verification Blocking]`（验证不健全：probe 冒充证据、测试不走真实路径、审后弱化测试或改验收），并由 **Reviewer** 标 `caused_by_last_fix: yes/no`（**仅 Critical**——该字段只服务 Fix-Loop streak；Routine 无此账本，不填）。**只有 Blocking Issues（Product/Verification）默认阻止合并。**（**阻止合并 ≠ 计入硬停**：streak 只由 `[Product Blocking]` 递增；两审零 Product 时 Verification 的收口方式见 ★ 最后一轮独立审查门 → 证据层出口。）
 * **分类优先级（两类重叠时的唯一判据）**：**只要已造成或可能造成用户可见行为、用户数据或安全/隐私影响 → 一律 `[Product Blocking]`**，不论它同时是否符合 Verification 的举例。`[Verification Blocking]` **仅限没有产品影响的证据充分性缺陷**。故「为过测试而弱化认证/绕过 validation」属 **Product**（它改变了真实的安全行为），而「认证测试没走真实路径、但认证本身正确」属 Verification。**分类不得被用来规避硬停**——归类存疑时按 Product 记，交人类裁决。
+* **`[Verification Blocking]` 的成立门槛（斩断无反例的散文阻塞）**：每条 Verification Blocking 须**点名具体证据缺口**——哪一条声称 / 由哪份产物或哪个测试支撑 / 缺的是什么——**并给出一个可证伪的检查**：写进 `Verification Needed` 的可执行命令，或一个「若该性质不成立则该检查会失败」的对照样本。**Reviewer 不实跑，故不要求其给出实际运行结果**；缺口与可证伪检查**两者都写不出**的（"覆盖不够全面""建议补充说明 X"），一律降级 Non-Blocking Suggestion，**不得阻止收敛**。本门槛**只约束证据缺口类的成立形式，不改变上条的分类优先级**——有产品 / 安全影响的一律仍按 `[Product Blocking]` 记。
 * **Debt Verdict** 取值 **`Clean / Noted / Deferred`**（**无 "Blocking" 值**）：Clean=无债；Noted=**未触发** Payback-on-Touch 的普通存量债（不阻止合并，**不得与用户数据错误等价**）；Deferred=触发 Payback-on-Touch 但**已获人类批准延期**（不阻止；**Critical** 凭批准的 plan，**Routine** 凭对话内人类明确批准，见 ★ Payback-on-Touch）。**触发 Payback-on-Touch 但未偿还、又无批准延期 → 移入 Blocking Issues 标 `[Verification Blocking]`**。
 * **Review Verdict 语义**：Blocking Issues 非空 → **必须"不通过"**；"有条件通过"**不得**与任何 Product/Verification Blocking 并存；Process Debt、Suggestion 本身不影响"通过"。
 * **不得把 Author 的自我总结 / "已修复" 叙述当作证据。**
@@ -855,7 +856,7 @@ re-review 时上一轮 9A/9B blocking 的上下文由 Author 在本 prompt 内�
    临时脚本，它**不算完成证据**。「回归用例有效」与一切「机制 X 拒绝 Y」的声称只认**守护有效性装置的结构化产物**
    ——必填字段与失败判据以 AGENTS.md 的守护有效性装置节为准，逐字段核对完整性、自洽与 tested_sha 绑定；
    **你不运行装置**；产物缺失或字段不可信 → 列 Verification Needed。
-   为每条 Blocking 标 [Product/Verification] + caused_by_last_fix + Proposed Fix。
+   为每条 Blocking 标 [Product/Verification] + caused_by_last_fix + Proposed Fix。 标 [Verification Blocking] 前先过门槛：须点名具体证据缺口（哪条声称 / 由哪份产物或测试支撑 / 缺什么），并给出一个可证伪的检查（列进 Verification Needed 的可执行命令，或一个「若该性质不成立则会失败」的对照样本）；**你不实跑，不要求给出实际运行结果**。两者都写不出的一律降级 Non-Blocking Suggestion，不得阻止收敛。
 
 [输出严格按上方输出契约整段（含七行证据首行），末节追加 ## Recommended Next Step（只给建议，不自行执行）]
 ```
@@ -904,7 +905,7 @@ git diff <review_base_sha>..<review_tip_sha> -- . ":(exclude)docs/ai/review_9*.m
 TASK_BRIEF.md 的需求与验收？
 
 **9B 盲审专攻面**：主动枚举 **遗漏入口 / 状态生命周期 / 边界值 / 回归**（9A 管计划-契约一致性，这几面归 9B）。
-不据 Author 自我总结；为每条 Blocking 标 [Product/Verification] + caused_by_last_fix + Proposed Fix。
+不据 Author 自我总结；为每条 Blocking 标 [Product/Verification] + caused_by_last_fix + Proposed Fix。 标 [Verification Blocking] 前先过门槛：须点名具体证据缺口（哪条声称 / 由哪份产物或测试支撑 / 缺什么），并给出一个可证伪的检查（列进 Verification Needed 的可执行命令，或一个「若该性质不成立则会失败」的对照样本）；**你不实跑，不要求给出实际运行结果**。两者都写不出的一律降级 Non-Blocking Suggestion，不得阻止收敛。
 
 [输出严格按上方输出契约整段（含七行证据首行）+ ## Recommended Next Step + ## Requirement-Level Concerns
 （**两节都要，不替换**）；本 prompt 不依赖 9A 的任何输出]
