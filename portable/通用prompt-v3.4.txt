@@ -1,4 +1,4 @@
-# AI 协作开发全流程通用 Prompt (v3.3 · 单文件版)
+# AI 协作开发全流程通用 Prompt (v3.4 · 单文件版)
 
 ## 节级索引 · 按节读取协议（勿整读）
 
@@ -645,7 +645,7 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
 8. **★ Unknown 即 blocking**：进 Approval=Pending 前，任何"不确定会否引入妥协/破坏现有行为"都算 Unknown；标「唯一依据=是」的高影响假设未验证也算 Unknown。带 Unknown 的计划是草稿——必须在探索阶段查清，降为"确定不引入债 / 已写成 `[DEBT]` 明账"或"假设已验证/已降级"之一才能停 Pending；**不允许把 Unknown 留到实现阶段边做边看**。
 9. **计划自检**：通读确保无自相矛盾步骤、无与 TASK_BRIEF 验收冲突、无"计划要求但会被 Reviewer 判缺陷"处——让第八节 Pre-Flight 能一次通过。
 10. Approval Status 写 Pending。
-11. **9P 计划审（默认必跑、逐轮至收敛；唯一定义处 = §9.2）**：用 §9.2 prompt 对工作树规划文件发起 fresh-context 审查（每轮单跑；调用模板同 §9.0 ③，verdict 与 raw log 落仓外 holding）；每轮收 verdict 依轮次追加进 `docs/ai/review_9P.md`，按 §9.1 ★ 修法必附逐条三选一表态——**表态附在同文件对应轮的 Author Responses 节**——并修订计划，**复审至某轮 Plan Verdict「可批准」**（轮次上限与达限出路见 §9.2；9P blocking 不进 Fix-Loop）。verdict/表态/减免记录**只放该文件**：HANDOFF 的 `plan_review_9P` 行与 Work Log 只记状态词 + 指针、不复述内容。**人类明示减免时才可跳过**，减免记录（谁/何时/理由）写 `docs/ai/review_9P.md`。每轮 re-review prompt 必填 `9P round: <n>`，round > 1 必须附紧邻上一轮摘要。**收敛 → 停止，进入 Awaiting Approval；达轮次上限未收敛 → 停止，进入 Awaiting Human Adjudication**（两态互斥，见下方输出行）。
+11. **9P 计划审（默认必跑、逐轮至收敛；唯一定义处 = §9.2）**：用 §9.2 prompt 对工作树规划文件发起 fresh-context 审查（每轮单跑；调用模板同 §9.0 ③ 但**推理档不同**——取值与可执行命令见 §9.2，verdict 与 raw log 落仓外 holding）；每轮收 verdict 依轮次追加进 `docs/ai/review_9P.md`，按 §9.1 ★ 修法必附逐条三选一表态——**表态附在同文件对应轮的 Author Responses 节**——并修订计划，**复审至某轮 Plan Verdict「可批准」**（轮次上限与达限出路见 §9.2；9P blocking 不进 Fix-Loop）。verdict/表态/减免记录**只放该文件**：HANDOFF 的 `plan_review_9P` 行与 Work Log 只记状态词 + 指针、不复述内容。**人类明示减免时才可跳过**，减免记录（谁/何时/理由）写 `docs/ai/review_9P.md`。每轮 re-review prompt 必填 `9P round: <n>`，round > 1 必须附紧邻上一轮摘要。**收敛 → 停止，进入 Awaiting Approval；达轮次上限未收敛 → 停止，进入 Awaiting Human Adjudication**（两态互斥，见下方输出行）。
 
 输出：**Planning Files Created/Updated** / **Recommended Plan Summary** / **Files Planned for Modification** / **Awaiting Approval**（提醒人类：审阅计划 + `docs/ai/review_9P.md`（9P verdict 与 Author 表态；减免则为减免记录）→ **先**亲手把 Status 改 Approved → **再** `git add` 本阶段全部规划产物（含 `docs/ai/review_9P.md`）并创建批准 commit → 之后才允许开始实现）/ **Awaiting Human Adjudication**（仅 9P 达轮次上限未收敛时替代 Awaiting Approval：列明未闭合 blocking 与「知情批准带未采纳项 / 批准延长复审（逐次批准一轮）/ 重拆任务 / 回退」四条**互斥**出路，等人类裁决；**仅选「知情批准」才转入批准流程**，选延长则继续复审循环，选重拆或回退则执行对应出口、不进入批准门）。
 
@@ -752,7 +752,7 @@ codex exec --sandbox workspace-write --ephemeral --ignore-user-config --ignore-r
 # 确认工作树干净、无 verdict 残留后，再跑 9A（同模板，换 9A）
 ```
 
-> 调用形态要点：`--sandbox` 与 `-m` **必须显式**（不依赖任何默认）；`--ephemeral --ignore-user-config --ignore-rules` 隔离用户配置与规则注入，但沙箱后端键（上例的 `windows.sandbox`）与推理档 **必须随行显式给**——否则隔离掉用户配置后要么全部命令被 policy 拒绝、要么推理档静默降为默认。**`</dev/null` 每次必带**（否则 `codex exec` 会尝试继续读 stdin 而挂起，且是间歇性的——一次侥幸成功不代表安全）；**不要管道接 `| tail` / `| head`**（输出被缓冲到进程退出，进度无法监控，且早退的消费者会卡住管道）；holding 放 home 下**持久目录**，别放会被系统/工具定时清扫的临时树（实测第三轮时 holding 被扫掉，重定向无处可写，白烧一轮高档推理配额）。**已知风险：沙箱 ≠ 网络边界**——实测明文 HTTP 出网在两种沙箱模式下均放行，Reviewer 的网络纪律靠轻量协议 + 人审 verdict 兜底，不依赖沙箱。
+> 调用形态要点：`--sandbox` 与 `-m` **必须显式**（不依赖任何默认）；`--ephemeral --ignore-user-config --ignore-rules` 隔离用户配置与规则注入，但沙箱后端键（上例的 `windows.sandbox`）与推理档 **必须随行显式给**——否则隔离掉用户配置后要么全部命令被 policy 拒绝、要么推理档静默降为默认；**推理档取值按审别（唯一定义处）：9A / 9B = `high`，9P = `medium`**（9P 于 2026-08-30 降档，理由见 §9.2；上例是 9A/9B 的实例，**勿照抄给 9P**）。**`</dev/null` 每次必带**（否则 `codex exec` 会尝试继续读 stdin 而挂起，且是间歇性的——一次侥幸成功不代表安全）；**不要管道接 `| tail` / `| head`**（输出被缓冲到进程退出，进度无法监控，且早退的消费者会卡住管道）；holding 放 home 下**持久目录**，别放会被系统/工具定时清扫的临时树（实测第三轮时 holding 被扫掉，重定向无处可写，白烧一轮高档推理配额）。**已知风险：沙箱 ≠ 网络边界**——实测明文 HTTP 出网在两种沙箱模式下均放行，Reviewer 的网络纪律靠轻量协议 + 人审 verdict 兜底，不依赖沙箱。
 > **零写入无例外**：若某环境不允许把 `-o` 写到仓库工作树之外 → **停止并报告人类**，不得退化为写进仓内——哪怕"跑完立刻 mv 到 holding、事后工作树恢复干净"也不行：窗口内曾发生的仓内写入本身就已破坏独立性。**单审同源**：人类减档只跑 9A 时同用本模板，输出同样落仓外 holding。
 
 **④ 两份都完成后才统一落账**：Author 把两份 verdict 收进 `docs/ai/review_9A.md` / `review_9B.md`，然后**一次性**更新 HANDOFF（两个 verdict 字段、`handoff_snapshot_sha`、Work Log、Fix-Loop Counter 的逐字转录）。此后所有修复都在双审窗口之外。**落账前先比对两份 verdict 的证据首行——全部七个字段逐项核，任一不满足则不得落账、该轮双审作废重跑**：
@@ -920,7 +920,16 @@ TASK_BRIEF.md 的需求与验收？
 * **必跑与减免**：默认必跑；跳过仅凭**人类明示减免**。减免记录（谁/何时/一句话理由）由 Author 写进 `docs/ai/review_9P.md`（此时该文件只含减免记录），HANDOFF 的 `plan_review_9P` 行只记 `N/A — 人类减免` + 文件指针，**不写理由正文**。快速版（无 IMPLEMENTATION_PLAN 文件）天然不适用，记 `N/A — 快速版`（无需创建文件）。
 * **每轮单跑，不双审；逐轮复审至收敛（与 9A/9B 同律）**——每轮后 Author 按 §9.1 ★ 修法必附逐条三选一表态并修订计划，再发起下一轮 9P re-review。**每轮 prompt 必填 `9P round: <n>`；round > 1 必须附紧邻上一轮的 blocking 与 Author 全部表态摘要**（历史全文仍只在 review_9P.md；缺失则 Reviewer 拒审要求补齐——9P 审的就是计划，不存在 9B 式盲审隔离问题）。**收敛判据 = 某轮 Plan Verdict 为「可批准」**（与输出契约双向绑定：Blocking None ⇔ 可批准），**未收敛不得进入等待批准——唯一例外 = 达轮次上限后的人类知情批准（见下）**。**轮次上限与 9A/9B 同款：3 轮仍未收敛 → 停止再审、进入 Awaiting Human Adjudication**，交人类在四条**互斥**出路中裁决：「知情批准带未采纳项的计划 / 批准延长复审（逐次批准一轮，延长轮跑完回到本判定）/ 重拆任务 / 回退」——**选知情批准才进入批准门；选延长则继续复审循环；选重拆或回退则执行对应出口，不进入批准门**。**9P 的 blocking 不进 Fix-Loop Counter、不触发硬停、不标 `[Product]`/`[Verification]`、不填 `caused_by_last_fix`，其轮次也不计入 9A/9B 双审的轮次上限**（那套分类与计数只服务实现后的 9A/9B 轮）；据 9P 反馈修订计划属正常规划迭代，不是 review-fix。
 * **审查对象 = 工作树中的规划文件**（此时批准 commit 尚不存在）：TASK_BRIEF.md、IMPLEMENTATION_PLAN.md（+ PRODUCT_BRIEF.md / QUALITY_GATES.md 如有）+ 只读检索仓库现状。**没有实现 diff、没有 `last_test_run.txt`、没有 SHA 账本——不适用 §9.0 ⑤ 审前快照自检与七行证据首行**；锚定只记三行哈希（见 prompt）。证据载体整句 = 4.1 ★ Reviewer-Lightweight Protocol 第二层的「Critical 计划审（9P）」条（与下方 prompt 内嵌句逐字一致）。
-* **调用与零写入**：与 §9.0 ③ 同一调用模板，一对 `-o` verdict + raw log 落仓外 holding（如 `$HOLD/9P.md` + `$HOLD/9P_raw.log`）；零写入无例外。
+* **调用与零写入**：调用形态同 §9.0 ③（显式 sandbox / model / 效力档、`</dev/null` 必带、不接管道），**但推理档取 `medium` 而非 9A/9B 的 `high`**（取值定义见 §9.0 ③）；一对 `-o` verdict + raw log 落仓外 holding；零写入无例外。可执行命令（`<n>` = 本轮轮次，**逐轮换名**——9P 是多轮复审，沿用同一文件名会覆盖上一轮的 verdict 与 raw log）：
+
+```
+HOLD="$HOME/.codex-review-holding/<task>"; mkdir -p "$HOLD"
+codex exec --sandbox workspace-write --ephemeral --ignore-user-config --ignore-rules \
+  -c 'windows.sandbox="elevated"' -m <model> -c 'model_reasoning_effort="medium"' \
+  -o "$HOLD/9P_r<n>.md" "<9P prompt>" </dev/null > "$HOLD/9P_r<n>_raw.log" 2>&1
+```
+
+  > **降档来历（2026-08-30 人类裁决）**：9P 审规划文件而非代码 diff，三类审查里对深度代码推理的需求最低，实现级精度本就该由实现期的 9A/9B 承担。当日实测（5 个项目最新已结束会话，99 次 Codex 运行、17.1h）：9P 单轮 p50 = 514s、28 次累计 3.8h，且轮次最不收敛（某项目 9P 跑满 6 轮仍「修订后可批准」，另一项目逐轮 blocking 数 `6 / 5 / 3 / 4` 不单调收窄）。**9A/9B 维持 `high` 不动**——它们审真实 diff，是实测中唯一挡下 `[Product Blocking]` 的环节，降档最先丢的正是"读代码 + 构造反例"类发现。可逆：回滚 = 档位改回 `high`。**是否划算看三个观察量**（对比 high 档基线）：9P 单轮时长（基线 p50 514s）、每轮 blocking 条数、Author 表态采纳率（基线 100%）；采纳率明显下降即回滚。
 * **落账（9P 例外于「表态记 Work Log」的通用规则——防止经 HANDOFF 污染后续 9A/9B）**：Author 把**每轮** verdict 依轮次追加进 `docs/ai/review_9P.md`，各轮逐条三选一表态**附在同文件对应轮的 Author Responses 节**（每条一句话），收敛后连同修订后的计划一起交人类。**9P 的 verdict、表态与减免记录只放这一个文件**——HANDOFF 的 `plan_review_9P` 行只记 Plan Verdict 词 + 文件指针，Work Log 只记一行「9P 已跑/已减免 + 指针」，**都不复述发现内容、修改内容或理由**。**人类批准 commit 应包含 `docs/ai/review_9P.md`**——批准凭证自带独立审查证据。该文件命中 §9.0 ③ 的 `review_9*` 污染模式：随批准 commit 入库后属"已提交进历史的审查产物"，后续 9A/9B **不读**（对 9B 尤其如此——读它等于间接读计划）。
 * **与 9A/9B 的防污染边界**：9P 与后续 9A/9B 是各自独立的 fresh 进程；9A/9B 的 prompt **不得包含 9P 的结论或内容**，两者也**不读 `docs/ai/review_9P.md` 正文**（9A/9B prompt 已内嵌对应排除句；正文 diff 已用 `:(exclude)` 机械排除）。**可见的仅限元数据**——未过滤 `--name-only` 输出中该文件的存在、HANDOFF `plan_review_9P` 行的 verdict 词与文件指针；Reviewer 不得把这些当作计划质量或实现正确性的证据。
 
