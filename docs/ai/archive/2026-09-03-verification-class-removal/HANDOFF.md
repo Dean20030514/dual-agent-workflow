@@ -52,7 +52,7 @@
 
 ## 部署
 
-**未执行**。受管面变更 = `claude/CLAUDE.md`、`claude/commands/{debug,final-review,implement,plan}.md`、`claude/rules/common/development-workflow.md`、`claude/workflow/{AGENTS,reviewer-prompt}.md`、`claude/workflow/templates/{HANDOFF,IMPLEMENTATION_PLAN,TASK_BRIEF}.md`（11 文件 → `~/.claude/`）+ `codex/AGENTS.md`（→ `~/.codex/AGENTS.md`）。照惯例精确同步（备份 `*.bak-<时间戳>` → 逐文件字节比对 → 全受管面审计零漂移），非 mirror-replace。桌面便携副本 v3.5 已同步；桌面 v3.4 副本未删（人类决定）。
+**已执行（2026-09-03，人类 push `9c37efe` 之后）**：字节级审计 99 个受管文件，恰 12 个为正向差异（本机 == HEAD~1 版本）、零反向漂移、`settings.json` 一致；备份 `*.bak-20260903-124339` 后逐文件复制、字节比对全部 OK；复审计 99/99 零漂移；本机独有 82 个 `workflow/archive/**` 与 26 个历史 `.bak-*` 未动。桌面便携副本 v3.5 哈希一致，v3.4 副本已按人类指示删除。受管面变更 = `claude/CLAUDE.md`、`claude/commands/{debug,final-review,implement,plan}.md`、`claude/rules/common/development-workflow.md`、`claude/workflow/{AGENTS,reviewer-prompt}.md`、`claude/workflow/templates/{HANDOFF,IMPLEMENTATION_PLAN,TASK_BRIEF}.md`（11 文件 → `~/.claude/`）+ `codex/AGENTS.md`（→ `~/.codex/AGENTS.md`）。照惯例精确同步（备份 `*.bak-<时间戳>` → 逐文件字节比对 → 全受管面审计零漂移），非 mirror-replace。桌面便携副本 v3.5 已同步；桌面 v3.4 副本已删。
 
 ## Remaining Risks / Debt
 
