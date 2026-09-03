@@ -16,7 +16,7 @@ The Feature Implementation Workflow describes the development pipeline: research
 
 1. **Plan First**
    - Routine: state a brief plan/direction inline (in conversation); ask only when a real ambiguity would change the outcome.
-   - Critical: create the full planning docs via `/plan` (TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF, per `~/.claude/workflow/templates/`), run the default 9P plan review (fresh-context rounds, one single-Reviewer run each, iterated until the Plan Verdict passes; see `~/.claude/workflow/reviewer-prompt.md` → 9P), then stop for human approval.
+   - Critical: create the full planning docs via `/plan` (TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF, per `~/.claude/workflow/templates/`), run the default 9P plan review (one fresh-context run; further rounds only on explicit human request; see `~/.claude/workflow/reviewer-prompt.md` → 9P), then stop for human approval.
    - In both modes: identify dependencies and risks; break large work into phases.
 
 2. **Test as You Implement**
@@ -26,7 +26,7 @@ The Feature Implementation Workflow describes the development pipeline: research
 3. **Code Review**
    - Self-review the diff against [code-review.md](code-review.md) after writing code.
    - Independent Codex review (9A/9B) runs only in Critical mode — see the workflow master.
-   - Address CRITICAL and HIGH issues; fix MEDIUM issues when possible.
+   - Address CRITICAL and HIGH issues; fix MEDIUM issues when possible (severity levels of the self-review only; independent Reviewer findings follow `reviewer-prompt.md`: Product Blocking / Verification Needed / Suggestion, each answered per item).
 
 4. **Commit**
    - Actor: Routine — the human commits/merges after reviewing the diff; Critical — the agent creates only the stage commits the approved workflow explicitly requires.

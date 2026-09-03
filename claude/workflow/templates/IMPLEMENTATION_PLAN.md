@@ -11,8 +11,8 @@
 ## Architectural Layers & Split Assessment
 本任务触及的架构层（DB / core / API / CLI / GUI / 真实软件兼容）。**≥3 层 → 必做拆分评估 + 人类批准**：能否拆成有独立验收性质/独立测试/独立回退边界的切片？能拆则列切片；不宜拆则记理由请人类批准整体推进（非机械拒绝）。<3 层写 "N/A"。
 
-## Frozen Acceptance（改实现前冻结；禁从当前实现反推）
-要成立的性质 / 适用范围 / 明确例外 / 正反案例 / 边界 / 必经真实路径。来源：TASK_BRIEF·接口契约·批准计划·人工确认。这是 acceptance test 的预期来源，也是 review-sensitive 路径之一（改它使审查失效）。
+## Frozen Acceptance（指针）
+冻结验收的**唯一落点是 `TASK_BRIEF.md` → Acceptance Criteria**（review-sensitive；Author 自行改动使审查失效，人类裁决的 Amendment 例外见 AGENTS.md → 最后一轮独立审查门 ③）。本节只写指针与实现期需要注意的边界，不复述条款——本文件不在 review-sensitive 清单内，计划散文的修订不使审查失效。
 
 ## Current Architecture Understanding
 当前项目结构与相关逻辑。

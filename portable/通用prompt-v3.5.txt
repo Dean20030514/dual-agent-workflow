@@ -1,4 +1,4 @@
-# AI 协作开发全流程通用 Prompt (v3.4 · 单文件版)
+# AI 协作开发全流程通用 Prompt (v3.5 · 单文件版)
 
 ## 节级索引 · 按节读取协议（勿整读）
 
@@ -92,7 +92,7 @@
 | 8 | 只做与任务相关的事 | 任务范围内的最小充分修改，不夹带 | 18 维适用性门控，不相关标 N/A + 原因 |
 | 9 | 内部自律：反合理化三处（第三 / 八 / 十节） | 恒适用 | 叠加外部制衡：双 Agent + 人类门 + 产物化 |
 | 10 | 收敛不是唯一出口：可以停、可以带如实登记的限制交付、可以重拆 | 见 ★ 停止事件优先级 ② | Fix-Loop streak / 轮次上限 / 三者优先级（4.1） |
-| 11 | 守护声称必须有**能区分机制有无**的实际负向对照；**声称不得超出已覆盖范围** | 在对话里把 4.1 ★ 模式分流 的**同一套六步协议**跑完并逐步展示，**判据一条不减**；输入域由人类当场确认；做不到就**当场收窄或撤回声称**并报告风险，**不为此创建 Critical 产物** | 结构化装置产物（八字段）+ `tested_sha` + PLAN 冻结输入域 + Reviewer 落账（4.1 ★ 守护有效性装置） |
+| 11 | 守护声称必须有**能区分机制有无**的实际负向对照；**声称不得超出已覆盖范围** | 在对话里把 4.1 ★ 模式分流 的**同一套六步协议**跑完并逐步展示，**判据一条不减**；输入域由人类当场确认；做不到就**当场收窄或撤回声称**并报告风险，**不为此创建 Critical 产物** | 结构化装置产物（八字段）+ `tested_sha` + TASK_BRIEF 验收条款冻结输入域 + Reviewer 落账（4.1 ★ 守护有效性装置） |
 
 > 第 9 条的"缺一不可"指**内部自律与外部制衡在 Critical 下互补**；Routine 只保留内部自律那一半，**不因此要求 Reviewer 或产物化文件**（设计原理见附录二）。
 
@@ -225,8 +225,8 @@
 3. 任何 Agent 继续工作前先验证真实状态、而非信上一段文字——**Critical**：读 `last_test_run.txt`；**Routine**：读对话里展示的真实命令输出与退出码。
 4. 命令不存在不要编造，说明找到了什么替代命令。
 5. 测试实际运行只由 Author 在正常终端完成，**Reviewer 一律不自跑**（两模式恒适用）。据以推理的证据按模式取：
-   * **Critical**：读 `last_test_run.txt` + git diff；不足以下结论则在 Verification Needed 列具体命令，由 Author 代跑并把真实输出**追加到 `last_test_run.txt`** 后 re-review。
-   * **Critical 计划审（9P）**：此时尚无实现与测试产物——读工作树规划文件 + 只读检索仓库现状（§9.2）；Verification Needed 由 Author 代跑，结果用于修订计划，**无 `last_test_run.txt` 可追加**。
+   * **Critical**：读 `last_test_run.txt` + git diff；不足以下结论则在 Verification Needed 列具体命令，由 Author 代跑并把真实输出**追加到 `last_test_run.txt`**，供人类合并前查看，或逐条以技术理由「不采纳」——**VN 本身与纯代跑不触发再审**（处置产生了 ★ 最后一轮独立审查门 ③ 例外之外的 review-sensitive delta 时仍按该门再审，见 4.1 ★ Reviewer-Lightweight Protocol）。
+   * **Critical 计划审（9P）**：此时尚无实现与测试产物——读工作树规划文件 + 只读检索仓库现状（§9.2）；Verification Needed 由 Author 代跑，结果用于修订计划（命令 + 退出码 + 一句话结论记进 `docs/ai/review_9P.md` 该轮 Author Responses 节），**无 `last_test_run.txt` 可追加**。
    * **Routine + 临时 Reviewer**：读人类指定的文件 / diff + 对话内展示的真实输出；不足以下结论则在 Verification Needed 列具体命令，由 Author 代跑并把**完整输出与退出码贴回对话**——**不得创建或追加 `last_test_run.txt`**。
 
 > 「验证」的三种类别（acceptance / regression / diagnostic probe）与「回归用例有效」的证据契约，★ 唯一定义处在 4.1，本节不复述。
@@ -316,7 +316,7 @@
 * **规划时**：按此切片。切不到 4000 行以内 → 写明理由并请人类批准整体推进（**Critical** 写进计划；**Routine** 在对话里说明）——同「架构层拆分评估」的处理方式，**不按行数机械拒绝**。
 * **实现中**：发现将要超出 → **停下报告人类**，由人类决定拆分、缩范围或批准超限；不得默默做完再交一个超大 diff。
 * **超限时优先砍哪一边**：先看 `docs/ai/` 证据面占比。若证据面接近或超过生产面，说明这个任务的产物仪式已重于交付本身——**先减叙述性仪式，再减需求**。可减的只有**重复的、非强制的叙述性产物**（同一事实在多处复述、逐轮流水账、可由产物现算的手写数字）。**不得削减**：测试输出与退出码、验收 oracle 与其负向对照、SHA 绑定、安全/隐私相关证据、`[DEBT]` 明账——这些是证据本身，减它们等于用造假换预算。减不动就按上一条请人类批准超限。
-> 来历（实测）：三个真实项目当轮 diff 为 4556 / 5738 / 2820 行，**全部以 `stopped, NOT converged` 或硬停收场**；其中 `docs/ai` 证据面占 74% / 42% / 41%，后段 blocking 几乎全是 `[Verification]`，**多轮零 `[Product]`**。
+> 来历（实测）：三个真实项目当轮 diff 为 4556 / 5738 / 2820 行，**全部以 `stopped, NOT converged` 或硬停收场**；其中 `docs/ai` 证据面占 74% / 42% / 41%，后段 blocking 几乎全是 `[Verification]`（证据是否证明得了声称；该类现已删除，证据缺口走 Verification Needed），**多轮零 `[Product]`**。
 
 ### ★ Reviewer-Lightweight Protocol（唯一定义处；**Reviewer 实际运行时适用**，任何模式；**分两层，别混用**）
 > 背景（Codex 配额事故）：Codex 沙箱读不了 node_modules(EPERM)；若允许它"自己验证"会用 git archive 重建整仓 + 重装依赖 + 每轮最高档重跑全量测试，一天耗尽配额。
@@ -327,7 +327,7 @@
 
 * **不重建副本 / 不重装依赖 / 不重跑全量测试。**
 * **对仓库零写入**：不改任何文件（含 HANDOFF）、不创建任何 commit；verdict 与 raw log 一律落**仓库工作树之外**的 holding。
-* 证据不足以下结论的，写进输出的 **Verification Needed**，由 Author 在正常终端代跑，**Reviewer 自己不跑**。
+* 证据不足以下结论的，写进输出的 **Verification Needed**，由 Author 在正常终端代跑或以技术理由「不采纳」，**Reviewer 自己不跑**。
 * scratch 清理归属：**Reviewer 不删除仓库工作树内的任何文件**；仓内遗留的 `review-*` / `.codex-review-*` scratch 由 **Author 在人类确认后清理**；Reviewer 只清理自己仓外 holding 里的临时产物。
 
 **第二层 · 证据载体（按模式取）**
@@ -345,8 +345,8 @@ Routine + 临时 Reviewer：
 不要 git archive 重建副本、不要重装依赖、不要重跑全量测试——以人类指定的文件 / diff + 对话内展示的真实命令输出与退出码为准；需要验证的具体行为列出来，由 Author 在正常终端代跑。
 ```
 
-* **Critical**：结论只基于 交接文件 + git diff + `last_test_run.txt`。对 `last_test_run.txt`「批判性地读」：命令是否真实存在、输出是否完整、结论是否与输出一致——不自己重跑复核。Verification Needed 由 Author 代跑、把真实输出**追加进 `last_test_run.txt`**、再 re-review。审前快照自检与 SHA 绑定适用（见 §9.0 双审隔离协议）。
-* **Critical 计划审（9P）**：结论只基于 工作树中的规划文件（TASK_BRIEF / IMPLEMENTATION_PLAN，+ PRODUCT_BRIEF / QUALITY_GATES 如有）+ 只读检索仓库现状。**没有实现 diff、没有 `last_test_run.txt`、没有批准 commit 与 SHA 账本——不得因缺失拒审、不得要求补造**；不执行审前快照自检（锚定只记 `observed_head_sha` + 两个规划文件的 blob sha 三行，定义见 §9.2）。Verification Needed 由 Author 代跑，结果用于修订计划（此时无 `last_test_run.txt` 可追加）。
+* **Critical**：结论只基于 交接文件 + git diff + `last_test_run.txt`。对 `last_test_run.txt`「批判性地读」：命令是否真实存在、输出是否完整、结论是否与输出一致——不自己重跑复核。Verification Needed 由 Author 代跑、把真实输出**追加进 `last_test_run.txt`**，供人类合并前查看，或逐条以技术理由「不采纳」；**VN 本身与纯代跑不触发再审**——处置产生了 ★ 最后一轮独立审查门 ③ 例外之外的 review-sensitive delta 时仍按该门再审。审前快照自检与 SHA 绑定适用（见 §9.0 双审隔离协议）。
+* **Critical 计划审（9P）**：结论只基于 工作树中的规划文件（TASK_BRIEF / IMPLEMENTATION_PLAN，+ PRODUCT_BRIEF / QUALITY_GATES 如有）+ 只读检索仓库现状。**没有实现 diff、没有 `last_test_run.txt`、没有批准 commit 与 SHA 账本——不得因缺失拒审、不得要求补造**；不执行审前快照自检（锚定只记 `observed_head_sha` + 两个规划文件的 blob sha 三行，定义见 §9.2）。Verification Needed 由 Author 代跑，结果用于修订计划（此时无 `last_test_run.txt` 可追加）；命令 + 退出码 + 一句话结论记进 `docs/ai/review_9P.md` 该轮 Author Responses 节。
 * **Routine + 临时 Reviewer**：结论基于人类指定的文件 / diff + 对话内展示的真实命令输出与退出码。**没有交接文件，也没有 `last_test_run.txt`——不得为此临时创建，也不得因其缺失而拒审**；**不执行审前快照自检、不做 SHA 绑定**（Routine 无此账本）。证据不够就在 verdict 里直说"证据不足 + 缺哪一项"，**不要求 Author 补造 Critical 产物**。Verification Needed 由 Author 代跑后把完整输出与退出码**贴回对话**。
   > 这一层不拆开会出真问题：把 Critical 的输入清单原样套到 Routine，Reviewer 会去找根本不存在的交接文件，要么拒审、要么反过来逼 Author 临时造一份假交接——两条都违反模式路由。
 
@@ -357,7 +357,7 @@ Any compromise made just to "get it working / save time" (simplification, hardco
 
     [DEBT] <one-line description> | Payback trigger: <which file/module, when next touched, must repay first> | Impact: <what happens if unpaid>
 
-Banned vague phrasings hiding a compromise as untracked debt (presence = unregistered debt, review sends back):
+Banned vague phrasings hiding a compromise as untracked debt (presence = unregistered debt; the Reviewer lists the phrase and the compromise it hides under Non-Blocking Suggestions, and the Author registers or removes it before merge — not a blocking item):
 `later / temporary / for now / should be fine / probably ok / 暂时 / 先这样 / 回头再说 / a TODO or known-issue without a payback trigger`.
 （Plain code TODO comments still go to plan/TODO docs, not this debt log; but a code TODO that actually hides a compromise must ALSO be registered here.）
 
@@ -375,7 +375,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 ### AI Collaboration Rules（仅 Critical 模式）
 * Author 规划、实现、修测试、更新 HANDOFF.md。
 * 实现审（9A/9B）中 Reviewer 独立审 git diff。**它从不实现任何东西**——包括它自己发现的 blocking，一切修复都由 Author 进行（9A/9B 在双审窗口关闭后；9P 无窗口，Author 收 verdict 后直接修订计划）。
-* **计划批准前的 9P 计划审**（正式路径默认必跑；人类可明示减免；快速版 N/A）同属 Reviewer 职责：每轮单跑、零写入、只审工作树规划文件、**逐轮复审至收敛**（判据与轮次上限见 §9.2），发生在实现与双审窗口之前；其 blocking 不进 Fix-Loop Counter。定义与 prompt 见 §9.2。
+* **计划批准前的 9P 计划审**（正式路径默认必跑；人类可明示减免；快速版 N/A）同属 Reviewer 职责：单跑一轮、零写入、只审工作树规划文件；Author 逐条表态并修订计划后交人类知情批准，**再审仅凭人类明示要求**（见 §9.2），发生在实现与双审窗口之前；其 blocking 不进 Fix-Loop Counter。定义与 prompt 见 §9.2。
 * 任何实现审工作开始前先读 HANDOFF.md 与 last_test_run.txt（9P 改读工作树规划文件——彼时 last_test_run.txt 尚不存在）。
 * 实现或修复后，Author 更新 HANDOFF.md 并重跑测试、输出管到 last_test_run.txt。
 * **Reviewer 对仓库零写入——连 HANDOFF.md 都不写，也从不 commit。** 它的 verdict 写到 Author 用 `codex exec -o` 指定的**仓外 holding 文件**。它从不跑测试——把要验的写进 "Verification Needed" 交 Author。
@@ -393,11 +393,11 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 > 实证依据：某项目 4 个空守护测试（删掉被守护代码测试仍绿）致全绿闸门失效、整轮回退；另一项目 turbo 缓存回放假通过（`TURBO_FORCE=true` 才暴露）。
 
 * **★ 模式分流（先读这条，再读下面全部条款）**：本节的**判据**——负向对照必须有区分力、下述四条失败判据、声称不得超出已覆盖范围——**两模式恒适用**；本节的**证据形式**按模式取：
-  * **Critical**：下述全部条款按字面执行（常驻装置、八字段结构化产物、`tested_sha`、PLAN 的 Frozen Acceptance 冻结输入域、Reviewer 复核、HANDOFF 落账与 `[DEBT]`）。
+  * **Critical**：下述全部条款按字面执行（常驻装置、八字段结构化产物、`tested_sha`、`TASK_BRIEF.md` → Acceptance Criteria 的 Frozen Acceptance 冻结输入域、Reviewer 复核、HANDOFF 落账与 `[DEBT]`）。
   * **Routine**：**没有 HANDOFF / PLAN / `tested_sha` / Reviewer 落账，也不得为此创建**（见 ★ 规范矩阵）。**判据一条不减**——等价形式是**把同一套协议在对话里跑完并逐步展示**：① 基线绿（命令 + 完整输出 + 退出码）→ ② 撤销/变异目标生产行为（说明改了哪些文件的什么）→ ③ 目标测试**因预期断言**而红（完整输出 + 退出码，**禁 grep 判红**）→ ④ 还原并确认内容与基线一致 → ⑤ 复跑变绿（完整输出 + 退出码）→ ⑥ 说明执行真实性（缓存旁路方式，或"无缓存层"）。输入域与等价类由**人类当场确认**。**少任何一步 = 未证明**，此时必须当场收窄声称范围或撤回声称并报告风险。**省掉的只有产物形式（八字段文件 / `tested_sha` / HANDOFF 落账），不是判据。**
 * **义务（Critical 形式）**：需要声称「回归用例有效（红→绿）」的项目必须提供**技术栈适配的守护有效性命令/脚本**（常驻脚手架；命令名项目自定，记录在项目文档与 HANDOFF）。**该声称的唯一可接受证据 = 装置产出的结构化产物**——不接受自然语言自述（含"删码变红"口头叙述）。
 * **协议**：基线绿 → 撤销或变异目标生产行为 → 目标测试红 → 还原（内容哈希验证）→ 复绿；全程由装置执行并记录。
-* **产物必填字段（八项）**：① 目标测试（文件 + 用例名）；② 被撤销/变异的生产行为（逐文件）；③ 基线绿退出码；④ 负向运行退出码；⑤ 预期失败断言/原因；⑥ 恢复后绿退出码 + 还原哈希验证结果；⑦ `tested_sha`（产物绑定被测 commit——tested_sha 失效连带产物失效）；⑧ 执行真实性证据（证明测试确实执行而非缓存回放：缓存旁路方式或"无缓存层"说明，**按构建系统提供**——Turborepo 用 `TURBO_FORCE=true` 只是实例，直跑 runner 的记"无缓存层"）。
+* **产物必填字段（八项）**：① 目标测试（文件 + 用例名）；② 被撤销/变异的生产行为（逐文件）；③ 基线绿退出码；④ 负向运行退出码；⑤ 预期失败断言/原因；⑥ 恢复后绿退出码 + 还原哈希验证结果；⑦ 生成时 commit（产物绑定被测**内容**：`git diff --quiet <该 commit> <tested_sha> -- <字段①的测试文件> <字段②的生产文件>` 退出 0 即产物仍有效，不要求 sha 相等；`tested_sha` 回炉时按同法重判）；⑧ 执行真实性证据（证明测试确实执行而非缓存回放：缓存旁路方式或"无缓存层"说明，**按构建系统提供**——Turborepo 用 `TURBO_FORCE=true` 只是实例，直跑 runner 的记"无缓存层"）。
 * **失败判据**（任一不满足 → 产物不构成守护证据）：
   1. 负向运行必须**因目标测试的预期断言**而红——编译/加载失败、环境失败、目标测试未执行、仅无关测试失败均不算；
   2. 红/绿判定以**真实退出码**为准，**禁止 grep 关键词判红**；解析 runner 输出仅用于确认"哪个测试、因何断言失败"；
@@ -406,59 +406,58 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 * **无装置项目**：不得把该能力写成已启用；装置落地前「回归用例有效」= 未证明——**Critical**：列 Reviewer Verification Needed 并记 `[DEBT]`（Payback trigger：下次需要守护证据时先落地装置）；**Routine**：在对话里说明未证明，并按 ★ No-Hidden-Debt 的 Routine 分支当场向人类提出（无 HANDOFF 可记）。两模式都可在当前任务顺带落地装置。
 * **边界**：装置及其变异 spec 是**常驻项目脚手架**，不属 diagnostic probe；运行期变异必须还原并产物化。Reviewer 不运行装置，只核产物完整性与字段自洽。
 * **负向对照：适用范围扩展到一切守护声称**——不限于测试守护。任何「机制 X 会拒绝 Y」的声称（构建/编译配置、lint 规则、类型检查、CI 门禁、扫描器等）都必须提供**负向对照**：样本须「**若移除 X 则会通过**」，以证明拒绝确由 X 造成——**用「本来就会失败」的样本验证守护 = 无效验证，等同空守护测试**。
-  * **覆盖范围决定样本数，不是"至少一个"**：对照必须**覆盖声称主张的全部等价类**（如声称"拒绝一切内置模块导入"，则静态 import / 动态 import / 模板串 / 变量串 / 类型标注串等每一类都要有样本）。**一个合格样本只证明该等价类。** 覆盖不到的类，声称必须当场收窄到覆盖得到的范围。
-  * **等价类的封闭方式（防止"永远还有一类"的新回归）**：等价类必须**枚举自一个人类批准并冻结的输入域**（语言语法子集 / 接口取值域 / 威胁模型条目），该枚举**Critical** 写进 `IMPLEMENTATION_PLAN.md` 的 Frozen Acceptance、**Routine** 由人类在对话里确认并复述一遍，冻结后即为本任务的完整集。**Reviewer 主张"还有一类未覆盖"时，必须给出该域内的具体反例**（能实际触发漏过的输入）——给得出即为有效 `[Verification Blocking]`；**给不出则记 Non-Blocking Suggestion，不阻止收敛**。域本身需要扩大 = 验收变更，走人类批准，不在本轮 fix-loop 内解决。
+  * **覆盖范围决定样本数，不是"至少一个"**：对照必须**覆盖声称主张的全部等价类**（如声称"拒绝一切内置模块导入"，则静态 import / 动态 import / 模板串 / 变量串 / 类型标注串等每一类都要有样本）。**一个合格样本只证明该等价类。** 覆盖不到的类，声称必须当场收窄到覆盖得到的范围。Reviewer 认为覆盖不足时写进 Verification Needed 或 Non-Blocking Suggestion（域内反例规则见下），**不构成 blocking**。
+  * **等价类的封闭方式（防止"永远还有一类"的新回归）**：等价类必须**枚举自一个人类批准并冻结的输入域**（语言语法子集 / 接口取值域 / 威胁模型条目），该枚举**Critical** 写进 `TASK_BRIEF.md` → Acceptance Criteria（Frozen Acceptance 的唯一落点，review-sensitive）、**Routine** 由人类在对话里确认并复述一遍，冻结后即为本任务的完整集。**Reviewer 主张"还有一类未覆盖"时，必须给出该域内的具体反例**（能实际触发漏过的输入）——给得出即写进 Verification Needed 由 Author 代跑；**给不出则记 Non-Blocking Suggestion，不阻止收敛**。域本身需要扩大 = 验收变更，走人类批准，不在本轮 fix-loop 内解决。
   * 还须核对**失败原因**：拒绝必须由目标机制以预期诊断产生，而非编译错误、解析失败、依赖缺失等无关原因。
   > 实证：某项目声称 `tsconfig` 的 `"types": []` 能拒绝 Node 内置模块导入，并写进验收、测试产物与配置注释三处。实测七个探针中**五个本该被拒的全部通过**（含最朴素的 `import 'node:fs'`）。根因：此前所有"验证通过"的样本要么是**环境全局**（移除该配置也照样被拒），要么是**未安装的包**（拒绝原因是解析不到）。**每个通过的样本，就算机制完全不存在也会照样通过。**
 
 ### ★ 验收条款必须可复现判定（唯一定义处；**两模式恒适用**）
 **每条验收条款（AC）的「判定方式」必须同时满足两条：① 可复现——换个人、换一轮，按同一步骤得到同一结论；② 有区分力——存在一个「若该性质不成立则判定会失败」的对照。** 命令 + 退出码是首选形态，但**命令形态本身不等于合格**：一个永远返回 0 的脚本、一个只检查字段存在的扫描，都满足形态而没有区分力。
 * **能自动化的一律自动化**；不能可靠自动化的**产品 / 安全 / 合规**性质**仍可作 AC 并阻止合并**，但必须写成**明确的人类判定步骤**：判定人、固定的判定输入（具体文件/界面/数据的确定指向）、逐条判据、以及"什么情况判不通过"的反例。
-* **反例必须实际触发失败，不接受纸面反例**：AC 落地时须留下产物，证明**把该反例喂给这套判定方法时，判定确实判不通过**（自动化的记退出码，人工的记判定人 + 判定结论 + 时间）。只写出反例而从未让它跑一次 = 无区分力。**判定人之间有分歧 → 交人类裁决，不得由 Author 择一采信。**
+* **反例必须实际触发失败，不接受纸面反例**（**适用于守护类 AC（「机制 X 拒绝 Y」）与人类判定 AC**；命令 + 退出码形态的 AC 以套件自身的失败用例为对照，不另留反例产物）：AC 落地时须留下产物，证明**把该反例喂给这套判定方法时，判定确实判不通过**（自动化的记退出码，人工的记判定人 + 判定结论 + 时间）。只写出反例而从未让它跑一次 = 无区分力。**判定人之间有分歧 → 交人类裁决，不得由 Author 择一采信。**
 * **不合格的是"无判据的散文对读"**：判定方式写成「Reviewer 逐条核对 / 对照两表核 / 核清单完整性」而不给判据与反例的，**不是验收条款**——降级为 Non-Blocking Suggestion 或移交清单条目，**不得阻止收敛**。这类性质通常可改写成有区分力的形式（清单条目数 == 源表条目数、某扫描命令零命中、某路径必被真实生产入口覆盖）。
-* **声称不得超出判定实际覆盖的范围**——**Critical / 有 Reviewer 运行时**：超出即 `[Verification Blocking]`；**Routine 无 Reviewer 时**：由人类判定，Author 须当场把声称收窄到已覆盖范围或撤回并报告风险（没有 Reviewer 可签发该分类，**不得因此静默拉一个进来**）。
+* **声称不得超出判定实际覆盖的范围**——Reviewer 指出后（纯措辞的归 Non-Blocking Suggestion；所称路径实际未运行的归 Verification Needed，判法见 ★ Reviewer verdict 分类语义），Author 落账时把声称收窄到已覆盖范围（声称在 HANDOFF / last_test_run 的直接改；写在 TASK_BRIEF 验收条款里的只能经人类裁决 Amendment 修订，见 ★ 最后一轮独立审查门 ③）或撤回并报告风险；Routine 由人类指出（**不得因此静默拉一个 Reviewer 进来**）。**不构成 blocking。**
 > 来历（实测）：某任务退出码类 AC 四轮零缺陷；"Reviewer 对照…逐条核"、判定对象是散文清单完整性的 AC 逐轮产出新 blocking，第 4 轮又挑出 7 条遗漏。**散文完整性永远可以再被挑出一条——拿它当 blocking 依据，等于在构造上把收敛做成不可能。**
 
 ### ★ Reviewer verdict 分类语义（唯一定义处；**Reviewer 实际运行时适用**——分类语义与 Debt Verdict 取值两模式通用；**`caused_by_last_fix` 与 streak 计数仅 Critical**）
-顶层输出字段保持不变，语义分类如下：
-* **Blocking Issues** 每条标 `[Product Blocking]`（用户可见正确性 / 用户数据错误 / 安全）或 `[Verification Blocking]`（验证不健全：probe 冒充证据、测试不走真实路径、审后弱化测试或改验收），并由 **Reviewer** 标 `caused_by_last_fix: yes/no`（**仅 Critical**——该字段只服务 Fix-Loop streak；Routine 无此账本，不填）。**只有 Blocking Issues（Product/Verification）默认阻止合并。**（**阻止合并 ≠ 计入硬停**：streak 只由 `[Product Blocking]` 递增；两审零 Product 时 Verification 的收口方式见 ★ 最后一轮独立审查门 → 证据层出口。）
-* **分类优先级（两类重叠时的唯一判据）**：**只要已造成或可能造成用户可见行为、用户数据或安全/隐私影响 → 一律 `[Product Blocking]`**，不论它同时是否符合 Verification 的举例。`[Verification Blocking]` **仅限没有产品影响的证据充分性缺陷**。故「为过测试而弱化认证/绕过 validation」属 **Product**（它改变了真实的安全行为），而「认证测试没走真实路径、但认证本身正确」属 Verification。**分类不得被用来规避硬停**——归类存疑时按 Product 记，交人类裁决。
-* **`[Verification Blocking]` 的成立门槛（斩断无反例的散文阻塞）**：每条 Verification Blocking 须**点名具体证据缺口**——哪一条声称 / 由哪份产物或哪个测试支撑 / 缺的是什么——**并给出一个可证伪的检查**：写进 `Verification Needed` 的可执行命令，或一个「若该性质不成立则该检查会失败」的对照样本。**Reviewer 不实跑，故不要求其给出实际运行结果**；缺口与可证伪检查**两者都写不出**的（"覆盖不够全面""建议补充说明 X"），一律降级 Non-Blocking Suggestion，**不得阻止收敛**。本门槛**只约束证据缺口类的成立形式，不改变上条的分类优先级**——有产品 / 安全影响的一律仍按 `[Product Blocking]` 记。
-* **Debt Verdict** 取值 **`Clean / Noted / Deferred`**（**无 "Blocking" 值**）：Clean=无债；Noted=**未触发** Payback-on-Touch 的普通存量债（不阻止合并，**不得与用户数据错误等价**）；Deferred=触发 Payback-on-Touch 但**已获人类批准延期**（不阻止；**Critical** 凭批准的 plan，**Routine** 凭对话内人类明确批准，见 ★ Payback-on-Touch）。**触发 Payback-on-Touch 但未偿还、又无批准延期 → 移入 Blocking Issues 标 `[Verification Blocking]`**。
-* **Review Verdict 语义**：Blocking Issues 非空 → **必须"不通过"**；"有条件通过"**不得**与任何 Product/Verification Blocking 并存；Process Debt、Suggestion 本身不影响"通过"。
-* **不得把 Author 的自我总结 / "已修复" 叙述当作证据。**
+顶层输出字段保持不变，语义如下（**原 `[Verification]` 类 blocking 已删除**——来历：7 个真实任务 335 条 blocking 中 177 条为该类、用户可感知者仅 46 条，八份连续「不通过」verdict 都自述产品无缺陷；证据缺口改走 Verification Needed）：
+* **Blocking Issues 只收 `[Product Blocking]`**：每条须写出**具体后果**——哪个用户操作 / 哪条数据 / 哪个安全边界会出错（已造成或可达皆可）；「不能排除」「可能有影响」不是后果，写不出具体后果的一律进 Verification Needed。含：为过测试而真实弱化 validation·auth·错误处理；diff 中删除、跳过或弱化（改后原缺陷不再被检出）了覆盖本任务所改行为的测试，且 commit message / HANDOFF Work Log / 测试内注释三处均无说明，或说明的理由经 Reviewer 核实不成立（Reviewer 须写出该测试仍能检出的具体缺陷或可达路径；写不出的记 Non-Blocking Suggestion）；某条验收点**有具体反例**表明未满足（`last_test_run.txt` 中的失败输出 / Reviewer 从 diff 读出的「具体输入 → 错误输出」路径 / Author 代跑 Verification Needed 后暴露的失败）——**缺证据 ≠ 未满足**，缺证据走 Verification Needed。归类存疑（后果写得出、可达性不确定）按 Product 记交人类裁决；后果写不出的不算存疑。每条由 **Reviewer** 标 `caused_by_last_fix: yes/no/dispute`（**仅 Critical**——该字段只服务 Fix-Loop streak；Routine 无此账本，不填）。**只有 Blocking Issues 阻止合并。**
+* **证据缺口不是 blocking**：probe 冒充证据、测试不走真实路径但被测行为本身正确、守护产物字段不全、负向对照覆盖不足、**实际运行未覆盖所称路径**（声称宽于运行证据、且该路径承载产品/AC 结论）——写进 **Verification Needed**：点名哪条声称 / 由哪份产物支撑 / 缺什么，并给**一个能证伪该声称的最小检查**（单个测试 / 单个样本 / 单条 grep；不得列全量套件、整批装置重跑、或 `last_test_run.txt` 中同一 tip 已有输出的命令）。由 Author 代跑并把真实输出与退出码追加进 `last_test_run.txt`，或逐条以技术理由「不采纳」（同 §9.1 ★ 修法必附 的三选一）；两者都由人类在合并前逐条看到（第十节 Manual Check Before Commit）。**VN 本身与纯代跑不触发新一轮审查**；处置若产生了 ★ 最后一轮独立审查门 ③ 例外之外的 review-sensitive delta（改生产代码、删/改既有测试或测试基础设施、构建配置等），仍按该门再审。
+* **账本与措辞不一致**（HANDOFF 字段、手写计数、当前阶段文本、SHA 字段写法、以及**不涉及未核验产品/AC 行为的纯措辞过度声称**）写进 **Non-Blocking Suggestions** 并附 Proposed Fix；Author 落账时改正或收窄声称，一句话表态即可。一条发现兼具「所称路径未实际运行」与「措辞过度」时，拆成一条 Verification Needed + 一条 Suggestion。
+* **Review Verdict 语义**：`不通过` ⇔ Blocking Issues 非空；`有条件通过` = Blocking Issues 为 None 且 Verification Needed 非空；`通过` = 两者皆空。Process Debt、Suggestion 不影响通过。**Reviewer 不得以证据充分性为由判不通过。**
+* **Debt Verdict** 取值 **`Clean / Noted / Deferred / Unpaid`**：**Clean**=无债；**Noted**=**未触发** Payback-on-Touch 的普通存量债（行数债等，不阻止合并，**不得与用户数据错误等价**）；**Deferred**=触发 Payback-on-Touch 但**已获人类批准延期**（不阻止）——**Critical** 凭批准的 plan，**Routine** 凭对话内人类明确批准（见 ★ Payback-on-Touch）；**Unpaid**=触发 Payback-on-Touch 且未偿还、无批准延期——不进 Blocking Issues、不触发再审，但第十节合并门与第十五节第 11 条（零暗债结论）据此不得判「可以提交」，由人类在合并前决定偿还或批准延期。（取值来历：`[Verification]` 类删除后，Payback-on-Touch 的 "must not be committed" 只剩此取值能如实记录——Noted 定义为未触发；成本一个枚举值，不触发再审。）
+* **不得把 Author 的自我总结 / "已修复" 叙述当作证据。但 HANDOFF / TASK_BRIEF 中注明日期、标「人类裁决 / Amendment / 批准」的条目一律按人类决定对待**：Reviewer 不核实其发生过程、不因由 Author 转录而降为自述、不要求其出现在人类 commit 中；人类裁决修订过的验收条款以修订后为准；异议只进 Assumption / Requirement-Level Concerns，不得据此立 blocking。（每条裁决由第十节在 Manual Check Before Commit 逐条列给人类确认。）
+* **分类优先级（历史条款，保留一句）**：为过测试而真实弱化认证 / 绕过 validation 属 **Product**（它改变了真实的安全行为）；「认证测试没走真实路径、但认证本身正确」是证据缺口，走 Verification Needed。
 
 ### ★ review-sensitive paths + SHA 绑定（唯一定义处；**仅 Critical**——Routine 无 SHA 账本，见 ★ 规范矩阵）
-**该清单本身是 review-sensitive**：`review_sensitive_paths` 在双审窗口开启时即**冻结**——审后**不得缩窄**（移除条目、改窄 glob、把文件移出清单皆属缩窄）。清单本身的任何变更**使本轮审查失效**，须重跑；扩大清单同样须重跑（新纳入的路径未经审）。Reviewer 在审前快照自检时**逐字记录该清单原文**进 verdict 证据首行，落账时与 HANDOFF 比对；两者不一致 → 该轮作废。**理由**：出口与失效判定都以此清单为边界，清单可事后修改 = 边界可事后自定，整套绑定失去意义。
+**该清单本身是 review-sensitive**：`review_sensitive_paths` 在双审窗口开启时即**冻结**——审后**不得缩窄**（移除条目、改窄 glob、把文件移出清单皆属缩窄）。清单缩窄**使本轮审查失效**，须重跑。缩窄的判定方式：第十节用 `git show <handoff_snapshot_sha>:docs/ai/HANDOFF.md` 取出审前清单，与当前 HANDOFF 的清单比对；出现移除条目、改窄 glob、移出文件即缩窄。审前清单未覆盖 base..tip 中必含类别的文件 = **覆盖缺口**：Reviewer 在 verdict 首行之后报告并照常审查，Author 落账时补入清单；第十节重跑同一覆盖核验，未补则不得可提交。**理由**：出口与失效判定都以此清单为边界，清单可事后修改 = 边界可事后自定，整套绑定失去意义。
 
-**review_sensitive_paths（审查/测试共用同一份精确 pathspec，每任务在 HANDOFF 显式列出）** 至少含：生产源码、tests、migrations/schema、构建配置 + 依赖声明 + lockfile、`docs/ai/TASK_BRIEF.md`、**整个 `docs/ai/IMPLEMENTATION_PLAN.md`**（含 Frozen Acceptance——用整文件，因无法对"某一节"做 Git pathspec）、`docs/ai/QUALITY_GATES.md`。**排除**：普通说明文档。**审查后弱化测试或修改验收标准 = 清单内容变化 → 使审查失效。**
+**review_sensitive_paths（审查/测试共用同一份精确 pathspec，每任务在 HANDOFF 显式列出）** 至少含：生产源码、tests、migrations/schema、构建配置 + 依赖声明 + lockfile、`docs/ai/TASK_BRIEF.md`（验收条款与 Frozen Acceptance 的唯一落点，见 4.3）。**排除**：`docs/ai/IMPLEMENTATION_PLAN.md`、`docs/ai/QUALITY_GATES.md` 与普通说明文档——计划散文与清单措辞的修订不使审查失效（QUALITY_GATES 的审后改动由第十节列给人类，见 ★ 最后一轮独立审查门 ③）。**审查后弱化测试或修改验收标准 = review-sensitive 内容变化 → 使审查失效。**
 
 **SHA 绑定语义**（HANDOFF 记 `review_base_sha / review_tip_sha / review_verdict_9A / review_verdict_9B / tested_sha / handoff_snapshot_sha` + 该任务 `review_sensitive_paths`；`handoff_snapshot_sha` 由 **Author 在统一落账时记入**——快照 commit 无法自记自身 sha；**9A、9B 必须绑定同一个 `review_tip_sha`**，减档只跑 9A 时 `review_verdict_9B` 记 `N/A — 人类减档 + 原因`）：
 * `review_tip_sha` / `tested_sha` **仅在**满足下列时才算有效快照绑定：① 所有 `review_sensitive_paths` 文件已进入对应 commit；② 这些路径无未提交修改；③ 这些路径无未跟踪文件。**带未提交/未跟踪的 review-sensitive 改动去跑正式测试或提审 = 不算 SHA 绑定。**
-* **HANDOFF 与 last_test_run.txt 不在 `review_sensitive_paths` 内**，按第二节顺序提交在 `review_tip_sha` 之后。故 **tip 里装的是过期 HANDOFF**：任何 Reviewer 都必须**从工作树读**这两个文件，禁止 `git show <review_tip_sha>:docs/ai/HANDOFF.md`。Author 在两份 review prompt 里写明同一个 `handoff_snapshot_sha`（= 双审窗口开启时的 HEAD）。**该凭证必须经 Reviewer 侧核验并落账为证据**（见 §9.0 ⑤）；仅两份 prompt 数值相同**不构成**绑定。
-* **失效判定用内容比对、非 HEAD 相等**（可执行）：`git diff --quiet <review_tip_sha> -- <review_sensitive_paths>` 且 `git diff --quiet <tested_sha> -- <review_sensitive_paths>` 且 `git status --porcelain -- <review_sensitive_paths>` 为空 → 审查/测试仍有效。**不在清单内的纯文档提交改变 HEAD 不使审查失效。**
+* **HANDOFF 与 last_test_run.txt 不在 `review_sensitive_paths` 内**，按第二节顺序提交在 `review_tip_sha` 之后。故 **tip 里装的是过期 HANDOFF**：任何 Reviewer 都必须**从工作树读**这两个文件，禁止 `git show <review_tip_sha>:docs/ai/HANDOFF.md`。Author 在两份 review prompt 里写明同一个 `handoff_snapshot_sha`（= 双审窗口开启时的 HEAD）。**该凭证必须经 Reviewer 侧核验并落账为证据**——两份 verdict 各自记录 `observed_head_sha`（必须 == `handoff_snapshot_sha`）、`worktree_clean`（全树 `git status --porcelain` 为空）、`read_handoff_from`（必须为「工作树」；出现 `git show tip` 即作废）——HEAD 等于快照 commit 且工作树干净，即保证工作树中的 HANDOFF / last_test_run.txt 与快照逐字节一致，无需另记 blob hash（命令与拒审规则见 §9.0 ⑤）；仅两份 prompt 数值相同**不构成**绑定。`review_base_sha` / `review_tip_sha` 由 Author 逐字写进两份 prompt，不写『见 HANDOFF』。
+* **失效判定用内容比对、非 HEAD 相等**（可执行）：`git diff --quiet <review_tip_sha> -- <review_sensitive_paths>` 且 `git diff --quiet <tested_sha> -- <review_sensitive_paths>` 且 `git status --porcelain -- <review_sensitive_paths>` 为空 → 审查/测试仍有效。**不在清单内的纯文档提交改变 HEAD 不使审查失效。** **唯一例外（与 ★ 最后一轮独立审查门 ③ 同义）**：审后 delta 仅为纯新增独立测试用例文件（不删改既有断言、不含测试基础设施）、`docs/ai/` 非验收文档、或人类裁决的验收修订 → 审查仍有效、`review_tip_sha` 不变；新增测试时 `tested_sha` 须回炉到含该 delta 的新 commit。
 
 ### ★ Fix-Loop 计数与跨轮硬停（唯一定义处；**仅 Critical**——Routine 无 Fix-Loop 账本，其停手判据见 ★ 停止事件优先级 ②）
-* **递增（仅 Product 计数）**：某一轮**只要存在至少一个经确认的 `caused_by_last_fix: yes` 的 `[Product Blocking]`**，该轮 streak 计 1。**`[Verification Blocking]` 不计入 streak**——照常如实落账、照常修复，但**不触发硬停**。9A、9B **重复发现同一问题不重复计数**（按问题去重）。**9P 计划审的 blocking 发生在实现之前、不属任何 review-fix 轮，一律不计入 streak，也不计入本节 9A/9B 双审的轮次上限**（9P 自有的收敛判据与轮次上限见 §9.2）。
-  > 理由（实测）：硬停的本意是防「修 A 坏 B」的产品级恶化。三个真实任务后段的 blocking 几乎全是 `[Verification]`，多轮**双审零 `[Product]`**，却被记账瑕疵逼到 streak=6 / 硬停。账本瑕疵与用户数据错误不同级。
+* **递增（仅 Product 计数）**：某一轮**只要存在至少一个经确认的 `caused_by_last_fix: yes` 的 `[Product Blocking]`**，该轮 streak 计 1。Verification Needed 与 Suggestion 不计数。9A、9B **重复发现同一问题不重复计数**（按问题去重）。**9P 计划审的 blocking 发生在实现之前、不属任何 review-fix 轮，一律不计入 streak，也不计入本节 9A/9B 双审的轮次上限**（9P 默认单跑一轮、再审仅凭人类明示，见 §9.2）。
+  > 理由（历史实测；当时尚有 `[Verification]` 类 blocking，现已删、证据缺口走 Verification Needed）：硬停的本意是防「修 A 坏 B」的产品级恶化。三个真实任务后段的 blocking 几乎全是 `[Verification]`，多轮**双审零 `[Product]`**，却被记账瑕疵逼到 streak=6 / 硬停。账本瑕疵与用户数据错误不同级。
 * **判定权与写入**：`caused_by_last_fix` **由 Reviewer 在其 verdict 里判定**；Author 只能把该值**逐字转录**进 HANDOFF（附 review 文件/轮次来源），**不得自行判断或改写**。Reviewer 标 `dispute` → **不自动计数、交人类裁决**。
 * **重置**：某一轮无"修复引入的 `[Product Blocking]`"，streak 归 0。
 * **停止（硬门）**：streak 连续达 **2** → **立即停止编码**，只能：回退 / 重新拆任务 / 请求人类批准架构升级；**禁止"再试一轮"（未获人类确认不得继续）**。
 * **轮次上限（关闭阀）**：同一任务的双审达 **3 轮**仍未收敛 → **停止再审**，交人类在「带如实登记的限制交付 / 重新拆任务 / 回退」三者中裁决。**收敛不是唯一出口**——把"再审一轮"当默认出口，是四个真实任务全部停在 `stopped, NOT converged` 的直接原因（实测轮次 7 / 6 / 5 / 3）。人类可明确批准延长，但须逐次批准。
-* **三者优先级（硬停 / 轮次上限 / 合并门，唯一判据）**：① **硬停优先于轮次上限**——streak 达 2 时只能走硬停的三条出路，不得改走"限制交付"。② **合并门优先于一切出口**——存在**未解决的 `[Product Blocking]`（含任何安全/隐私影响）** 时，「带限制交付」**不含合并**：可以停、可以记账、可以移交，**不得合入 main**。③ 无论走哪条出口，只要没过收敛门，一律记 `stopped, NOT converged`，**不得**标 Ready to Commit / 已收敛。「限制交付」的合法含义仅限：**零未解决 Product Blocking**，剩余 Verification 项已如实登记并经人类确认。
+* **三者优先级（硬停 / 轮次上限 / 合并门，唯一判据）**：① **硬停优先于轮次上限**——streak 达 2 时只能走硬停的三条出路，不得改走"限制交付"。② **合并门优先于一切出口**——存在**未解决的 `[Product Blocking]`（含任何安全/隐私影响）** 时，「带限制交付」**不含合并**：可以停、可以记账、可以移交，**不得合入 main**。③ 无论走哪条出口，只要没过收敛门，一律记 `stopped, NOT converged`，**不得**标 Ready to Commit / 已收敛。「限制交付」的合法含义仅限：**零未解决 Product Blocking**，剩余 Verification Needed 已逐条处置（代跑追加或不采纳，见 ★ 最后一轮独立审查门 ②）。
 
 ### ★ 最后一轮独立审查门（唯一定义处；**仅 Critical**——Routine 无双审与收敛门）
-标记"已收敛 / Ready to Commit"要求：**最后一轮所有 review-sensitive 生产改动都已被独立审查**（当前 review-sensitive 内容 == `review_tip_sha`，且**本轮实际跑过的每一份 verdict 都 = 通过**）。**人类因成本叫停 ≠ 质量通过**：记为 `stopped, NOT converged`，未经审代码**不得**标已收敛/已提交。
-
-**证据层出口（斩断无限回归）**：若某轮**两审均零 `[Product Blocking]`**，则其剩余 `[Verification Blocking]` 的修复**可由人类确认后直接收口**，不再要求为此另跑一整轮独立审查（HANDOFF 记「人类确认收口 + 所修条目」）。
-
-**与收敛门的衔接**：含 `[Verification Blocking]` 的 verdict 按分类语义必然为「不通过」，故收敛门"每份 verdict 皆通过"在本出口生效时的**等价满足条件**为：① 该轮两审**零 `[Product Blocking]`**；② 剩余 Verification 项的修复**全部落在下述文件范围内**；③ 人类逐条确认并在 HANDOFF 落账（条目 + 确认人 + 日期）。三条同时成立才可标「已收敛」。**本条是收敛门的唯一例外，不得类推扩大。**
-
-**出口的文件范围（硬边界，不可解释放宽）**：本出口**只覆盖 `review_sensitive_paths` 之外的纯账目修正**——HANDOFF 措辞与计数、叙述性文档、落账格式等。**凡修改落在 `review_sensitive_paths` 内**（范围只以本文件「★ review-sensitive paths + SHA 绑定」的必含清单为准，此处不复述类别）**一律仍须独立复审**，即使该 blocking 被标为 Verification。**本出口对任何 `[Product Blocking]` 一律不适用。**
-> 反滥用示例（明令禁止的用法）：Reviewer 报「认证测试没走真实路径」→ Author 改测试或认证配置 → 人类确认后不再审即标收敛。**改动落在 tests / 配置内 = review-sensitive，必须复审**；出口给的是"不必为改一句 HANDOFF 措辞再跑一整轮"，不是"人类确认可替代独立审查"。
+标记「已收敛 / Ready to Commit」要求同时成立：
+① 最后一轮实际跑过的每一份 verdict 的 Blocking Issues 中**无未解决的 `[Product Blocking]`**——「已解决」= 已修复并对该修复再审通过，或 Author `不采纳`（附技术理由）且**人类裁决该项不成立**并记入 HANDOFF Work Log（日期 + 一句话）；verdict 词本身不是门（`不通过` 的 verdict 在其全部 Product 条目按上法解决后不再阻止）。减档只跑 9A 时 9B 记 N/A + 减档原因。
+② 该轮全部 Verification Needed 已逐条处置：由 Author 代跑、真实输出与退出码已追加进 `last_test_run.txt`，或以技术理由「不采纳」；每条在第十节的 Manual Check Before Commit 占一行（命令 → 退出码 → Author 一句话判定「产品缺陷 是/否」，或「不采纳 + 理由」）；退出码非 0、装置判 NOT PROVEN 的条目不得省略。处置产生的 review-sensitive delta 是否再审，按 ③ 判。
+③ 当前 review-sensitive 内容 == `review_tip_sha`（内容比对）。**例外（不使审查失效、delta 在最终 diff 里由人类直接看到）**：(a) 审后仅新增独立测试用例文件（`test_*` / `*.spec.*` / `*.test.*`）且不删不改既有断言——**不含** conftest / fixtures / 测试与 runner 配置 / setup 文件（这些一律按改既有测试处理，须再审）；此时 `tested_sha` 须回炉到含该 delta 的新 commit，且新 `last_test_run.txt` 的收集用例总数 ≥ `git show <handoff_snapshot_sha>:docs/ai/last_test_run.txt` 那次（两份已有输出对比，不另记字段）；(b) 只改 `docs/ai/` 非验收文档（HANDOFF / last_test_run / review_9*）；(c) 验收条款的修订出自人类裁决（TASK_BRIEF / HANDOFF 记「人类裁决 / Amendment」+ 日期）且未改生产代码；(d) `docs/ai/QUALITY_GATES.md` 审后有改动 → 不自动失效，但第十节把该 diff 原样列进 Manual Check Before Commit 由人类决定是否再审（删行 = 删闸门）。凡改了生产源码、迁移/schema、构建配置与依赖、删/改既有测试或测试基础设施、或 Author 自行改验收条款 → 须对该 delta 再审（人类可减档只跑 9A）。
+**人类因成本叫停 ≠ 质量通过**：存在未解决 `[Product Blocking]`、或有未经审查的生产改动时，记 `stopped, NOT converged`，不得标已收敛。
+> 来历：原先为证据类 blocking 设的收敛门例外（人类确认收口 + 文件范围 + 反滥用示例）已随该类一并删除——证据缺口不再阻止收敛，例外无需存在。
 
 ### ★ review-fix 最小生产范围（**两模式恒适用**——其中「双审窗口结束后」仅 Critical）
-Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码），且**只允许改当前 blocking 所需的最小生产范围**。要新增模块 / 改公共接口 / 扩大架构 → **停止并重新计划**，不在 fix 循环里做。
+Critical 的 review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码；Routine 无此窗口），两模式下都**只允许改当前 blocking 所需的最小生产范围**。要新增模块 / 改公共接口 / 扩大架构 → **停止并重新计划**，不在 fix 循环里做。
 
 > ↑↑↑ 复制到项目根 AGENTS.md 到此为止
 
@@ -489,8 +488,13 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
 ## Goal                           本次最终要达成什么。
 ## Non-Goals                      明确不做什么。
 ## Constraints                    限制条件。
-## Acceptance Criteria            可验证（具体测试命令 + 预期）。验收条件单一事实源；
-                                  每条须写出判定方式（判据见 4.1 ★ 验收条款必须可复现判定）。
+## Acceptance Criteria            可验证（具体测试命令 + 预期）。验收条件与 **Frozen Acceptance** 的单一事实源
+                                  （review-sensitive）：改实现前冻结、禁从当前实现反推——要成立的性质 / 适用范围 /
+                                  明确例外 / 正反案例 / 边界 / 必经真实路径；来源 TASK_BRIEF·接口契约·批准计划·人工确认。
+                                  每条须写出判定方式（判据见 4.1 ★ 验收条款必须可复现判定）。**仅当**某条 AC 声称
+                                  「机制 X 会拒绝 Y」时，才在此追加冻结输入域 + 等价类枚举 + 各类负向对照
+                                  （4.1 ★ 守护有效性装置）。审后修改使审查失效——除非修订出自人类裁决
+                                  （记「人类裁决 / Amendment」+ 日期，见 4.1 ★ 最后一轮独立审查门 ③）。
 ## Relevant User Preferences      如 不夹带无关改动 / 输出中文 / 不要大规模重构。
 ```
 
@@ -509,12 +513,9 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
                         请人类批准整体推进（非机械拒绝）。<3 层写 "N/A"。
                         本节同时给出**单轮 diff 预算估算**：预估本分支相对 base 的 diff
                         行数与切片方案（阈值与处置见 4.1 ★ 单轮任务 diff 预算）。
-## Frozen Acceptance    改实现前冻结、禁从当前实现反推：要成立的性质 / 适用范围 /
-                        明确例外 / 正反案例 / 边界 / 必经真实路径。
-                        来源：TASK_BRIEF·接口契约·批准计划·人工确认。改它使审查失效。
-                        **仅当某条 AC 声称「机制 X 会拒绝 Y」时**，本节额外列出：人类批准并
-                        冻结的输入域 + 该域内全部等价类枚举 + 各类负向对照（见 4.1 ★ 守护有效性
-                        装置）。无此类 AC 的任务不要求本项，不要为凑格式硬写。
+## Frozen Acceptance    （指针）冻结验收的**唯一落点是 `TASK_BRIEF.md` → Acceptance Criteria**
+                        （review-sensitive；Author 自行改动使审查失效，人类裁决的 Amendment 例外见 ★ 最后一轮独立审查门 ③）。本节只写指针与实现期需要注意的边界，
+                        不复述条款——本文件不在 review-sensitive 清单内，计划散文的修订不使审查失效。
 ## Current Architecture Understanding   当前结构与相关逻辑。
 ## Proposed Changes     逐文件：路径、改动类型、内容、原因、风险。
 ## Risks & Edge Cases   跨文件/系统级风险与边界（空值/越界/并发/超时/外部依赖失败/迁移/回归/兼容）；无则 "None"。
@@ -542,22 +543,20 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
   * PRODUCT_BRIEF.md(如适用) / TASK_BRIEF.md / IMPLEMENTATION_PLAN.md
   * Base branch / base commit：[Reviewer 按此审 diff]
   * approval_commit_sha: [计划批准 commit；快速版写 N/A——以 Human Approval Evidence 替代]
-  * plan_review_9P: [三分支——已跑 9P：末轮 Plan Verdict 词 + 指针 docs/ai/review_9P.md；人类减免：`N/A — 人类减免` + 指针（文件内含减免记录）；快速版：`N/A — 快速版`（**无** review_9P.md，不写指针）。verdict/表态/减免理由只放 review_9P.md；本行与 Work Log 不写理由或问题内容（§9.2）]
+  * plan_review_9P: [三分支——已跑 9P：Plan Verdict 词（默认一轮；人类明示加轮的记末轮）+ 指针 docs/ai/review_9P.md；人类减免：`N/A — 人类减免` + 指针（文件内含减免记录）；快速版：`N/A — 快速版`（**无** review_9P.md，不写指针）。verdict/表态/减免理由只放 review_9P.md；本行与 Work Log 不写理由或问题内容（§9.2）]
 ## Review & Test Binding（语义见 4.1 ★ review-sensitive paths + SHA 绑定）
   * review_base_sha / review_tip_sha（9A 与 9B 必须同一个）
   * review_verdict_9A: [verdict] | 文件: docs/ai/review_9A.md
   * review_verdict_9B: [verdict；减档只跑 9A 则记 `N/A — 人类减档 + 原因`] | 文件: docs/ai/review_9B.md
   * tested_sha: [last_test_run.txt 所针对的 commit]
-  * guard_effectiveness: [声称「回归用例有效」时必填：产物路径 + 装置结论；未声称写 N/A]
-  * review_sensitive_paths: [精确 pathspec，能直接喂给 `git status/diff -- <pathspec>`]
+  * guard_effectiveness: [声称「回归用例有效」时必填：产物路径 + 装置结论 + 生成时 commit（按内容比对绑定 tested_sha，见 4.1 ★ 守护有效性装置 ⑦）；未声称写 N/A]
+  * review_sensitive_paths: [精确 pathspec，能直接喂给 `git status/diff -- <pathspec>`；例 `src tests prisma package.json pnpm-lock.yaml docs/ai/TASK_BRIEF.md`；IMPLEMENTATION_PLAN / QUALITY_GATES 不入清单]
   * handoff_snapshot_sha: [审前 HANDOFF 快照 commit；由 Author 在统一落账时补记]
-## Runtime Identity（每轮记；取不到写 unknown / not observable，禁按昵称推测；缺失不作交付 blocking）
-  * model ID / 客户端版本 / effort / compaction 是否发生
-  * 本轮用过的 diagnostic probe（提交前须删或已重写为正式 regression）: [列出或 None]
+  > 有效性与失效判定用内容比对、非 HEAD 相等；门 ③ 列出的例外（纯新增独立测试用例 / 非验收文档 / 人类裁决的验收修订；QUALITY_GATES 审后改动交人类复核）不使审查失效（新增测试时 tested_sha 仍须回炉）；审后弱化测试 / Author 自行改验收标准 = 失效——判据见 4.1 ★ review-sensitive paths + SHA 绑定 与 ★ 最后一轮独立审查门 ③，本表不复述。
 ## Work Log        倒序，每条一行：[日期][Agent][做了什么][commit]
 ## Known Issues    无则 "None"。
 ## Fix-Loop Counter（无则 "None"；判据见 4.1 ★ Fix-Loop 计数与跨轮硬停，本表不复述）
-  每轮一行：`[轮次] | 改了什么 | 本轮 Reviewer 判定的 blocking：[Product/Verification/ProcessDebt/Suggestion] + caused_by_last_fix(yes/no/dispute)`
+  每轮一行：`[轮次] | 改了什么 | [Product] 条数 + caused_by_last_fix(yes/no/dispute，逐字转录)`（Verification Needed / Suggestion 不计数、不记条数）
   * streak（当前连续计数）: [数]
   > caused_by_last_fix 由 Reviewer 判定，Author 只能逐字转录（附 review 文件/轮次来源）。
 ## Remaining Risks / Debt   技术债唯一落点。无债写 "Debt: none"。格式见 4.1 ★ [DEBT]。
@@ -641,13 +640,13 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
 4. 不实现代码。方案比较必须先过复用检索（第六节 Reuse Findings）；存在能覆盖大部分需求的成熟实现时默认采用/移植/包装，从零自建须写明否决理由。必须有测试计划（命令须真实存在）。
 5. **架构层拆分评估（触发式，非机械拒绝）**：任务同时涉及 **≥3 架构层**（DB / core / API / CLI / GUI / 真实软件兼容）→ **必须做拆分评估 + 请人类批准**。判据 = 能否拆成**有独立验收性质 / 独立测试 / 独立回退边界**的切片。
 6. **单轮 diff 预算**：预估本分支相对 base 的 diff 是否超预算；超出则优先切片，切不动就在计划里写明理由请人类批准整体推进（阈值与处置见 4.1 ★ 单轮任务 diff 预算，本节不复述）。
-7. **冻结验收标准（改实现前）**：在 `Frozen Acceptance` 节先列 要成立的性质 / 适用范围 / 明确例外 / 正反案例 / 边界 / 必经真实路径；来源 TASK_BRIEF·接口契约·批准计划·人工确认，**禁从当前实现反推**。每条 AC 写出判定方式（判据见 4.1 ★ 验收条款必须可复现判定）。**仅当某条 AC 声称「机制 X 会拒绝 Y」时**，才追加冻结输入域 + 等价类枚举 + 各类负向对照（见 4.1 ★ 守护有效性装置）——**这是条件触发项，不是每个任务的必填格式**。
+7. **冻结验收标准（改实现前）**：在 `TASK_BRIEF.md` → Acceptance Criteria 先列 要成立的性质 / 适用范围 / 明确例外 / 正反案例 / 边界 / 必经真实路径；来源 TASK_BRIEF·接口契约·批准计划·人工确认，**禁从当前实现反推**；`IMPLEMENTATION_PLAN.md` 的 Frozen Acceptance 节只写指针与实现期边界，不复述条款。每条 AC（含 Frozen Acceptance）写出判定方式（判据见 4.1 ★ 验收条款必须可复现判定）。**仅当某条 AC 声称「机制 X 会拒绝 Y」时**，才在同处追加冻结输入域 + 等价类枚举 + 各类负向对照（见 4.1 ★ 守护有效性装置）——**这是条件触发项，不是每个任务的必填格式**。
 8. **★ Unknown 即 blocking**：进 Approval=Pending 前，任何"不确定会否引入妥协/破坏现有行为"都算 Unknown；标「唯一依据=是」的高影响假设未验证也算 Unknown。带 Unknown 的计划是草稿——必须在探索阶段查清，降为"确定不引入债 / 已写成 `[DEBT]` 明账"或"假设已验证/已降级"之一才能停 Pending；**不允许把 Unknown 留到实现阶段边做边看**。
 9. **计划自检**：通读确保无自相矛盾步骤、无与 TASK_BRIEF 验收冲突、无"计划要求但会被 Reviewer 判缺陷"处——让第八节 Pre-Flight 能一次通过。
 10. Approval Status 写 Pending。
-11. **9P 计划审（默认必跑、逐轮至收敛；唯一定义处 = §9.2）**：用 §9.2 prompt 对工作树规划文件发起 fresh-context 审查（每轮单跑；调用模板同 §9.0 ③ 但**推理档不同**——取值与可执行命令见 §9.2，verdict 与 raw log 落仓外 holding）；每轮收 verdict 依轮次追加进 `docs/ai/review_9P.md`，按 §9.1 ★ 修法必附逐条三选一表态——**表态附在同文件对应轮的 Author Responses 节**——并修订计划，**复审至某轮 Plan Verdict「可批准」**（轮次上限与达限出路见 §9.2；9P blocking 不进 Fix-Loop）。verdict/表态/减免记录**只放该文件**：HANDOFF 的 `plan_review_9P` 行与 Work Log 只记状态词 + 指针、不复述内容。**人类明示减免时才可跳过**，减免记录（谁/何时/理由）写 `docs/ai/review_9P.md`。每轮 re-review prompt 必填 `9P round: <n>`，round > 1 必须附紧邻上一轮摘要。**收敛 → 停止，进入 Awaiting Approval；达轮次上限未收敛 → 停止，进入 Awaiting Human Adjudication**（两态互斥，见下方输出行）。
+11. **9P 计划审（默认必跑、默认单跑一轮；唯一定义处 = §9.2）**：用 §9.2 prompt 对工作树规划文件发起一轮 fresh-context 审查（调用模板同 §9.0 ③ 但**推理档不同**——取值与可执行命令见 §9.2，verdict 与 raw log 落仓外 holding）；收 verdict 后追加进 `docs/ai/review_9P.md`，按 §9.1 ★ 修法必附逐条三选一表态——**表态与 Verification Needed 的代跑结果都附在同文件对应轮的 Author Responses 节**——并修订计划，然后进入 Awaiting Approval（9P blocking 不进 Fix-Loop）。人类可在批准前**明示要求**再跑一轮（逐次；prompt 填 `9P round: <n>` 并附上一轮 blocking 与表态摘要）。verdict/表态/减免记录**只放该文件**：HANDOFF 的 `plan_review_9P` 行与 Work Log 只记状态词 + 指针、不复述内容。**人类明示减免时才可跳过**，减免记录（谁/何时/理由）写 `docs/ai/review_9P.md`。
 
-输出：**Planning Files Created/Updated** / **Recommended Plan Summary** / **Files Planned for Modification** / **Awaiting Approval**（提醒人类：审阅计划 + `docs/ai/review_9P.md`（9P verdict 与 Author 表态；减免则为减免记录）→ **先**亲手把 Status 改 Approved → **再** `git add` 本阶段全部规划产物（含 `docs/ai/review_9P.md`）并创建批准 commit → 之后才允许开始实现）/ **Awaiting Human Adjudication**（仅 9P 达轮次上限未收敛时替代 Awaiting Approval：列明未闭合 blocking 与「知情批准带未采纳项 / 批准延长复审（逐次批准一轮）/ 重拆任务 / 回退」四条**互斥**出路，等人类裁决；**仅选「知情批准」才转入批准流程**，选延长则继续复审循环，选重拆或回退则执行对应出口、不进入批准门）。
+输出：**Planning Files Created/Updated** / **Recommended Plan Summary** / **Files Planned for Modification** / **Awaiting Approval**（提醒人类：审阅计划 + `docs/ai/review_9P.md`（9P verdict 与 Author 逐条表态、含未采纳项与代跑结果；减免则为减免记录；人类可在此明示要求再跑一轮 9P）→ **先**亲手把 Status 改 Approved → **再** `git add` 本阶段全部规划产物（含 `docs/ai/review_9P.md`）并创建批准 commit → 之后才允许开始实现）。
 
 ---
 
@@ -656,7 +655,7 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
 > **本节 1~6 步是 Critical 模式**，人类批准后（Status=Approved 且计划文件已被人类 commit）开始；Routine 任务不进这 6 步，走「★ 模式路由」的 Routine 循环。
 > **但本节末尾的 ★ 系统化调试 与 ★ 回归安全修复协议 是横切规则，两种模式恒适用**——遇 bug 就走，不因为"这是 Routine 小任务"而豁免。**"没定位根因不许改"恒适用**；何时停手、能否重启，**一律按序节 ★ 停止事件优先级 判定（本节只引用，不复述阈值与权限）**。依赖 Reviewer 或交接文件的记账动作（Fix-Loop Counter 落 HANDOFF、`caused_by_last_fix` 由 Reviewer 判定）按 ★ 规范矩阵，仅 Critical 适用。
 
-1. **★ 实现前自检 Pre-Flight**：批准 ≠ 免检。写第一行代码前通读 IMPLEMENTATION_PLAN，专找三类问题：(a) 自相矛盾步骤（如 Task 3 用 `clearLayers()`、Task 7 写 `clearFullLayers()`）；(b) 计划与 TASK_BRIEF 验收冲突；(c) 计划本身要求的某项会被 Reviewer 判缺陷（绕过校验/缺测试）。另确认计划有 `Frozen Acceptance` 节，缺则回第七节补。一次性全列出交人类裁决，不要边做边撞。无问题则 Work Log 记"Pre-Flight 通过"。
+1. **★ 实现前自检 Pre-Flight**：批准 ≠ 免检。写第一行代码前通读 IMPLEMENTATION_PLAN，专找三类问题：(a) 自相矛盾步骤（如 Task 3 用 `clearLayers()`、Task 7 写 `clearFullLayers()`）；(b) 计划与 TASK_BRIEF 验收冲突；(c) 计划本身要求的某项会被 Reviewer 判缺陷（绕过校验/缺测试）。另确认 `TASK_BRIEF.md` → Acceptance Criteria 已写成冻结验收（要成立的性质 / 适用范围 / 明确例外 / 正反案例 / 边界 / 必经真实路径；禁反推自实现），且 IMPLEMENTATION_PLAN 的 Frozen Acceptance 节只含指针与实现期边界、不复述条款——缺则回第七节补。一次性全列出交人类裁决，不要边做边撞。无问题则 Work Log 记"Pre-Flight 通过"。
 2. 严格按计划执行，只做任务相关修改。
 3. 发现计划不合理先暂停说明，不擅自扩大范围；实际 diff 将超出预估预算同样停下交人类裁决。
 4. **完成后按严格顺序（让 `tested_sha` 真含本次实现）**：
@@ -665,14 +664,14 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
    3. **确认 review-sensitive 路径干净**：`git status --porcelain -- <HANDOFF 的 review_sensitive_paths>` 为空（非空则回 1，先把改动纳入 commit）。
    4. **针对该 commit 跑测试**：`… 2>&1 | tee docs/ai/last_test_run.txt`；`last_test_run.txt` 记 `tested_sha`(=该 author commit) + 真实命令。
    5. 对照第十一节适用组自查；有界面/内容过第五节。
-   6. 更新 `HANDOFF.md`（Review & Test Binding、Runtime Identity、Fix-Loop Counter、Work Log/Known Issues/Remaining Risks/Quality Gates/Next Step）。
-   7. **只提交测试产物 + 交接文档**（`docs(handoff): ...`）；若之后又改了 `review_sensitive_paths` 中任一文件 → 回步骤 2 重来（`tested_sha` 失效）。
-5. 遵守 4.1 的 Safety Rules。**遇 bug 走下面的系统化调试，不允许"试着改改看"；修 Reviewer blocking / 任何"修 A 别破 B"一律走回归安全修复协议。**
+   6. 更新 `HANDOFF.md`（Review & Test Binding、Fix-Loop Counter、Work Log/Known Issues/Remaining Risks/Quality Gates/Next Step）。
+   7. **只提交测试产物 + 交接文档**（`docs(handoff): ...`）；若之后又改了 `review_sensitive_paths` 中任一文件 → 回步骤 2 重来（`tested_sha` 失效）；**仅新增独立测试用例文件时只重测不重审**（见 4.1 ★ 最后一轮独立审查门 ③）。
+5. 遵守 4.1 的 Safety Rules。**遇 bug 走下面的系统化调试，不允许"试着改改看"；修 `[Product Blocking]` / 任何改生产代码的"修 A 别破 B"一律走回归安全修复协议；纯证据代跑与账本修正不走该协议。**
 6. 声称"完成/通过/修好"前走第三节的 ★ 声称完成纪律。
 
 输出：**Implementation Summary** / **Files Changed**（逐文件改了什么、为什么）/ **Test Results**（命令+结论）/ **Commit**（hash）/ **Ready for Review**。
 
-**Ready for Review** 给出可复制给 Reviewer 的 prompt（见第九节，默认双审 9A+9B，配额吃紧或纯小任务人类可减档只跑 9A）。**不得删减第九节固定要件**：① 先读 AGENTS.md + TASK_BRIEF/PLAN/HANDOFF/git diff/last_test_run.txt；② 原样含 §9.0 那句中文；③ 原样含完整输出契约 8 节（**9B 同时含 Recommended Next Step + Requirement-Level Concerns、不替换**）；④ 粘贴本任务适用的第五/十一节清单或指向 `docs/ai/QUALITY_GATES.md`；⑤ **双审隔离三要求**：两份 prompt 锚定**同一** `review_tip_sha` + **同一个** `handoff_snapshot_sha`，并写明「代码审 base..tip 的**带排除项正文 diff**（`:(exclude)` 清单见第九节 9A/9B prompt）、HANDOFF 与 last_test_run 读工作树」；双审窗口内任何人不得改生产代码 / `review_sensitive_paths` / HANDOFF；两份 verdict 分别落到**仓外 holding**，后跑的 Reviewer 启动前工作树内不得存在前一份 verdict 或 raw log。
+**Ready for Review** 给出可复制给 Reviewer 的 prompt（见第九节，默认双审 9A+9B，配额吃紧或纯小任务人类可减档只跑 9A）。**不得删减第九节固定要件**：① 先读 AGENTS.md + TASK_BRIEF/PLAN/HANDOFF/git diff/last_test_run.txt；② 原样含 §9.0 那句中文；③ 原样含完整输出契约 8 节（**9B 同时含 Recommended Next Step + Requirement-Level Concerns、不替换**）；④ 粘贴本任务适用的第五/十一节清单或指向 `docs/ai/QUALITY_GATES.md`；⑤ **双审隔离三要求**：两份 prompt 锚定**同一** `review_tip_sha` + **同一个** `handoff_snapshot_sha`（`review_base_sha` / `review_tip_sha` 由 Author 逐字写进 prompt，不写『见 HANDOFF』），并写明「代码审 base..tip 的**带排除项正文 diff**（`:(exclude)` 清单见第九节 9A/9B prompt）、HANDOFF 与 last_test_run 读工作树」；双审窗口内任何人不得改生产代码 / `review_sensitive_paths` / HANDOFF；两份 verdict 分别落到**仓外 holding**，后跑的 Reviewer 启动前工作树内不得存在前一份 verdict 或 raw log。
 
 ## ★ 系统化调试（实现/修测试/最终审查期间遇 bug 强制走）
 
@@ -699,7 +698,7 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
 | "应该是 X 的问题，我修 X"（没验证） | 未验证的假设不是根因 |
 | "再试最后一次" | 该停没停 —— 停止条件按 ★ 停止事件优先级，不由当下的手感决定 |
 
-## ★ 回归安全修复协议（修 Reviewer blocking / 任何"修 A 别破 B"时强制走）
+## ★ 回归安全修复协议（修 `[Product Blocking]` / 任何改生产代码的"修 A 别破 B"时强制走；纯证据代跑与账本修正不走本协议）
 
 > 针对的失败模式：只盯触发点做局部修 → 当前案例过、破坏别的场景 → 下轮再局部修 → 补丁越滚越多、到第 N 轮才想起查架构。**语言模型"复盘说吸取了教训"≠ 真改了行为**——本协议只认产物、不认叙述。
 
@@ -727,7 +726,7 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
 
 # 九、Reviewer：独立审查
 
-**实现审**默认双审 9A+9B（9A 对照计划审实现 + 9B 盲审只对需求审，双视角互补——9B 能抓"实现完全符合计划但计划本身错了"，已实证 9B 抓到 9A 漏的真 blocking）。配额吃紧或纯小任务时可只跑 9A 标准版。**另有 9P 计划审**：计划批准前默认必跑、**逐轮复审至收敛**的审查（每轮单跑），审规划文件而非实现——定义、prompt 与专用契约见 §9.2（**不**共用 §9.1 输出契约与 §9.0 ⑤ 审前快照自检）。
+**实现审**默认双审 9A+9B（9A 对照计划审实现 + 9B 盲审只对需求审，双视角互补——9B 能抓"实现完全符合计划但计划本身错了"，已实证 9B 抓到 9A 漏的真 blocking）。配额吃紧或纯小任务时可只跑 9A 标准版。**另有 9P 计划审**：计划批准前默认必跑、**默认单跑一轮**的审查（再审仅凭人类明示要求），审规划文件而非实现——定义、prompt 与专用契约见 §9.2（**不**共用 §9.1 输出契约与 §9.0 ⑤ 审前快照自检）。
 
 > **怎么发给 Reviewer**：两个代码块都引用 §9.1 的输出契约，**单独复制一个代码块是不完整的**。发送内容 = **§9.0（轻量协议那句 + 双审隔离协议）+ §9.1（输出契约 + 修法必附）+ 对应的 9A 或 9B 代码块**；`<由 Author 填>` 的 sha 占位一律替换成真实值。另需确认 Reviewer 进程能读到项目根 `AGENTS.md` 与 `docs/ai/QUALITY_GATES.md`，读不到就把适用条目一并粘进去。
 
@@ -738,7 +737,7 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
 双审的价值全部来自**两份互不污染的独立判断**。下面五条是硬门，缺任一条这轮不算独立双审，不得据其标收敛。
 
 **① 同一快照**：9A 与 9B 审的必须是**同一个** `review_tip_sha`（对同一个 `review_base_sha` 的 diff）+ **同一份审前 HANDOFF**。两轮之间**不得**重跑测试、重写 `last_test_run.txt`、或改任何交接文件。
-> **两个锚点不是同一个 commit，必须分别写清（血泪实测）**：`HANDOFF.md` 与 `last_test_run.txt` **不在** `review_sensitive_paths` 内，按第二节顺序它们提交在 `review_tip_sha` **之后** —— tip 里装的是**过期 HANDOFF**。只写"你审的是 tip 这个确切 commit"会让 Reviewer 去跑 `git show <tip>:docs/ai/HANDOFF.md` 读到旧版（实测 Codex 就是这么干的）。因此每份 prompt 必须拆开写：**代码/测试/验收 = 带排除项的正文 diff `git diff <review_base_sha>..<review_tip_sha> -- . ":(exclude)docs/ai/review_9*.md" ":(exclude)docs/ai/archive/**"`（9B 另加 `":(exclude)docs/ai/IMPLEMENTATION_PLAN.md"`；排除只作用于正文输入——防止历史与本任务的 verdict 正文经 diff 输出进入 Reviewer 输入；快照自检的覆盖核验用未过滤 `--name-only`）；HANDOFF 与 last_test_run.txt = 读工作树当前文件**。**prompt 值只是输入，不是证明**：绑定由两个 Reviewer 各自跑 ⑤ 的自检并落账才成立。
+> **两个锚点不是同一个 commit，必须分别写清（血泪实测）**：`HANDOFF.md` 与 `last_test_run.txt` **不在** `review_sensitive_paths` 内，按第二节顺序它们提交在 `review_tip_sha` **之后** —— tip 里装的是**过期 HANDOFF**。只写"你审的是 tip 这个确切 commit"会让 Reviewer 去跑 `git show <tip>:docs/ai/HANDOFF.md` 读到旧版（实测 Codex 就是这么干的）。因此每份 prompt 必须拆开写：**代码/测试/验收 = 带排除项的正文 diff `git diff <review_base_sha>..<review_tip_sha> -- . ":(exclude)docs/ai/review_9*.md" ":(exclude)docs/ai/archive/**"`（9B 另加 `":(exclude)docs/ai/IMPLEMENTATION_PLAN.md"`；排除只作用于正文输入——防止历史与本任务的 verdict 正文经 diff 输出进入 Reviewer 输入；快照自检的覆盖核验用未过滤 `--name-only`）；HANDOFF 与 last_test_run.txt = 读工作树当前文件**。Author 在两份 prompt 里写明同一个 `handoff_snapshot_sha`（= 双审窗口开启时的 HEAD，即那个 docs commit），并把 `review_base_sha` / `review_tip_sha` 逐字写进 prompt（不写『见 HANDOFF』——实测正是 Reviewer 去 tip 里找 HANDOFF 才读到旧版）。**prompt 值只是输入，不是证明**：绑定由两个 Reviewer 各自跑 ⑤ 的自检并落账才成立。
 
 **② 双审窗口冻结**：从第一个 Reviewer 启动到两份 verdict 都产出为止，**任何人（Author 与两个 Reviewer）都不得**：改生产代码 / 测试 / 任何 `review_sensitive_paths` 内的文件；更新 `HANDOFF.md`；创建任何 commit（包括 `wip(review-fix)`）。发现 blocking 只写进自己的 verdict。理由：窗口内任一处写入都会改变后跑者看到的证据面，两份 verdict 就不再是对同一对象的独立判断。
 
@@ -746,56 +745,56 @@ Review-fix 由 **Author 在双审窗口结束后**执行（Reviewer 不改代码
 
 ```
 HOLD="$HOME/.codex-review-holding/<task>"; mkdir -p "$HOLD"
-codex exec --sandbox workspace-write --ephemeral --ignore-user-config --ignore-rules \
+codex exec --sandbox workspace-write --ephemeral --ignore-user-config --ignore-rules --disable memories \
   -c 'windows.sandbox="elevated"' -m <model> -c 'model_reasoning_effort="high"' \
   -o "$HOLD/9B.md" "<9B prompt>" </dev/null > "$HOLD/9B_raw.log" 2>&1
 # 确认工作树干净、无 verdict 残留后，再跑 9A（同模板，换 9A）
 ```
 
-> 调用形态要点：`--sandbox` 与 `-m` **必须显式**（不依赖任何默认）；`--ephemeral --ignore-user-config --ignore-rules` 隔离用户配置与规则注入，但沙箱后端键（上例的 `windows.sandbox`）与推理档 **必须随行显式给**——否则隔离掉用户配置后要么全部命令被 policy 拒绝、要么推理档静默降为默认；**推理档取值按审别（唯一定义处）：9A / 9B = `high`，9P = `medium`**（9P 于 2026-08-30 降档，理由见 §9.2；上例是 9A/9B 的实例，**勿照抄给 9P**）。**`</dev/null` 每次必带**（否则 `codex exec` 会尝试继续读 stdin 而挂起，且是间歇性的——一次侥幸成功不代表安全）；**不要管道接 `| tail` / `| head`**（输出被缓冲到进程退出，进度无法监控，且早退的消费者会卡住管道）；holding 放 home 下**持久目录**，别放会被系统/工具定时清扫的临时树（实测第三轮时 holding 被扫掉，重定向无处可写，白烧一轮高档推理配额）。**已知风险：沙箱 ≠ 网络边界**——实测明文 HTTP 出网在两种沙箱模式下均放行，Reviewer 的网络纪律靠轻量协议 + 人审 verdict 兜底，不依赖沙箱。
+> 调用形态要点：`--sandbox` 与 `-m` **必须显式**（不依赖任何默认）；`--ephemeral --ignore-user-config --ignore-rules` 隔离用户配置与规则注入，但沙箱后端键（上例的 `windows.sandbox`）与推理档 **必须随行显式给**——否则隔离掉用户配置后要么全部命令被 policy 拒绝、要么推理档静默降为默认；**`--disable memories` 必带**——`memories` 是默认开启的 stable feature（`codex features list`），本模板其余 flag 都不以关闭它为目的（实测：模板 flag 下未见注入，但那是副作用不是保证），且实测有一组未按本模板启动的审查带着 `MEMORY.md` 里的既往经验做审查、fresh context 前提失效；**推理档取值按审别（唯一定义处）：9A / 9B = `high`，9P = `medium`**（9P 于 2026-08-30 降档，理由见 §9.2；上例是 9A/9B 的实例，**勿照抄给 9P**）。**`</dev/null` 每次必带**（否则 `codex exec` 会尝试继续读 stdin 而挂起，且是间歇性的——一次侥幸成功不代表安全）；**不要管道接 `| tail` / `| head`**（输出被缓冲到进程退出，进度无法监控，且早退的消费者会卡住管道）；holding 放 home 下**持久目录**，别放会被系统/工具定时清扫的临时树（实测第三轮时 holding 被扫掉，重定向无处可写，白烧一轮高档推理配额）。**已知风险：沙箱 ≠ 网络边界**——实测明文 HTTP 出网在两种沙箱模式下均放行，Reviewer 的网络纪律靠轻量协议 + 人审 verdict 兜底，不依赖沙箱。
 > **零写入无例外**：若某环境不允许把 `-o` 写到仓库工作树之外 → **停止并报告人类**，不得退化为写进仓内——哪怕"跑完立刻 mv 到 holding、事后工作树恢复干净"也不行：窗口内曾发生的仓内写入本身就已破坏独立性。**单审同源**：人类减档只跑 9A 时同用本模板，输出同样落仓外 holding。
 
-**④ 两份都完成后才统一落账**：Author 把两份 verdict 收进 `docs/ai/review_9A.md` / `review_9B.md`，然后**一次性**更新 HANDOFF（两个 verdict 字段、`handoff_snapshot_sha`、Work Log、Fix-Loop Counter 的逐字转录）。此后所有修复都在双审窗口之外。**落账前先比对两份 verdict 的证据首行——全部七个字段逐项核，任一不满足则不得落账、该轮双审作废重跑**：
-* `read_handoff_from`：两份都必须是「工作树」（出现 `git show tip` 即作废）；
-* `handoff_current_phase`：两份都必须等于审前 HANDOFF 的 Current Phase 原文；
+**④ 两份都完成后才统一落账**：Author 把两份 verdict 收进 `docs/ai/review_9A.md` / `review_9B.md`，然后**一次性**更新 HANDOFF（两个 verdict 字段、`handoff_snapshot_sha`、Work Log、Fix-Loop Counter 的逐字转录）。此后所有修复都在双审窗口之外。**落账前先比对两份 verdict 的证据首行——三个字段逐项核，任一不满足则不得落账、该轮双审作废重跑**：
 * `observed_head_sha`：相互相等且 == `handoff_snapshot_sha`；
-* `handoff_blob_sha`：相互相等**且 == `git rev-parse <handoff_snapshot_sha>:docs/ai/HANDOFF.md`**；
-* `last_test_run_blob_sha`：相互相等**且 == `git rev-parse <handoff_snapshot_sha>:docs/ai/last_test_run.txt`**；
 * `worktree_clean`：皆 yes；
-* `review_sensitive_paths_snapshot`：两份**逐字相等**，且 == 快照 commit 的 HANDOFF 里该清单原文，**且 == 落账当时工作树 HANDOFF 里的原文**（三者任一不等 = 审后换过边界 → 该轮作废重跑）。
+* `read_handoff_from`：两份都必须是「工作树」（出现 `git show tip` 即作废）。
+（HEAD 等于快照 commit 且工作树干净，即保证工作树中的 HANDOFF / last_test_run.txt 与快照逐字节一致——不另记 blob hash、Current Phase 原文与清单逐字抄录；清单缩窄改由第十节用 `git show <handoff_snapshot_sha>:docs/ai/HANDOFF.md` 比对。）
 
 **⑤ 审前快照自检（每个 Reviewer 强制，先于一切审查动作）**：核验并把结果记入 verdict 证据首行：
 
 ```
 git rev-parse HEAD           # 必须 == prompt 里的 handoff_snapshot_sha → observed_head_sha
 git status --porcelain       # 必须为空——整个工作树，不只 review_sensitive_paths → worktree_clean
-git diff --quiet <handoff_snapshot_sha> -- docs/ai/HANDOFF.md docs/ai/last_test_run.txt   # 必须通过
-git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt   # → handoff_blob_sha / last_test_run_blob_sha
-# → review_sensitive_paths_snapshot：从工作树 HANDOFF 逐字抄出该清单原文（不改写、不归纳）
-git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff 里每个必含类别的文件都被该清单覆盖
+# read_handoff_from：HANDOFF 与 last_test_run.txt 直接读工作树当前文件 → 记「工作树」（用了 git show <tip>:… 即记「git show tip」，该轮作废）
+git diff --name-only <review_base_sha>..<review_tip_sha>   # 覆盖核验：diff 里每个必含类别的文件都被 HANDOFF 的清单覆盖；IMPLEMENTATION_PLAN / QUALITY_GATES 出现在 --name-only 里不算缺口
 ```
 
-任一不满足、**或该清单未覆盖 `git diff --name-only <base>..<tip>` 中任一必含类别的文件**（类别以 4.1 ★ review-sensitive paths + SHA 绑定 的必含清单为准，此处不复述）→ **在审查正文前输出「快照不一致」报告（写明失败项与实际观察值）并拒审**，不得进入审查。声明式的 `handoff_snapshot_sha` 只有经此自检落账后才成为绑定。
+HEAD ≠ `handoff_snapshot_sha`、或工作树不净 → **在审查正文前输出「快照不一致」报告（写明失败项与实际观察值）并拒审**，不得进入审查。清单未覆盖必含类别的文件（类别以 4.1 ★ review-sensitive paths + SHA 绑定 的必含清单为准，此处不复述）→ 在三行证据首行之后写一条「覆盖缺口：<路径>」并**照常审查**（缺口由 Author 落账时补入清单，第十节复核）。声明式的 `handoff_snapshot_sha` 只有经此自检落账后才成为绑定。
 
 ## 9.1 ★ 输出契约（9A 与 9B 共用，唯一定义处）
 
 ```
 ## Review Verdict            通过 / 有条件通过 / 不通过
-                            （硬规则：Blocking Issues 非空 → 必须"不通过"；"有条件通过"不得与任何
-                              Product/Verification Blocking 并存；Process Debt、Suggestion 不影响通过）
-## Blocking Issues           无则 "None"。每条标 [Product Blocking] 或 [Verification Blocking]
-                            + caused_by_last_fix: yes/no（由你 Reviewer 判定，非 Author 自述；
-                              来源有争议标 dispute 交人类裁决）+ **Proposed Fix（必填，见下）**
-                            分类判据（含两类重叠时的优先级）以 AGENTS.md ★ Reviewer verdict 分类语义为准。
+                            （硬规则：Blocking Issues 非空 → 不通过；Blocking None 且 Verification Needed 非空 → 有条件通过；
+                              两者皆空 → 通过。Process Debt、Suggestion 不影响通过。**不得以证据充分性为由判不通过。**）
+## Blocking Issues           无则 "None"。每条即 [Product Blocking]：须写出具体后果（哪个用户操作 / 哪条数据 /
+                            哪个安全边界出错），「不能排除」不是后果；验收点未满足须有具体反例，缺证据 ≠ 未满足；
+                            删/弱化测试的说明经核实不成立须写出该测试仍能检出的缺陷（判据与举例以 AGENTS.md
+                            ★ Reviewer verdict 分类语义为准）+ caused_by_last_fix: yes/no（由你 Reviewer 判定，
+                            非 Author 自述；来源有争议标 dispute 交人类裁决）+ **Proposed Fix（必填，见下）**。
+                            **只有 Blocking Issues 阻止合并。** 证据缺口写 Verification Needed；账本/措辞不一致写 Non-Blocking Suggestions。
 ## Non-Blocking Suggestions  无则 "None"。**每条同样必附 Proposed Fix。**
 ## Test Coverage Gaps        无则 "None"。
 ## Cannot Verify From Diff   验收点实现落在未改代码里、光看 diff 判不了的，逐条列出交 Author 自核
                             （区别于 Verification Needed：那是"需跑命令"，这是"去未改代码里确认实现存在且正确"）。无则 "None"。
-## Verification Needed       需 Author 在正常终端代跑的具体命令 + 想确认的行为。无则 "None"。
-## Debt Verdict              Clean / Noted / Deferred（无 "Blocking" 值；取值语义见 AGENTS.md ★ Reviewer verdict 分类语义）。
+## Verification Needed       每条 = 能证伪某一具体声称的最小命令（单个测试 / 单个样本 / 单条 grep）+ 想确认的行为；
+                            不得列全量套件、整批装置重跑、或同 tip 已有输出的命令；证据缺口一律写这里
+                            （哪条声称 / 由哪份产物支撑 / 缺什么）。无则 "None"。
+## Debt Verdict              Clean / Noted / Deferred / Unpaid（取值语义见 AGENTS.md ★ Reviewer verdict 分类语义；
+                            Unpaid = 触发 Payback-on-Touch 未还且无批准延期——不进 Blocking、由人类合并前裁决）。
 ```
 
-**契约首行（两版共用，快照证据必填）**：在 `## Review Verdict` 之前先写**七行**——`read_handoff_from: <工作树 / git show tip>`、`handoff_current_phase: <读到的原文>`、`observed_head_sha: <git rev-parse HEAD 实际输出>`、`handoff_blob_sha:`、`last_test_run_blob_sha:`、`worktree_clean: <yes/no>`、`review_sensitive_paths_snapshot: <逐字抄出的清单原文>`。作用：把"读没读到审前快照""审的是哪份边界"从声明变成可机检、可事后比对的持久化证据。`read_handoff_from` 若是 `git show tip`、或 `observed_head_sha` ≠ prompt 里的 `handoff_snapshot_sha`、或 `worktree_clean: no` → 该轮建立在过期/污染证据上，**直接作废重跑**。
+**契约首行（两版共用，快照证据必填）**：在 `## Review Verdict` 之前先写**三行**——`observed_head_sha: <git rev-parse HEAD 实际输出>`、`worktree_clean: <yes/no，全树 git status --porcelain 是否为空>`、`read_handoff_from: <工作树 / git show tip>`；有覆盖缺口则在其后追加 `覆盖缺口: <路径>` 行。作用：把"读没读到审前快照"从声明变成可机检、可事后比对的持久化证据（自检命令见 §9.0 ⑤）。`read_handoff_from` 若是 `git show tip`、或 `observed_head_sha` ≠ prompt 里的 `handoff_snapshot_sha`、或 `worktree_clean: no` → 该轮建立在过期/污染证据上，**直接作废重跑**。
 
 **★ 修法必附（唯一定义处）**：**每条 Blocking 与 Suggestion 都必须附 `Proposed Fix`**——写清**具体怎么改**（改哪个文件/哪一节、加什么或删什么、判据如何变），而不只是"应当明确/应当收紧"这类方向性表述。有多种合理修法时给出**首选 + 备选并说明取舍**；认为无法给出具体修法（如需人类裁决取舍）则写 `Proposed Fix: 需人类裁决 — <待定的选项与各自后果>`。
 * **`Proposed Fix` 是可审议的建议，不转移实现决策权**——判断修法是否成立、有无更好的改法，始终是 Author 的责任；Reviewer 给方案时须**列明所依赖的假设**。
@@ -818,19 +817,20 @@ git diff --name-only <review_base_sha>..<review_tip_sha>   # 逐项核：diff �
 
 先读：1) AGENTS.md(遵守 Safety Rules) 2) docs/ai/TASK_BRIEF.md 3) docs/ai/IMPLEMENTATION_PLAN.md
 4) docs/ai/HANDOFF.md 5) 审查对象 = 正文 diff：git diff <review_base_sha>..<review_tip_sha> -- .
-":(exclude)docs/ai/review_9*.md" ":(exclude)docs/ai/archive/**"（两个 sha 见 HANDOFF 的 Review & Test Binding；
-排除项防止历史与本任务的 verdict 正文进入你的输入——「不得打开」包括不得让其正文出现在 diff 输出里；
-未过滤的 git diff --name-only 仅用于快照自检的覆盖核验与确认文件存在）6) docs/ai/last_test_run.txt
+":(exclude)docs/ai/review_9*.md" ":(exclude)docs/ai/archive/**"（review_base_sha=<Author 填>、review_tip_sha=<Author 填>，
+与工作树 HANDOFF 的 Review & Test Binding 一致；排除项防止历史与本任务的 verdict 正文进入你的输入——「不得打开」
+包括不得让其正文出现在 diff 输出里；未过滤的 git diff --name-only 仅用于快照自检的覆盖核验与确认文件存在）
+6) docs/ai/last_test_run.txt
 
 审查对象锚定（两个锚点，别混）：
 * **审前快照自检（先于一切审查动作，结果记入 verdict 证据首行）**：`git rev-parse HEAD` 必须 ==
-  handoff_snapshot_sha（<由 Author 填>）→ 记 observed_head_sha；`git status --porcelain`（**全工作树**）必须为空
-  → 记 worktree_clean；`git diff --quiet <handoff_snapshot_sha> -- docs/ai/HANDOFF.md docs/ai/last_test_run.txt`
-  必须通过；`git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt` → 记两个 blob sha；
-  **逐字抄出 HANDOFF 的 review_sensitive_paths 原文 → 记 review_sensitive_paths_snapshot，并逐项核它覆盖
-  `git diff --name-only <base>..<tip>` 中全部必含类别的文件（类别以 AGENTS.md 的 review-sensitive paths 节为准：
-  生产源码 / tests / migrations·schema / 构建配置 + 依赖声明 + lockfile / TASK_BRIEF / IMPLEMENTATION_PLAN /
-  QUALITY_GATES），漏项即拒审**。**任一不满足 → 在审查正文前输出「快照不一致」（写明失败项与实际观察值）并拒审。**
+  handoff_snapshot_sha（<由 Author 填>）→ 记 observed_head_sha；`git status --porcelain`（**全工作树**，不只
+  review_sensitive_paths）必须为空 → 记 worktree_clean；HANDOFF 与 last_test_run.txt 从工作树读 → 记
+  read_handoff_from: 工作树。**HEAD 不符或工作树不净 → 在审查正文前输出「快照不一致」（写明失败项与实际观察值）
+  并拒审，不得继续。** 另核 `git diff --name-only <base>..<tip>` 中每个必含类别的文件（类别以 AGENTS.md 的
+  review-sensitive paths 节为准：生产源码 / tests / migrations·schema / 构建配置 + 依赖声明 + lockfile / TASK_BRIEF；
+  IMPLEMENTATION_PLAN / QUALITY_GATES 出现不算缺口）都被 HANDOFF 的 review_sensitive_paths 覆盖——漏项在证据首行
+  之后写「覆盖缺口：<路径>」并**照常审查**，不拒审。
 * **代码 / 测试 / 验收文件**：审上述**带排除项的正文 diff** 这个确切范围，不是工作树。若 `git status --porcelain --
   <review_sensitive_paths>` 非空，或 `git diff --quiet <review_tip_sha> -- <review_sensitive_paths>` 不通过
   → 停下报告"快照不一致"。
@@ -854,12 +854,16 @@ re-review 时上一轮 9A/9B blocking 的上下文由 Author 在本 prompt 内�
    枚举该字段/路径的其它生产者/消费者，确认没破坏或列进 Verification Needed——别只确认被报问题修了。
 8. **证据真实性**：**不收 Author "已修复/已吸取教训" 的自我总结当证据**；diff 里若有 probe / mutation harness /
    临时脚本，它**不算完成证据**。「回归用例有效」声称只认**守护有效性装置的结构化产物**
-   ——必填字段与失败判据以 AGENTS.md 的守护有效性装置节为准，逐字段核对完整性、自洽与 tested_sha 绑定；
-   其余「机制 X 拒绝 Y」的守护声称**不要求这套八字段回归装置**，按同节的负向对照（移除 X 则会通过）、冻结输入域的等价类覆盖与失败原因判据核对；
-   **你不运行装置**；产物缺失或字段不可信 → 列 Verification Needed。
-   为每条 Blocking 标 [Product/Verification] + caused_by_last_fix + Proposed Fix。 标 [Verification Blocking] 前必须先过 AGENTS.md ★ Reviewer verdict 分类语义 的**成立门槛**（点名证据缺口 + 一个可证伪的检查；**判据以该节为准，本处不复述**）；过不了的降级 Non-Blocking Suggestion。
+   ——必填字段与失败判据以 AGENTS.md 的守护有效性装置节为准，逐字段核对完整性、自洽与生成时 commit 的**内容绑定**
+   （判法 = 该节字段 ⑦，不要求 sha 相等）；其余「机制 X 拒绝 Y」的守护声称**不要求这套八字段回归装置**，按同节的
+   负向对照（移除 X 则会通过）、冻结输入域的等价类覆盖与失败原因判据核对；**你不运行装置**；产物缺失或字段不可信
+   → 列 Verification Needed（附一个可证伪的最小检查）。
+   Blocking 只收 [Product Blocking] 并标 caused_by_last_fix + Proposed Fix（判据 = AGENTS.md ★ Reviewer verdict 分类语义：
+   具体后果 / 具体反例 / 删测试理由不成立）；证据缺口写 Verification Needed，账本/措辞写 Non-Blocking Suggestions；
+   HANDOFF / TASK_BRIEF 中标日期的人类裁决按人类决定对待——不核实过程、不降为自述、不要求出现在人类 commit；
+   异议只进 Assumption / Requirement-Level Concerns。
 
-[输出严格按上方输出契约整段（含七行证据首行），末节追加 ## Recommended Next Step（只给建议，不自行执行）]
+[输出严格按上方输出契约整段（含三行证据首行），末节追加 ## Recommended Next Step（只给建议，不自行执行）]
 ```
 
 ## 9B. Blind Review（只对照需求审实现）— 复制给 Reviewer
@@ -873,32 +877,33 @@ re-review 时上一轮 9A/9B blocking 的上下文由 Author 在本 prompt 内�
 只依据：1) AGENTS.md 2) docs/ai/TASK_BRIEF.md 3) docs/ai/HANDOFF.md(取 base branch/已知问题/闸门状态，
 但不据其反推计划意图；其 plan_review_9P 行仅状态记录，不据以推断计划内容) 4) 审查对象 = 正文 diff：
 git diff <review_base_sha>..<review_tip_sha> -- . ":(exclude)docs/ai/review_9*.md" ":(exclude)docs/ai/archive/**"
-":(exclude)docs/ai/IMPLEMENTATION_PLAN.md"（排除项使历史/本任务 verdict 正文与计划正文都不进入你的输入；
+":(exclude)docs/ai/IMPLEMENTATION_PLAN.md"（review_base_sha=<Author 填>、review_tip_sha=<Author 填>，与工作树 HANDOFF 的
+Review & Test Binding 一致；排除项使历史/本任务 verdict 正文与计划正文都不进入你的输入；
 未过滤的 git diff --name-only 仅用于快照自检的覆盖核验与确认文件存在）5) docs/ai/last_test_run.txt(批判性地读)
 
 **HANDOFF.md 与 last_test_run.txt 直接读工作树当前文件**（当前 HEAD = handoff_snapshot_sha <由 Author 填>），
 **不要**用 `git show <review_tip_sha>:...` 取——会拿到过期版本。代码/测试/验收则严格审 base..tip 这个范围。
 
 盲审隔离（硬性）：
-* **docs/ai/IMPLEMENTATION_PLAN.md 已从上述正文 diff 机械排除**（`:(exclude)` pathspec；该文件在
-  review_sensitive_paths 内、会出现在未过滤 --name-only 里，一律视作未提供）；不得单独打开它，也不得换用
+* **docs/ai/IMPLEMENTATION_PLAN.md 已从上述正文 diff 机械排除**（`:(exclude)` pathspec；该文件**不在**
+  review_sensitive_paths 内，但会出现在未过滤 --name-only 里，一律视作未提供）；不得单独打开它，也不得换用
   未带排除项的 diff 命令——若你的 diff 输出里出现了它的内容，说明命令用错了，改用带排除项的正文 diff 重来。
 * 本轮不应存在任何其它 Reviewer 的输出。检查须覆盖被 .gitignore 忽略的文件（用 `git status --porcelain --ignored`）；
   工作树里若存在**未提交或被 ignore** 的 review verdict / raw log 模式文件（`9A*.md` / `9B*.md` / `.codex-review-*` /
   `review_9*` / `review-*` / `codex_review_*` / `*_raw.log`）→ 视为污染，**不要读**，在审查正文前报告污染并**拒审**。
+  **目录不可枚举**（如权限受限的缓存目录 `.pytest_cache/`、`.vite/`）只在 verdict 里报告，不构成污染、不拒审；
+  污染 = 实际找到匹配文件。
   已提交进历史的审查产物（`docs/ai/archive/**`、上一轮已落账的 `docs/ai/review_9*.md`）不算本轮污染，但同样**不得自行打开**；
   re-review 时 Author 只会在 prompt 里提供上一轮 **9B** blocking 的上下文（不含任何计划内容与 9P 内容），可以使用；
   除此之外的历史 verdict 内容不得接收。
-* **审前快照自检（先于一切审查动作，结果记入 verdict 证据首行）**：
+* 你审的是 review_tip_sha 这个确切 commit，不是工作树。**审前快照自检（先于一切审查动作，结果记入 verdict 证据首行）**：
   `git rev-parse HEAD` 必须 == handoff_snapshot_sha（<由 Author 填>）→ 记 observed_head_sha；
   `git status --porcelain`（**全工作树**，不只 review_sensitive_paths）必须为空 → 记 worktree_clean；
-  `git diff --quiet <handoff_snapshot_sha> -- docs/ai/HANDOFF.md docs/ai/last_test_run.txt` 必须通过；
-  `git hash-object docs/ai/HANDOFF.md docs/ai/last_test_run.txt` → 记 handoff_blob_sha / last_test_run_blob_sha；
-  **逐字抄出 HANDOFF 的 review_sensitive_paths 原文 → 记 review_sensitive_paths_snapshot**，并用
-  `git diff --name-only <review_base_sha>..<review_tip_sha>` 逐项核它覆盖 diff 中全部必含类别的文件
-  （类别以 AGENTS.md 的 review-sensitive paths 节为准：生产源码 / tests / migrations·schema /
-  构建配置 + 依赖声明 + lockfile / TASK_BRIEF / IMPLEMENTATION_PLAN / QUALITY_GATES），漏项即拒审。
-  **任一不满足 → 在审查正文前输出「快照不一致」（写明失败项与实际观察值）并拒审，不得继续。**
+  HANDOFF 与 last_test_run.txt 从工作树读 → 记 read_handoff_from: 工作树。
+  **HEAD 不符或工作树不净 → 在审查正文前报告「快照不一致」（写明失败项与实际观察值）并拒审。**
+  另核 `git diff --name-only <base>..<tip>` 中每个必含类别的文件（类别以 AGENTS.md 的 review-sensitive paths 节为准：
+  生产源码 / tests / migrations·schema / 构建配置 + 依赖声明 + lockfile / TASK_BRIEF；IMPLEMENTATION_PLAN / QUALITY_GATES
+  出现不算缺口）都被 HANDOFF 的 review_sensitive_paths 覆盖——漏项在证据首行之后写「覆盖缺口：<路径>」并**照常审查**，不拒审。
 
 不要 git archive 重建副本、不要重装依赖、不要重跑全量测试——以 docs/ai/last_test_run.txt 产物 + 读 git diff 推理为准；需要验证的具体行为列出来，由 Author 在正常终端代跑。
 
@@ -906,31 +911,34 @@ git diff <review_base_sha>..<review_tip_sha> -- . ":(exclude)docs/ai/review_9*.m
 TASK_BRIEF.md 的需求与验收？
 
 **9B 盲审专攻面**：主动枚举 **遗漏入口 / 状态生命周期 / 边界值 / 回归**（9A 管计划-契约一致性，这几面归 9B）。
-不据 Author 自我总结；为每条 Blocking 标 [Product/Verification] + caused_by_last_fix + Proposed Fix。 标 [Verification Blocking] 前必须先过 AGENTS.md ★ Reviewer verdict 分类语义 的**成立门槛**（点名证据缺口 + 一个可证伪的检查；**判据以该节为准，本处不复述**）；过不了的降级 Non-Blocking Suggestion。
+不据 Author 自我总结；Blocking 只收 [Product Blocking] 并标 caused_by_last_fix + Proposed Fix（判据 = AGENTS.md ★ Reviewer verdict
+分类语义：具体后果 / 具体反例 / 删测试理由不成立）；证据缺口写 Verification Needed（附一个可证伪的最小检查），账本/措辞写
+Non-Blocking Suggestions；HANDOFF / TASK_BRIEF 中标日期的人类裁决按人类决定对待——不核实过程、不降为自述、不要求出现在
+人类 commit；异议只进 Requirement-Level Concerns。
 
-[输出严格按上方输出契约整段（含七行证据首行）+ ## Recommended Next Step + ## Requirement-Level Concerns
+[输出严格按上方输出契约整段（含三行证据首行）+ ## Recommended Next Step + ## Requirement-Level Concerns
 （**两节都要，不替换**）；本 prompt 不依赖 9A 的任何输出]
 本轮不要写入仓库任何文件（含 HANDOFF）——verdict 由 Author 在两份都完成后统一落账。
 ```
 
 ## 9.2 ★ 9P 计划审（计划批准前；唯一定义处）
 
-**定位**：Critical 正式路径的**默认必跑**步骤——第七节把 Approval Status 置 Pending 之后、人类批准之前，由 Reviewer 对**规划本身**做 fresh-context 审查——**每轮单跑，逐轮复审至收敛**（判据与轮次上限见下）。价值：把 9B 只能在实现后才抓到的"计划本身错了"提前到实现开销发生之前，并独立检查 9A/9B 都拿来当公理的 TASK_BRIEF。verdict 是人类批准时的辅助判断材料——**批准权仍只在人类**：人类可在 Author 逐条表态后，知情批准带未采纳项的计划。
+**定位**：Critical 正式路径的**默认必跑**步骤——第七节把 Approval Status 置 Pending 之后、人类批准之前，由 Reviewer 对**规划本身**做 fresh-context 审查——**默认单跑一轮**（人类可明示要求再跑，见下）。价值：把 9B 只能在实现后才抓到的"计划本身错了"提前到实现开销发生之前，并独立检查 9A/9B 都拿来当公理的 TASK_BRIEF。verdict 是人类批准时的辅助判断材料——**批准权仍只在人类**：人类可在 Author 逐条表态后，知情批准带未采纳项的计划。
 
 * **必跑与减免**：默认必跑；跳过仅凭**人类明示减免**。减免记录（谁/何时/一句话理由）由 Author 写进 `docs/ai/review_9P.md`（此时该文件只含减免记录），HANDOFF 的 `plan_review_9P` 行只记 `N/A — 人类减免` + 文件指针，**不写理由正文**。快速版（无 IMPLEMENTATION_PLAN 文件）天然不适用，记 `N/A — 快速版`（无需创建文件）。
-* **每轮单跑，不双审；逐轮复审至收敛（与 9A/9B 同律）**——每轮后 Author 按 §9.1 ★ 修法必附逐条三选一表态并修订计划，再发起下一轮 9P re-review。**每轮 prompt 必填 `9P round: <n>`；round > 1 必须附紧邻上一轮的 blocking 与 Author 全部表态摘要**（历史全文仍只在 review_9P.md；缺失则 Reviewer 拒审要求补齐——9P 审的就是计划，不存在 9B 式盲审隔离问题）。**收敛判据 = 某轮 Plan Verdict 为「可批准」**（与输出契约双向绑定：Blocking None ⇔ 可批准），**未收敛不得进入等待批准——唯一例外 = 达轮次上限后的人类知情批准（见下）**。**轮次上限与 9A/9B 同款：3 轮仍未收敛 → 停止再审、进入 Awaiting Human Adjudication**，交人类在四条**互斥**出路中裁决：「知情批准带未采纳项的计划 / 批准延长复审（逐次批准一轮，延长轮跑完回到本判定）/ 重拆任务 / 回退」——**选知情批准才进入批准门；选延长则继续复审循环；选重拆或回退则执行对应出口，不进入批准门**。**9P 的 blocking 不进 Fix-Loop Counter、不触发硬停、不标 `[Product]`/`[Verification]`、不填 `caused_by_last_fix`，其轮次也不计入 9A/9B 双审的轮次上限**（那套分类与计数只服务实现后的 9A/9B 轮）；据 9P 反馈修订计划属正常规划迭代，不是 review-fix。
-* **审查对象 = 工作树中的规划文件**（此时批准 commit 尚不存在）：TASK_BRIEF.md、IMPLEMENTATION_PLAN.md（+ PRODUCT_BRIEF.md / QUALITY_GATES.md 如有）+ 只读检索仓库现状。**没有实现 diff、没有 `last_test_run.txt`、没有 SHA 账本——不适用 §9.0 ⑤ 审前快照自检与七行证据首行**；锚定只记三行哈希（见 prompt）。证据载体整句 = 4.1 ★ Reviewer-Lightweight Protocol 第二层的「Critical 计划审（9P）」条（与下方 prompt 内嵌句逐字一致）。
-* **调用与零写入**：调用形态同 §9.0 ③（显式 sandbox / model / 效力档、`</dev/null` 必带、不接管道），**但推理档取 `medium` 而非 9A/9B 的 `high`**（取值定义见 §9.0 ③）；一对 `-o` verdict + raw log 落仓外 holding；零写入无例外。可执行命令（`<n>` = 本轮轮次，**逐轮换名**——9P 是多轮复审，沿用同一文件名会覆盖上一轮的 verdict 与 raw log）：
+* **默认单跑一轮，不双审（原逐轮复审直到收敛的做法在 7 个真实任务里跑出 3–6 轮、仅 1 个任务曾到「可批准」，blocking 数不单调收窄，故撤回）**——Author 收 verdict 后按 §9.1 ★ 修法必附逐条三选一表态并修订计划，verdict + 表态 + 修订后的计划一并交人类**知情批准**（批准 commit 含 `docs/ai/review_9P.md`）。人类可在批准前**明示要求**再跑一轮（每次一轮；prompt 填 `9P round: <n>` 并附上一轮 blocking 与表态摘要，摘要缺失时 Reviewer 在 verdict 首行注明「上下文缺失」并照常审查）。**不设逐轮复审、不设轮次上限与四条出路**——Plan Verdict 是人类批准时的辅助材料，批准权只在人类。**9P 的 blocking 不进 Fix-Loop Counter、不触发硬停、不标 `[Product]`/`[Verification]`、不填 `caused_by_last_fix`，其轮次也不计入 9A/9B 双审的轮次上限**（那套分类与计数只服务实现后的 9A/9B 轮）；据 9P 反馈修订计划属正常规划迭代，不是 review-fix。
+* **审查对象 = 工作树中的规划文件**（此时批准 commit 尚不存在）：TASK_BRIEF.md、IMPLEMENTATION_PLAN.md（+ PRODUCT_BRIEF.md / QUALITY_GATES.md 如有）+ 只读检索仓库现状。**没有实现 diff、没有 `last_test_run.txt`、没有 SHA 账本——不适用 §9.0 ⑤ 审前快照自检与三行证据首行**；锚定只记三行哈希（见 prompt）。证据载体整句 = 4.1 ★ Reviewer-Lightweight Protocol 第二层的「Critical 计划审（9P）」条（与下方 prompt 内嵌句逐字一致）。
+* **调用与零写入**：调用形态同 §9.0 ③（显式 sandbox / model / 效力档、`</dev/null` 必带、不接管道），**但推理档取 `medium` 而非 9A/9B 的 `high`**（取值定义见 §9.0 ③）；一对 `-o` verdict + raw log 落仓外 holding；零写入无例外。可执行命令（`<n>` = 本轮轮次，**逐轮换名**——人类明示要求加轮时沿用同一文件名会覆盖上一轮的 verdict 与 raw log）：
 
 ```
 HOLD="$HOME/.codex-review-holding/<task>"; mkdir -p "$HOLD"
-codex exec --sandbox workspace-write --ephemeral --ignore-user-config --ignore-rules \
+codex exec --sandbox workspace-write --ephemeral --ignore-user-config --ignore-rules --disable memories \
   -c 'windows.sandbox="elevated"' -m <model> -c 'model_reasoning_effort="medium"' \
   -o "$HOLD/9P_r<n>.md" "<9P prompt>" </dev/null > "$HOLD/9P_r<n>_raw.log" 2>&1
 ```
 
   > **降档来历（2026-08-30 人类裁决）**：9P 审规划文件而非代码 diff，三类审查里对深度代码推理的需求最低，实现级精度本就该由实现期的 9A/9B 承担。当日实测（5 个项目最新已结束会话，99 次 Codex 运行、17.1h）：9P 单轮 p50 = 514s、28 次累计 3.8h，且轮次最不收敛（某项目 9P 跑满 6 轮仍「修订后可批准」，另一项目逐轮 blocking 数 `6 / 5 / 3 / 4` 不单调收窄）。**9A/9B 维持 `high` 不动**——它们审真实 diff，是实测中唯一挡下 `[Product Blocking]` 的环节，降档最先丢的正是"读代码 + 构造反例"类发现。可逆：回滚 = 档位改回 `high`。**是否划算看三个观察量**（对比 high 档基线）：9P 单轮时长（基线 p50 514s）、每轮 blocking 条数、Author 表态采纳率（基线 100%）；采纳率明显下降即回滚。
-* **落账（9P 例外于「表态记 Work Log」的通用规则——防止经 HANDOFF 污染后续 9A/9B）**：Author 把**每轮** verdict 依轮次追加进 `docs/ai/review_9P.md`，各轮逐条三选一表态**附在同文件对应轮的 Author Responses 节**（每条一句话），收敛后连同修订后的计划一起交人类。**9P 的 verdict、表态与减免记录只放这一个文件**——HANDOFF 的 `plan_review_9P` 行只记 Plan Verdict 词 + 文件指针，Work Log 只记一行「9P 已跑/已减免 + 指针」，**都不复述发现内容、修改内容或理由**。**人类批准 commit 应包含 `docs/ai/review_9P.md`**——批准凭证自带独立审查证据。该文件命中 §9.0 ③ 的 `review_9*` 污染模式：随批准 commit 入库后属"已提交进历史的审查产物"，后续 9A/9B **不读**（对 9B 尤其如此——读它等于间接读计划）。
+* **落账（9P 例外于「表态记 Work Log」的通用规则——防止经 HANDOFF 污染后续 9A/9B）**：Author 把**每轮** verdict 依轮次追加进 `docs/ai/review_9P.md`，各轮逐条三选一表态**附在同文件对应轮的 Author Responses 节**（每条一句话），表态并修订计划后连同 verdict 一起交人类知情批准；Verification Needed 的代跑结果（命令 + 退出码 + 一句话结论）也写进该轮 Author Responses 节，随批准 commit 入库。**9P 的 verdict、表态与减免记录只放这一个文件**——HANDOFF 的 `plan_review_9P` 行只记 Plan Verdict 词 + 文件指针，Work Log 只记一行「9P 已跑/已减免 + 指针」，**都不复述发现内容、修改内容或理由**。**人类批准 commit 应包含 `docs/ai/review_9P.md`**——批准凭证自带独立审查证据。该文件命中 §9.0 ③ 的 `review_9*` 污染模式：随批准 commit 入库后属"已提交进历史的审查产物"，后续 9A/9B **不读**（对 9B 尤其如此——读它等于间接读计划）。
 * **与 9A/9B 的防污染边界**：9P 与后续 9A/9B 是各自独立的 fresh 进程；9A/9B 的 prompt **不得包含 9P 的结论或内容**，两者也**不读 `docs/ai/review_9P.md` 正文**（9A/9B prompt 已内嵌对应排除句；正文 diff 已用 `:(exclude)` 机械排除）。**可见的仅限元数据**——未过滤 `--name-only` 输出中该文件的存在、HANDOFF `plan_review_9P` 行的 verdict 词与文件指针；Reviewer 不得把这些当作计划质量或实现正确性的证据。
 
 ### 9P prompt — 复制给 Reviewer
@@ -938,7 +946,7 @@ codex exec --sandbox workspace-write --ephemeral --ignore-user-config --ignore-r
 ```
 你是本项目的独立 plan reviewer（9P 计划审，Critical 模式）。本轮审查对象是**尚未批准的实现计划**，不是实现——此时没有实现 diff、没有 docs/ai/last_test_run.txt、没有批准 commit 与 SHA 账本，**不要索取它们，也不要因其缺失拒审**；不执行审前快照自检。**只审不改**：不得修改任何文件、不得创建任何 commit；发现的问题只写进 verdict。
 
-本轮轮次：9P round: <由 Author 填，从 1 起计>。**round > 1 而本 prompt 未附紧邻上一轮的 9P blocking 与 Author 全部表态摘要 → 不要开审**，输出「上下文缺失：9P round <n> 缺上一轮摘要」并要求 Author 补齐后重发（历史完整内容仍只在 docs/ai/review_9P.md，摘要由 Author 在 prompt 内提供，你不得自行打开该文件）。
+本轮轮次：9P round: <由 Author 填，从 1 起计>。round > 1 而本 prompt 未附紧邻上一轮的 9P blocking 与 Author 全部表态摘要 → 在 verdict 首行注明「上下文缺失：9P round <n> 缺上一轮摘要」，然后**照常全量审查**（历史完整内容仍只在 docs/ai/review_9P.md，摘要由 Author 在 prompt 内提供，你不得自行打开该文件）。
 
 先读：1) AGENTS.md（遵守 Safety Rules） 2) docs/ai/TASK_BRIEF.md 3) docs/ai/IMPLEMENTATION_PLAN.md 4) docs/ai/PRODUCT_BRIEF.md（如存在） 5) docs/ai/QUALITY_GATES.md（如存在）。以上一律**读工作树当前文件**。可只读检索仓库任意代码以核对计划的声称。
 
@@ -951,7 +959,7 @@ round > 1 时：先逐条核验上一轮 blocking 的闭合情况，再做全量
 2. 守护类声称的负向对照：凡「机制 X 拒绝 Y」的 AC，等价类是否枚举自人类冻结的输入域、每类是否有「移除 X 则会通过」的对照样本（AGENTS.md → 守护有效性装置）。
 3. 架构理解与仓库实况：计划的 Current Architecture Understanding 与 Proposed Changes 是否与真实代码相符——抽查其关键声称（文件/接口/行为确实如计划所述）。
 4. 复用遗漏：方案比较是否真做过复用检索；从零自建的否决理由是否成立；是否重复造仓内已有的轮子。
-5. 假设与范围：Frozen Acceptance 是否从实现反推；Open Questions 是否真收敛（≥1 个未解决 = 草稿）；[假设] 是否都有验证方式；diff 预算预估与架构层拆分评估是否可信。
+5. 假设与范围：Frozen Acceptance（`TASK_BRIEF.md` → Acceptance Criteria）是否从实现反推；Open Questions 是否真收敛（≥1 个未解决 = 草稿）；[假设] 是否都有验证方式；diff 预算预估与架构层拆分评估是否可信。
 
 输出契约（9P 专用；先写四行锚定证据——首行照抄 prompt，后三行为实际命令输出）：
 9P_round: <照抄 prompt 的 9P round 值>
@@ -959,7 +967,7 @@ observed_head_sha: <git rev-parse HEAD>
 task_brief_blob_sha: <git hash-object docs/ai/TASK_BRIEF.md>
 plan_blob_sha: <git hash-object docs/ai/IMPLEMENTATION_PLAN.md>
 ## Plan Verdict            可批准 / 修订后可批准 / 不可批准（硬规则双向绑定：Blocking Issues 非空 → 只能"修订后可批准"或"不可批准"；Blocking Issues 为 None → 必须"可批准"——Suggestion 与 Assumption Challenges 不影响可批准）
-## Blocking Issues         无则 "None"。按计划落地会导致做错/做不完整/无法验收的缺陷；每条必附 Proposed Fix（具体改法 + 依赖假设；需取舍写"需人类裁决"）。不标 [Product]/[Verification]、不填 caused_by_last_fix——9P 不进 Fix-Loop。**不得以「计划散文是否完备」立 blocking**：形如"若 X 场景未考虑""建议补充说明 Y"而无法指出按此计划落地会做错什么的条目，一律降级 Non-Blocking Suggestion。判据 = 能否写出一个「按此计划执行会失败」的具体后果。
+## Blocking Issues         无则 "None"。按计划落地会导致做错/做不完整/无法验收的缺陷；每条必附 Proposed Fix（具体改法 + 依赖假设；需取舍写"需人类裁决"）。不标 [Product]、不填 caused_by_last_fix——9P 不进 Fix-Loop。**不得以「计划散文是否完备」立 blocking**：形如"若 X 场景未考虑""建议补充说明 Y"而无法指出按此计划落地会做错什么的条目，一律降级 Non-Blocking Suggestion。判据 = 能否写出一个「按此计划执行会失败」的具体后果。
 ## Non-Blocking Suggestions 无则 "None"。每条同样必附 Proposed Fix。
 ## Assumption Challenges   对 Frozen Acceptance / [假设] 标签 / 高影响前提的挑战，无则 "None"。
 ## Verification Needed     需 Author 在正常终端实跑以核对计划声称的具体命令 + 想确认的事实。无则 "None"。
@@ -991,23 +999,23 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 
 **重点判断**：
 ① blocking 是否全解决（两份 verdict 逐条过，9A/9B 同一问题按问题去重）；
-② **双审隔离是否成立**——两份 verdict 绑定同一 `review_tip_sha`；核验所用的**权威 `handoff_snapshot_sha` 来源 = HANDOFF 的 Review & Test Binding**（统一落账时持久化），**不依赖仓外 holding 的 prompt 文件**；**禁止**用「最近一次修改 HANDOFF 的 commit」（如 `git log -1 --format=%H -- docs/ai/HANDOFF.md`）去核——落账后它指向审后 docs commit，必然失真。逐项核 §9.0 ④ 的七个字段；双审窗口内无人改生产代码/`review_sensitive_paths`/HANDOFF（核对 git log 无窗口内 commit）。不成立则这轮双审无效，**重跑而非将就**；
+② **双审隔离是否成立**——两份 verdict 绑定同一 `review_tip_sha`；核验所用的**权威 `handoff_snapshot_sha` 来源 = HANDOFF 的 Review & Test Binding**（统一落账时持久化），**不依赖仓外 holding 的 prompt 文件**；**禁止**用「最近一次修改 HANDOFF 的 commit」（如 `git log -1 --format=%H -- docs/ai/HANDOFF.md`）去核——落账后它指向审后 docs commit，必然失真。逐项核 §9.0 ④ 的三个字段（`observed_head_sha` 相互相等且 == `handoff_snapshot_sha`；`worktree_clean` 皆 yes；`read_handoff_from` 皆「工作树」——出现 `git show tip` = 该轮建立在过期 HANDOFF 上，作废重跑）；用 `git show <handoff_snapshot_sha>:docs/ai/HANDOFF.md` 取出审前 `review_sensitive_paths` 与当前 HANDOFF 比对——出现移除条目、改窄 glob、移出文件即缩窄，作废重跑；**覆盖核验**：跑 `git diff --name-only <review_base_sha>..HEAD`，其中每个必含类别文件（类别以 4.1 ★ review-sensitive paths + SHA 绑定 为准）都须被当前清单覆盖，两份 verdict 首行之后的「覆盖缺口」路径须已在当前清单——任一未覆盖 → 不得可提交；补清单后对新纳入路径跑 `git diff --quiet <review_tip_sha> -- <路径>`，非零即审后有未审改动 → 须对该 delta 再审；`git diff <review_tip_sha> -- docs/ai/QUALITY_GATES.md` 非空 → 原样列进 Manual Check Before Commit 由人类决定是否再审；双审窗口内无人改生产代码/`review_sensitive_paths`/HANDOFF（核对 git log 无窗口内 commit）。不成立则这轮双审无效，**重跑而非将就**；
 ③ 是否需文档/配置/迁移/README 更新；
 ④ 测试是否可信（必要时 Author 在正常终端重跑——与 Reviewer 禁令无关）；
 ⑤ 是否有"测试通过但实现不稳"；
-⑥ Verification Needed 命令是否已全部代跑并追加输出；
+⑥ Verification Needed 是否已逐条处置——代跑并追加真实输出与退出码，或以技术理由「不采纳」；每条在 Manual Check Before Commit 占一行（命令 → 退出码 → 判定「产品缺陷 是/否」，或「不采纳 + 理由」），退出码非 0 / 装置判 NOT PROVEN 的不得省略；处置产生的 review-sensitive delta 是否再审按收敛门 ③ 判（纯代跑与 HANDOFF 落账不再审）；走收敛门 ③ 例外 (a) 时核对新旧 `last_test_run.txt` 的收集用例总数（新 ≥ 旧）；
 ⑦ 是否残留 scratch 目录 / 诊断 probe（有则列出请人类确认后删；probe 提交前删）。
 
-**合并门**：Review Verdict 非"通过"、或有未解决 Product/Verification Blocking → 不得可提交；Process Debt（Debt Verdict: Noted/Deferred）与 Suggestion **记录但不默认阻止**。
+**合并门（阻止合并只由未解决的 `[Product Blocking]` 与 Unpaid 债）**：有未解决 `[Product Blocking]`（未修复且未经人类裁决不成立）、或 Debt Verdict 为 Unpaid（触发 Payback-on-Touch 未还且未获延期批准）→ 不得可提交；verdict 词不是独立条件；`有条件通过` 在 Verification Needed 逐条处置后视同通过；Process Debt（Noted/Deferred）与 Suggestion **记录但不阻止**；Verification Needed 未逐条处置（代跑或不采纳）亦不得标可提交——它是收敛前置条件（见收敛门），不是问题级阻塞。
 
-**收敛门（硬）**：标 `可以提交 / Ready to Commit / 已收敛` 的全部条件——含 `review_tip_sha` 内容绑定、verdict 通过要求、**证据层出口的等价满足条件**、失效判定的内容比对法——**一律以 4.1 ★ 最后一轮独立审查门为准，本节不复述**。恒记住其结论：**人类因成本叫停 ≠ 质量通过**，记 `stopped, NOT converged`，未经审代码不得标已收敛/可提交。
+**收敛门（硬）**：标 `可以提交 / Ready to Commit / 已收敛` 的全部条件——含 `review_tip_sha` 内容绑定及门 ③ 列出的例外（含 QUALITY_GATES 审后改动交人类复核的分支）、「无未解决 `[Product Blocking]`」的判法、Verification Needed 逐条处置、以及失效判定的内容比对法——**一律以 4.1 ★ 最后一轮独立审查门为准，本节不复述**。恒记住其结论：**人类因成本叫停 ≠ 质量通过**，记 `stopped, NOT converged`，未经审代码不得标已收敛/可提交。
 
 输出（6 节不得空白或合并；Evidence 要引具体 diff/测试位置；PR Description 5 子项缺一不可）：
 
 ```
 ## Final Verdict   可以提交 / 需要小修 / 不建议提交
 ## Evidence        相关文件、关键 diff、测试命令与结果。
-## Manual Check Before Commit   人类提交前应手动检查处。
+## Manual Check Before Commit   人类提交前应手动检查处——逐条列：每条 Verification Needed 的处置行（命令 → 退出码 → 判定，或 不采纳 + 理由）；本任务依赖的每条人类裁决（日期 / 内容 / 落点）；审后 `docs/ai/QUALITY_GATES.md` 的 diff 与收敛门 ③ 例外 delta。
 ## Remaining Risks  无则 "None"。
 ## Recommended Commit Message
 ## PR Description   ### What changed ### Why ### How tested ### Risks ### Notes for reviewer
@@ -1125,7 +1133,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 * [ ] 批准真实改动——**Critical**：批准产品定义(Phase 0)与实现计划，PLAN 的 Human Approval Status 是唯一受保护字段、只能人类改；**Routine**：扫 diff 后由人类 commit/merge。
 * [ ] 检查 diff、决定取舍、对模糊需求与设计争议拍板；对 Reviewer 标 `需人类裁决` / `dispute` 的条目拍板。
 * [ ] 最终 commit/squash；确认后才清理 Reviewer scratch 目录。
-* [ ] 决定模式（Routine / Critical）、批准 diff 超限、批准轮次上限延长、确认「证据层出口」收口。
+* [ ] 决定模式（Routine / Critical）、批准 diff 超限、批准轮次上限延长、明示要求加跑一轮 9P、合并前逐条查看 Manual Check Before Commit（Verification Needed 处置行、人类裁决条目、Unpaid 债的偿还或延期）。
 
 ## 13.3 Author 与 Reviewer 边界
 Author 探索/规划/实现/修测试/更新交接；Reviewer 只做独立轻量、**零写入**审查（见 §9.0）。两 Agent 不共享记忆；交接载体按模式取——**Critical** 全走 `docs/ai/`，**Routine** 走对话（无交接文件，也不得为此创建）。
@@ -1151,8 +1159,8 @@ Author 探索/规划/实现/修测试/更新交接；Reviewer 只做独立轻量
 2. Author 输出简短计划（可只在对话中），等人类一句话批准。（无 IMPLEMENTATION_PLAN 文件，9P 计划审天然不适用、记 `N/A — 快速版`；需要 9P 级计划把关的任务不应走快速版。）
 3. Author 实现 → **清 probe → 建 author commit（这就是被测/被审的 tip）→ 确认 review-sensitive 路径干净（`git status --porcelain -- <review_sensitive_paths>` 为空）→ 针对该 commit 跑测试（`… 2>&1 | tee docs/ai/last_test_run.txt`）**，`tested_sha` = `review_tip_sha` = 该 author commit。**本步不提交任何交接文档**。
 4. Author 更新 HANDOFF（快速版唯一必须的交接文件），至少填：Review & Test Binding（`review_base_sha` / `review_tip_sha` / `tested_sha` / `review_sensitive_paths`）、Applicability Scan(0.1)、Human Approval Evidence、Remaining Risks/Debt、Quality Gates(本次相关行)。零暗债红线同样适用（无债写 "Debt: none"）；Payback-on-Touch 照常生效。
-5. **HANDOFF 更新完毕后**才提交交接产物，且只含这两个文件：`git commit -m "docs(handoff): [任务名] test run + handoff" -- docs/ai/last_test_run.txt docs/ai/HANDOFF.md`。**顺序不可颠倒**（理由见第二节第 4 条）。此后若又改了 `review_sensitive_paths` 任一文件 → 回步骤 3 重来。
-6. **有 review-sensitive 改动 → Reviewer 必须执行**（走收敛门；§9.0 双审隔离协议强制）。步骤 5 的 docs commit 即双审共读的**审前 HANDOFF 快照**：记下它的 sha 作为 `handoff_snapshot_sha` 写进两份 review prompt，并写明「HANDOFF / last_test_run 读工作树，代码审 base..tip 的带排除项正文 diff（`:(exclude)` 清单见第九节）」。**仅完全不触及 review-sensitive 路径的纯文档任务才可跳过 Reviewer。**
+5. **HANDOFF 更新完毕后**才提交交接产物，且只含这两个文件：`git commit -m "docs(handoff): [任务名] test run + handoff" -- docs/ai/last_test_run.txt docs/ai/HANDOFF.md`。**顺序不可颠倒**（理由见第二节第 4 条）。此后若又改了 `review_sensitive_paths` 任一文件 → 回步骤 3 重来；仅新增独立测试用例文件时只重测不重审（见 4.1 ★ 最后一轮独立审查门 ③）。
+6. **有 review-sensitive 改动且不在该门 ③ 例外内 → Reviewer 必须执行**（走收敛门；§9.0 双审隔离协议强制）。步骤 5 的 docs commit 即双审共读的**审前 HANDOFF 快照**：记下它的 sha 作为 `handoff_snapshot_sha` 写进两份 review prompt，并写明「HANDOFF / last_test_run 读工作树，代码审 base..tip 的带排除项正文 diff（`:(exclude)` 清单见第九节）」。**仅完全不触及 review-sensitive 路径的纯文档任务才可跳过 Reviewer。**
 7. 人类检查 diff 后提交。
 
 ---
@@ -1167,11 +1175,11 @@ Author 探索/规划/实现/修测试/更新交接；Reviewer 只做独立轻量
 4. per-task 交接文件齐全且已更新（快速版至少有 HANDOFF）。
 5. last_test_run.txt 有最新真实测试输出且可信，`tested_sha` 绑定成立。
 6. 没删测试或绕过逻辑（对照 diff 中测试文件改动确认）。
-7. 阶段 commit 齐全：计划批准 commit（正式版内含 `docs/ai/review_9P.md`——该文件含各轮 verdict + Author Responses，或人类减免记录；快速版以 Human Approval Evidence 替代、9P 记 `N/A — 快速版`）、author commit、docs(handoff) commit、review-fix commit（如有）。
+7. 阶段 commit 齐全：计划批准 commit（正式版内含 `docs/ai/review_9P.md`——该文件含 9P verdict（默认一轮；人类明示加轮的依次追加）+ Author Responses，或人类减免记录；快速版以 Human Approval Evidence 替代、9P 记 `N/A — 快速版`）、author commit、docs(handoff) commit、review-fix commit（如有）。
 8. 有 Remaining Risks 说明、commit message 和 PR description。
-9. Reviewer 未重建副本/重装依赖/重跑全量测试、**对仓库零写入**；其 Verification Needed 已由 Author 代跑并产物化；scratch 目录经人类确认后清理。
-10. Author 最终审查结论是"可以提交"，**且过收敛门**（条件以 4.1 ★ 最后一轮独立审查门为准，含证据层出口的等价满足条件），且**双审隔离成立**（同一 tip、七个证据字段互洽、窗口内无人写入、两份 verdict 分开保存）；**人类成本叫停记 `stopped, NOT converged`、不算收敛**。
-11. **零暗债结论**：所有妥协要么已修，要么已在 HANDOFF 写成带触发偿还的 `[DEBT]` 明账；diff 中无 later/temporary/for now 等模糊遗留；若触碰挂债文件，该债已还或已显式申请降级。
+9. Reviewer 未重建副本/重装依赖/重跑全量测试、**对仓库零写入**；其 Verification Needed 已由 Author 逐条处置（代跑并产物化，或以技术理由不采纳）；scratch 目录经人类确认后清理。
+10. Author 最终审查结论是"可以提交"，**且过收敛门**（条件以 4.1 ★ 最后一轮独立审查门为准），且**双审隔离成立**（同一 tip、三个证据字段互洽、窗口内无人写入、两份 verdict 分开保存）；**人类成本叫停记 `stopped, NOT converged`、不算收敛**。
+11. **零暗债结论**：所有妥协要么已修，要么已在 HANDOFF 写成带触发偿还的 `[DEBT]` 明账；diff 中无 later/temporary/for now 等模糊遗留；若触碰挂债文件，该债已还、或已获人类明确批准延期（Debt Verdict = Deferred）；仅提出申请未获批 = Unpaid，不得判「可以提交」。
 12. **适用维度验收闭环**：0.1 标「关注」的每维验收项已满足（过第五/十一节）；标 N/A 的已写原因。无"既没做也没记原因"的维度。
 13. **真实产品的度量与归属**（门控）：若为真实可发布产品，成功度量定义（北极星+支撑+埋点 schema）与上线后归属已记入 PRODUCT_BRIEF；关键埋点已验证可触发的证据在 last_test_run.txt 或 HANDOFF；用户/市场判断已区分证据/假设，高影响假设已验证或降级。非真实产品则标 N/A。
 
@@ -1203,7 +1211,7 @@ v3.1 → v3.2 期间的五轮外部审查里，**贯穿始终的同一个病**�
 ## 形式要匹配失败类型
 * **纪律滑坡型**（压力下想跳步）→「禁止 + 借口→现实表 + 红旗清单」（如『声称完成纪律』『系统化调试』）。正面说教没用，要把开脱话术逐条堵死。
 * **输出形状型**（格式/结构错）→ 正面示范（"输出 IS …" + 模板），不要"不要写成 X"。禁止句会被拿去讨价还价。
-* **缺必要元素型**（总忘带某项）→ 用结构：模板里留 REQUIRED 槽位（如 PLAN 的 Approval Status、HANDOFF 的 Quality Gates 表、verdict 的七行证据首行）。
+* **缺必要元素型**（总忘带某项）→ 用结构：模板里留 REQUIRED 槽位（如 PLAN 的 Approval Status、HANDOFF 的 Quality Gates 表、verdict 的三行证据首行）。
 * **条件依赖型**（某情况才适用）→ `if X then Y` 条件句（如各门控"标 N/A 则整节跳过"）。
 
 ## 关键措辞先 Micro-Test

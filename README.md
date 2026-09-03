@@ -27,16 +27,16 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 | `claude/rules/` | `~/.claude/rules/` | 自动加载规则包：`common/` + 14 个语言/领域目录（79 文件） |
 | `claude/workflow/` | `~/.claude/workflow/` | 母本核心：`AGENTS.md`（Safety Rules / Reviewer 零写入 / `[DEBT]` 零暗债 / Payback-on-Touch，禁止事项唯一出处）· `index.md`（阶段↔命令↔产出导航）· `reviewer-prompt.md`（9P 计划审 + 9A 标准审 + 9B 盲审 prompt、输出契约、双审隔离协议、审前快照绑定）· `QUALITY_GATES.md`（质量/安全/隐私/可访问性横切清单 + 设计闸门）· `AB-model-diagnostic.md` · `workflow-design-notes.md` · `templates/`（TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF / PRODUCT_BRIEF 骨架） |
 | `claude/commands/` | `~/.claude/commands/` | 7 个阶段 slash command：`/define` `/explore` `/plan` `/design-check` `/implement` `/debug` `/final-review` |
-| `codex/AGENTS.md` | `~/.codex/AGENTS.md` | Reviewer（Codex CLI）侧长期规则 |
+| `codex/AGENTS.md` | `~/.codex/AGENTS.md` | Codex 侧长期规则（Reviewer 规则 + 非审查会话比例原则） |
 | `codex/config.example.toml` | `~/.codex/config.toml`（缺失时播种） | Codex 持久偏好（信任目录表等本机生成段刻意省略） |
-| `portable/` | — | 便携单文件版。**`通用prompt-v3.4.txt` = 当前版**（2026-08-30 按 `main` 母本整体重新生成：模式路由/Routine · Reviewer 零写入 · 双审隔离与 SHA 绑定 · 归因与 Fix-Loop 硬停 · 轮次上限 · 单轮 diff 预算 · 守护有效性装置与负向对照 · 验收可复现判定 · 证据层出口 · 修法必附 · 9P 计划审 · 9P 与 `[Verification Blocking]` 的成立门槛 · **推理档按审别取值**）。**每次整体重生即退役旧版**，`portable/` 只保留当前版一份，历史版本查 git 历史（v3.3 见 `git show 4861875:portable/通用prompt-v3.3.txt`，v3.2 见 `git show 76c3138:portable/通用prompt-v3.2.txt`，v3.1 见 `git show f7dd03f^:portable/通用prompt-v3.1.txt`）。母本再变时同样**整体重新生成**，勿逐条打补丁 |
+| `portable/` | — | 便携单文件版。**`通用prompt-v3.5.txt` = 当前版**（2026-09-03 按 `main` 母本整体重新生成：模式路由/Routine · Reviewer 零写入 · 双审隔离与 SHA 绑定 · 归因与 Fix-Loop 硬停 · 轮次上限 · 单轮 diff 预算 · 守护有效性装置与负向对照 · 验收可复现判定 · 修法必附 · **Blocking 仅 Product、证据缺口走 Verification Needed** · **9P 默认单跑一轮** · 推理档按审别取值）。**每次整体重生即退役旧版**，`portable/` 只保留当前版一份，历史版本查 git 历史（v3.4 见 `git show 77244d1:portable/通用prompt-v3.4.txt`，v3.3 见 `git show 4861875:portable/通用prompt-v3.3.txt`，v3.2 见 `git show 76c3138:portable/通用prompt-v3.2.txt`，v3.1 见 `git show f7dd03f^:portable/通用prompt-v3.1.txt`）。母本再变时同样**整体重新生成**，勿逐条打补丁 |
 | `install.ps1` | — | 上述一切的一键部署脚本 |
 
 ## 核心机制（2026-08 版）
 
 - **模式路由（2026-08-05 裁决）**：日常任务默认 **Routine**——对话内简短方向 + 真实验证输出（命令 / 完整输出 / 退出码），人类扫 diff 后 commit/merge，无交接文件仪式；**Critical** 仅人类明确启用，才进入下述完整机制。任务级「做吧」不构成模式确认；触及 auth / 迁移 / 部署 / 资金等高风险面须先建议 Critical 并停下等确认。
 - **交接走文件、验证产物化（Critical）**：交接经 `docs/ai/`，测试输出落 `last_test_run.txt`，下一个 Agent 读产物不信自述；git 作阶段门，回滚靠 revert。
-- **Reviewer 零仓库写入 + 双审隔离**：计划批准前默认必跑 **9P 计划审**（每轮单跑、逐轮复审至收敛、审规划文件、无快照自检，2026-08-27 新增）；实现审 9B 盲审先行、9A 对照审后行，verdict 与 raw log 一律写仓外 holding；实现审正文前强制快照自检（`review_tip_sha` / `handoff_snapshot_sha` 等 SHA 绑定，不一致即拒审）。
+- **Reviewer 零仓库写入 + 双审隔离**：计划批准前默认必跑 **9P 计划审**（默认单跑一轮、再审凭人类明示要求、审规划文件、无快照自检，2026-08-27 新增，2026-09-03 改单轮）；实现审 9B 盲审先行、9A 对照审后行，verdict 与 raw log 一律写仓外 holding；实现审正文前强制快照自检（HEAD == `handoff_snapshot_sha`、工作树干净、HANDOFF 从工作树读，不一致即拒审）；**Blocking 只收 `[Product Blocking]`，证据缺口走 Verification Needed 由人类合并前查看，本身不触发再审，处置产生 review-sensitive delta 时按收敛门再审（2026-09-03）**。
 - **Fix-Loop 外部化硬停**：blocking 的归因（`caused_by_last_fix`）由 Reviewer 判、Author 逐字转录，达阈值即停手交人类，禁止原上下文滚补丁；**递增条件、阈值、轮次上限与合并门优先级以 `claude/workflow/AGENTS.md` → Fix-Loop 计数与跨轮硬停为唯一定义处**（本文不复述判据）。
 - **零暗债**：任何妥协要么当场修，要么写成带偿还触发器的 `[DEBT]` 明账；触碰挂债文件必须同 commit 偿还（Payback-on-Touch）。
 - **守护有效性契约**（已定稿；**判据两模式恒适用，证据形式按模式取——下述结构化产物是 Critical 形式，Routine 形式见 `claude/workflow/AGENTS.md` → 守护有效性装置 ★ 模式分流**）：Critical 下「回归用例有效」的唯一可接受证据 = 守护有效性装置的结构化产物——基线绿→变异后因预期断言而红→内容哈希验证还原后复绿，真实退出码为准（禁 grep 判红），并携带按构建系统提供的缓存旁路或等价执行真实性证据；母本只定义契约，脚本由各项目按技术栈实现（首个实现：SeedLink `pnpm guard:verify`）。

@@ -7,6 +7,13 @@ project-specific topics. The full phased workflow and prompt templates live in
 `reviewer-prompt.md` + `templates/`; shared, not auto-loaded) and the per-phase
 `~/.claude/commands/*.md`.
 
+## Scope: sessions without a review prompt
+
+If your prompt asks for no review at all — no 9P/9A/9B mode, no request to assess a diff or plan — the Reviewer-specific rules below (role, review modes, lightweight protocol, zero-write, verdict format) do not apply: you are an ordinary assistant and may write code and files. The Safety Rules still do. A prompt that asks you to assess something but names no mode is a review: see Review modes.
+
+- Do the smallest action that satisfies the literal request, re-deriving scope from the current request rather than from memory notes of what was done last time; when one approach fails twice, stop and offer two options instead of escalating to a broader mechanism.
+- Ask for an explicit yes before: elevation/UAC, system-wide network/proxy/certificate settings, registry writes, killing or restarting user applications or VPNs, runtime major-version jumps, or reinstalling/renaming install directories.
+
 ## Role: independent, lightweight Reviewer
 
 In the dual-agent model (Claude Code = Author, Codex CLI = Reviewer), Codex's job
@@ -31,12 +38,11 @@ careful you are.
   `docs/ai/TASK_BRIEF.md`, `IMPLEMENTATION_PLAN.md`, `HANDOFF.md`,
   `docs/ai/last_test_run.txt` and the SHA ledger all exist. 9A/9B dual review, the
   pre-review snapshot self-check and SHA binding all apply.
-- **Critical plan review (9P)** — a pre-approval review of the *plan itself*: one
-  single-Reviewer run per round, iterated until the Plan Verdict passes. The prompt
-  carries a mandatory `9P round: <n>` field; for rounds after the first it MUST
-  also carry the immediately preceding round's blocking and Author-response
-  summary — if that summary is missing, refuse and ask the Author to supply it
-  instead of reviewing. Runs after `/plan` sets Approval Status to Pending and before the human
+- **Critical plan review (9P)** — a pre-approval review of the *plan itself*: a
+  single run by default; the human may explicitly request another round (then the
+  prompt carries `9P round: <n>` and the prior round's blocking and Author-response
+  summary — if the summary is missing, note "context missing" in the first line
+  and review anyway). Runs after `/plan` sets Approval Status to Pending and before the human
   approves.
   The planning files (`docs/ai/TASK_BRIEF.md`, `IMPLEMENTATION_PLAN.md`, plus
   `PRODUCT_BRIEF.md` / `QUALITY_GATES.md` if present) exist **in the working tree
@@ -83,12 +89,17 @@ commands under "Verification Needed" — the Author runs them in a normal termin
   `last_test_run.txt` critically: check that each command actually exists in the
   project, that the output is complete, and that the stated conclusion matches the
   output — never rerun it yourself to "double-check". Verification Needed items come
-  back as real output appended to `last_test_run.txt`, then a re-review.
+  back as real output appended to `last_test_run.txt` for the human to read before
+  merge, or the Author declines an item with a technical reason; neither the item
+  nor the run triggers a re-review — only a review-sensitive change outside the
+  convergence gate's exceptions does (master `AGENTS.md` → 最后一轮独立审查门 ③).
 - **Critical plan review (9P)**: the working-tree planning files (see the 9P reading
   list below) + read-only repo browsing to check the plan's claims. No diff, no
   `last_test_run.txt`, no SHA ledger — do not demand them and never refuse over
   their absence. Verification Needed items come back as facts the Author uses to
-  revise the plan (there is no `last_test_run.txt` to append to yet).
+  revise the plan (there is no `last_test_run.txt` to append to yet) — recorded in
+  `docs/ai/review_9P.md` under that round's Author Responses, with command, exit
+  code and a one-line conclusion.
 - **Routine ad-hoc**: the files / diff the human named, plus the real command output
   and exit codes shown in the conversation — apply the same critical reading to those.
   **`docs/ai/last_test_run.txt` does not exist and must not be created.** If the
@@ -154,16 +165,19 @@ Also check the task's applicable quality gates — design gates (if UI/content) 
   BOTH verdicts are complete. **Critical plan review (9P)**: one verdict per round — the
   Author appends each round's verdict into `docs/ai/review_9P.md` (responses and
   any waiver record live only in that file, never in HANDOFF prose) and fills the
-  `plan_review_9P` status line with the final round's verdict; no dual window
-  exists. **Routine
+  `plan_review_9P` status line with that verdict (one run by default; extra
+  human-requested rounds are appended in order); no dual window exists. **Routine
   ad-hoc**: there is no HANDOFF and no second verdict — your verdict simply goes back
   to the human; do not ask for a ledger to be created.
 - **Critical implementation reviews (9A/9B) only** — before the review body, run the pre-review snapshot self-check
   exactly as the review prompt instructs (`git rev-parse HEAD` vs
-  `handoff_snapshot_sha`, full-tree `git status --porcelain` empty, worktree HANDOFF /
-  `last_test_run.txt` content vs the snapshot commit) and record the evidence
-  fields in the verdict's first lines; on any mismatch, stop and report
-  snapshot inconsistency instead of reviewing. **In a Routine ad-hoc review there is
+  `handoff_snapshot_sha`, full-tree `git status --porcelain` empty, HANDOFF and
+  `last_test_run.txt` read from the working tree — never `git show <tip>:…`) and
+  record the three evidence fields (`observed_head_sha` / `worktree_clean` /
+  `read_handoff_from`) in the verdict's first lines; on a HEAD mismatch or a dirty
+  tree, stop and report snapshot inconsistency instead of reviewing. Pathspec
+  coverage gaps and directories you cannot enumerate are reported inside the
+  verdict, never grounds to refuse. **In a Routine ad-hoc review there is
   no SHA ledger and no snapshot commit — skip this check entirely; an unclean work
   tree is expected there and is not grounds to refuse.**
 - Never delete any file inside the repository work tree: leftover in-repo
@@ -177,13 +191,31 @@ Your final message IS the review verdict — the Author captures it verbatim via
 `codex exec -o` while the full process log goes to a separate raw log in the
 same out-of-tree holding directory — never inside the repository work tree.
 So make the final message self-contained and keep the structured format: **in Critical**,
-first the snapshot-evidence lines (seven fields: `read_handoff_from` /
-`handoff_current_phase` / `observed_head_sha` / `handoff_blob_sha` /
-`last_test_run_blob_sha` / `worktree_clean` / `review_sensitive_paths_snapshot`
-— exact commands come inlined in the review prompt), then Review
+first the snapshot-evidence lines (three fields: `observed_head_sha` /
+`worktree_clean` / `read_handoff_from` — exact commands come inlined in the review
+prompt), then Review
 Verdict / Blocking Issues / Non-Blocking Suggestions / Test Coverage Gaps /
 Cannot Verify From Diff / Verification Needed / Debt Verdict / Recommended Next Step.
-**In a Routine ad-hoc review the seven snapshot fields do not apply — omit them**
+**Blocking Issues hold `[Product Blocking]` only**: each one must state a concrete
+consequence — which user action, which data, or which security boundary goes wrong;
+"cannot rule out" is not a consequence. An acceptance point counts as unmet only with
+a concrete counterexample (a failing run in `last_test_run.txt`, a concrete input →
+wrong output path read from the diff, or a failure exposed when the Author ran a
+Verification Needed item); missing evidence is not an unmet AC. Test removal,
+skipping or weakening counts when it has no explanation in the commit message /
+HANDOFF Work Log / test comments, or its stated reason does not hold (you must name
+the defect or path that test would still catch). Evidence gaps — probe as evidence,
+test not on the real path, thin guard artifact, coverage you consider incomplete,
+a claimed path that was never actually exercised by the runs backing it — go to
+**Verification Needed** as one minimal falsifying check each (a single test, sample
+or grep; never a full suite or a batch regeneration); ledger or wording mismatches,
+including over-claims that involve no unverified product/AC behaviour, go to
+**Non-Blocking Suggestions** (a finding with both halves is split into one of each).
+Never fail a verdict on evidence sufficiency. Human rulings recorded with a date in
+HANDOFF / TASK_BRIEF are human decisions, not Author self-report: do not audit how
+they came about, do not require them in a human commit; disagreement goes to
+Assumption / Requirement-Level Concerns.
+**In a Routine ad-hoc review the three snapshot fields do not apply — omit them**
 (they describe a ledger that does not exist); keep the rest of the structure, and
 follow whatever section contract the review prompt specifies. **In a 9P plan
 review**, follow the 9P contract from the prompt instead: three anchor-hash lines,

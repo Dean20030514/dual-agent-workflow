@@ -22,7 +22,7 @@ description: 实现命令。日常任务默认走文首「Routine 模式」（�
    * (a) 自相矛盾步骤（如 Task 3 用 `clearLayers()`、Task 7 写 `clearFullLayers()`）；
    * (b) 计划与 TASK_BRIEF 验收冲突；
    * (c) 计划本身要求的某项会被 Reviewer 判缺陷（绕过校验/缺测试）。
-   此外确认 `IMPLEMENTATION_PLAN.md` 有 `Frozen Acceptance` 节（改实现前冻结的验收标准，禁反推自实现）——缺则回 `/plan` 补。
+   此外确认 `TASK_BRIEF.md` → Acceptance Criteria 已写成冻结验收（要成立的性质 / 适用范围 / 明确例外 / 正反案例 / 边界 / 必经真实路径；禁反推自实现），且 `IMPLEMENTATION_PLAN.md` 的 Frozen Acceptance 节只含指针与实现期边界、不复述条款——缺则回 `/plan` 补。
    一次性全列出交人类裁决，不要边做边撞。无问题则 Work Log 记"Pre-Flight 通过"。
 2. 严格按计划执行，只做任务相关修改。
 3. 发现计划不合理先暂停说明，不擅自扩大范围；实际 diff 将超出计划预估的预算（`AGENTS.md` → 单轮任务 diff 预算）同样停下交人类裁决。
@@ -32,9 +32,9 @@ description: 实现命令。日常任务默认走文首「Routine 模式」（�
    3. **确认 review-sensitive 路径干净**：`git status --porcelain -- <HANDOFF 的 review_sensitive_paths>` 为空（非空则回 1，先把改动纳入 commit）。
    4. **针对该 commit 跑测试**：`… 2>&1 | tee docs/ai/last_test_run.txt`（按项目实际命令）；`last_test_run.txt` 记 `tested_sha`(=该 author commit) + 真实命令。
    5. 对照 `docs/ai/QUALITY_GATES.md` 适用组自查；有界面/内容过 `/design-check`。
-   6. 更新 `HANDOFF.md`（Review & Test Binding 的 tested_sha、Fix-Loop Counter、Runtime Identity、Work Log/Known Issues/Remaining Risks/Quality Gates/Next Step）。
-   7. **只提交测试产物 + 普通交接文档**；若之后又改了 **`review_sensitive_paths` 中任一文件（源码 / 测试 / 验收 / 配置 等）** → 回步骤 2 重来（`tested_sha` 失效）。
-5. 遵守 `AGENTS.md` 的 Safety Rules。**遇 bug 走 `/debug`，不允许"试着改改看"。修 Reviewer blocking / 任何"修 A 别破 B" 一律走 `/debug` 的回归安全修复协议（blast-radius 枚举 + 全量相关套件 + Fix-Loop Counter 跨轮硬停），不许只盯触发点局部修。** 临时 probe / mutation harness 标 `diagnostic only`、**提交前删除、不作完成证据**（值得留的行为重写为正式 regression test，预期来自验收契约非反推）；同轮改实现与改 harness 须**分开展示各自 diff 与依据**（见 AGENTS 验证三分类）。
+   6. 更新 `HANDOFF.md`（Review & Test Binding 的 tested_sha、Fix-Loop Counter、Work Log/Known Issues/Remaining Risks/Quality Gates/Next Step）。
+   7. **只提交测试产物 + 普通交接文档**；若之后又改了 **`review_sensitive_paths` 中任一文件（源码 / 测试 / 验收 / 配置 等）** → 回步骤 2 重来（`tested_sha` 失效）；**仅新增独立测试用例文件时只重测不重审**（见 `AGENTS.md` → 最后一轮独立审查门 ③）。
+5. 遵守 `AGENTS.md` 的 Safety Rules。**遇 bug 走 `/debug`，不允许"试着改改看"。修 `[Product Blocking]` / 任何改生产代码的"修 A 别破 B" 一律走 `/debug` 的回归安全修复协议（blast-radius 枚举 + 全量相关套件 + Fix-Loop Counter 跨轮硬停），不许只盯触发点局部修；纯证据代跑与账本修正不走该协议。** 临时 probe / mutation harness 标 `diagnostic only`、**提交前删除、不作完成证据**（值得留的行为重写为正式 regression test，预期来自验收契约非反推）；同轮改实现与改 harness 须**分开展示各自 diff 与依据**（见 AGENTS 验证三分类）。
 6. 声称"完成/通过/修好"前走声称闸门（见下）。
 
 ## 声称完成纪律（心理闸门，与产物化互补）
@@ -60,7 +60,7 @@ description: 实现命令。日常任务默认走文首「Routine 模式」（�
 * **Files Changed**（逐文件：改了什么、为什么）
 * **Test Results**（命令 + 结论，完整输出见 last_test_run.txt）
 * **Commit**（hash）
-* **Ready for Review**：给出可复制给 Reviewer 的 prompt（见 `~/.claude/workflow/reviewer-prompt.md`，**默认双审 9A+9B**，配额吃紧或纯小任务人类可减档只跑 9A）。**不得删减固定要件**：① 先读 AGENTS.md + TASK_BRIEF/PLAN/HANDOFF/git diff/last_test_run.txt；② 原样含 Reviewer-Lightweight Protocol 那句中文；③ 原样含完整输出契约 8 节（Review Verdict / Blocking Issues / Non-Blocking Suggestions / Test Coverage Gaps / Cannot Verify From Diff / Verification Needed / Debt Verdict / Recommended Next Step；**9B 同时含 Recommended Next Step + Requirement-Level Concerns、不替换**）——别只留 Debt Verdict 丢了 Review Verdict 与 Cannot-Verify-From-Diff；④ 粘贴本任务适用的设计/质量清单或指向 `docs/ai/QUALITY_GATES.md`；⑤ **双审隔离三要求**（详见 reviewer-prompt.md「双审隔离协议」）：两份 prompt 锚定**同一** `review_tip_sha` + **同一个 `handoff_snapshot_sha`**（= 交接 docs commit；并写明「代码审 base..tip 的**带排除项正文 diff**（`:(exclude)` 清单见 reviewer-prompt.md 的 9A/9B prompt）、HANDOFF 与 last_test_run 读工作树」——**正式版与快速版都一样，tip 里的 HANDOFF 必然是过期版**）；双审窗口内**任何人不得改生产代码 / `review_sensitive_paths` / HANDOFF**；两份 verdict 分别落到**仓外 holding**、后跑的 Reviewer 启动前工作树内不得存在前一份 verdict 或 raw log。
+* **Ready for Review**：给出可复制给 Reviewer 的 prompt（见 `~/.claude/workflow/reviewer-prompt.md`，**默认双审 9A+9B**，配额吃紧或纯小任务人类可减档只跑 9A）。**不得删减固定要件**：① 先读 AGENTS.md + TASK_BRIEF/PLAN/HANDOFF/git diff/last_test_run.txt；② 原样含 Reviewer-Lightweight Protocol 那句中文；③ 原样含完整输出契约 8 节（Review Verdict / Blocking Issues / Non-Blocking Suggestions / Test Coverage Gaps / Cannot Verify From Diff / Verification Needed / Debt Verdict / Recommended Next Step；**9B 同时含 Recommended Next Step + Requirement-Level Concerns、不替换**）——别只留 Debt Verdict 丢了 Review Verdict 与 Cannot-Verify-From-Diff；④ 粘贴本任务适用的设计/质量清单或指向 `docs/ai/QUALITY_GATES.md`；⑤ **双审隔离三要求**（详见 reviewer-prompt.md「双审隔离协议」）：两份 prompt 锚定**同一** `review_tip_sha` + **同一个 `handoff_snapshot_sha`**（= 交接 docs commit；`review_base_sha` / `review_tip_sha` 由 Author 逐字写进 prompt，不写『见 HANDOFF』；并写明「代码审 base..tip 的**带排除项正文 diff**（`:(exclude)` 清单见 reviewer-prompt.md 的 9A/9B prompt）、HANDOFF 与 last_test_run 读工作树」——**正式版与快速版都一样，tip 里的 HANDOFF 必然是过期版**）；双审窗口内**任何人不得改生产代码 / `review_sensitive_paths` / HANDOFF**；两份 verdict 分别落到**仓外 holding**、后跑的 Reviewer 启动前工作树内不得存在前一份 verdict 或 raw log。
 
 ---
 
@@ -77,6 +77,6 @@ description: 实现命令。日常任务默认走文首「Routine 模式」（�
 2. Author 输出简短计划（可只在对话中），等人类一句话批准。（无 `IMPLEMENTATION_PLAN.md` 文件，9P 计划审天然不适用、记 N/A；需要 9P 级计划把关的任务不应走快速版。）
 3. Author 实现 → **清 probe → 建 author commit（这就是被测/被审的 tip）→ 确认 review-sensitive 路径干净（`git status --porcelain -- <review_sensitive_paths>` 为空；非空则先把改动纳入 commit 重来）→ 针对该 commit 跑测试（`… 2>&1 | tee docs/ai/last_test_run.txt`），`tested_sha` = `review_tip_sha` = 该 author commit**。**本步不提交任何交接文档**（顺序同正式版步骤 4）。
 4. Author 更新 HANDOFF（快速版唯一必须的交接文件），至少填：Review & Test Binding（`review_base_sha` / `review_tip_sha` / `tested_sha` / `review_sensitive_paths`）、Applicability Scan(0.1)、Human Approval Evidence、Remaining Risks/Debt、Quality Gates(本次相关行)。零暗债红线同样适用（格式见 `AGENTS.md`，无债写 "Debt: none"）；Payback-on-Touch 照常生效。
-5. **HANDOFF 更新完毕后**才提交交接产物，且只含这两个文件：`git commit -m "docs(handoff): [任务名] test run + handoff" -- docs/ai/last_test_run.txt docs/ai/HANDOFF.md`。二者**不在** `review_sensitive_paths` 内，按 AGENTS 的内容比对不使 `tested_sha` / `review_tip_sha` 失效（tip 仍指步骤 3 的 author commit）。**顺序不可颠倒**——先提交再更新 = 提交的是旧 HANDOFF、更新后的内容没进任何 commit，Reviewer 读到的 HANDOFF 与仓库状态不一致。此后若又改了 `review_sensitive_paths` 任一文件 → 回步骤 3 重来（`tested_sha` 失效）。
-6. **有 review-sensitive 改动 → Reviewer 必须执行**（走收敛门；Reviewer-Lightweight Protocol + `reviewer-prompt.md` 的**双审隔离协议**强制）。步骤 5 的 docs commit 即双审共读的**审前 HANDOFF 快照**：记下它的 sha 作为 `handoff_snapshot_sha` 写进两份 review prompt，并在 prompt 里明确「HANDOFF / last_test_run 读工作树，代码审 base..tip 的带排除项正文 diff（`:(exclude)` 清单见 reviewer-prompt.md）」——**tip 里的 HANDOFF 是过期的**，不这么写 Reviewer 会去 `git show <tip>:docs/ai/HANDOFF.md` 读到旧版（2026-07-28 实测）。双审窗口内该快照不得再动。**仅完全不触及 review-sensitive 路径的纯文档任务才可跳过 Reviewer**。
+5. **HANDOFF 更新完毕后**才提交交接产物，且只含这两个文件：`git commit -m "docs(handoff): [任务名] test run + handoff" -- docs/ai/last_test_run.txt docs/ai/HANDOFF.md`。二者**不在** `review_sensitive_paths` 内，按 AGENTS 的内容比对不使 `tested_sha` / `review_tip_sha` 失效（tip 仍指步骤 3 的 author commit）。**顺序不可颠倒**——先提交再更新 = 提交的是旧 HANDOFF、更新后的内容没进任何 commit，Reviewer 读到的 HANDOFF 与仓库状态不一致。此后若又改了 `review_sensitive_paths` 任一文件 → 回步骤 3 重来（`tested_sha` 失效）；仅新增独立测试用例文件时只重测不重审（见 `AGENTS.md` → 最后一轮独立审查门 ③）。
+6. **有 review-sensitive 改动且不在该门 ③ 例外内 → Reviewer 必须执行**（走收敛门；Reviewer-Lightweight Protocol + `reviewer-prompt.md` 的**双审隔离协议**强制）。步骤 5 的 docs commit 即双审共读的**审前 HANDOFF 快照**：记下它的 sha 作为 `handoff_snapshot_sha` 写进两份 review prompt，并在 prompt 里明确「HANDOFF / last_test_run 读工作树，代码审 base..tip 的带排除项正文 diff（`:(exclude)` 清单见 reviewer-prompt.md）」——**tip 里的 HANDOFF 是过期的**，不这么写 Reviewer 会去 `git show <tip>:docs/ai/HANDOFF.md` 读到旧版（2026-07-28 实测）。双审窗口内该快照不得再动。**仅完全不触及 review-sensitive 路径的纯文档任务才可跳过 Reviewer**。
 7. 人类检查 diff 后提交。
