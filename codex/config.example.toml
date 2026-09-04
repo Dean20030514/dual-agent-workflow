@@ -4,7 +4,7 @@
 # Codex recreates them on first use. Copy to ~/.codex/config.toml on a
 # fresh machine and adjust the model if needed.
 
-model = "gpt-5.6-sol"
+model = "gpt-6-astra"
 model_reasoning_effort = "high"
 personality = "pragmatic"
 sandbox_mode = "workspace-write"
