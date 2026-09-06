@@ -1,4 +1,4 @@
-# AI 协作开发全流程通用 Prompt (v3.7 · 单文件版)
+# AI 协作开发全流程通用 Prompt (v3.8 · 单文件版)
 
 ## 节级索引 · 按节读取协议（勿整读）
 
@@ -534,7 +534,7 @@ Critical 的 review-fix 由 **Author 在双审窗口结束后**执行（Reviewer
 
 ## 4.5 HANDOFF.md（per-task，核心交接文件）
 
-每次 Agent 切换前更新。简短，证据指向 git log 和 last_test_run.txt。**下列每节都保留**（无内容写 None/N/A）；**Quality Gates 必须是逐维度表格**，不得用"已过所有闸门"一句话替代。
+每次 Agent 切换前更新。简短，证据指向 git log 和 last_test_run.txt。**下列每节都保留**（无内容写 None/N/A）；**Quality Gates 必须是逐维度表格**，不得用"已过所有闸门"一句话替代。**空闲期形状**（任务归档后、下一任务 Phase 2 之前）：仍保留全部节、不自创骨架——Current Phase 写 `Idle`，Remaining Risks / Debt 承接未偿 `[DEBT]` 账本，Next Step 指向候选任务，其余各节写 N/A。
 
 ```
 # HANDOFF.md
@@ -638,7 +638,7 @@ Critical 的 review-fix 由 **Author 在双审窗口结束后**执行（Reviewer
 
 1. 归档旧 per-task 文件到 `docs/ai/archive/`。
 2. 创建/增量更新 AGENTS.md(+CLAUDE.md)、PRODUCT_BRIEF.md（若 0.1 判为产品类）、QUALITY_GATES.md。
-3. 创建 TASK_BRIEF.md（含 0.1 扫描）、IMPLEMENTATION_PLAN.md、HANDOFF.md，**结构一律按第四节骨架抄**（archive 实例只供内容参考，不作结构模板）。
+3. 创建 TASK_BRIEF.md（含 0.1 扫描）、IMPLEMENTATION_PLAN.md、HANDOFF.md，**结构一律按第四节骨架抄**（archive 实例只供内容参考，不作结构模板）。**写完即机械对照**：`grep '^## '` 三个文件与第四节骨架逐节比对，缺节补上（无内容写 None/N/A），多出的节可留但不得顶替骨架节。
 4. 不实现代码。方案比较必须先过复用检索（第六节 Reuse Findings）；存在能覆盖大部分需求的成熟实现时默认采用/移植/包装，从零自建须写明否决理由。必须有测试计划（命令须真实存在）。
 5. **架构层拆分评估（触发式，非机械拒绝）**：任务同时涉及 **≥3 架构层**（DB / core / API / CLI / GUI / 真实软件兼容）→ **必须做拆分评估 + 请人类批准**。判据 = 能否拆成**有独立验收性质 / 独立测试 / 独立回退边界**的切片。
 6. **单轮 diff 预算**：预估本分支相对 base 的 diff 是否超预算；超出则优先切片，切不动就在计划里写明理由请人类批准整体推进（阈值与处置见 4.1 ★ 单轮任务 diff 预算，本节不复述）。
@@ -1023,7 +1023,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 ## PR Description   ### What changed ### Why ### How tested ### Risks ### Notes for reviewer
 ```
 
-仅当结论"可以提交"且过收敛门时，把 HANDOFF 的 Current Phase 更新为 Ready to Commit。最终 squash/merge 由人类执行。
+仅当结论"可以提交"且过收敛门时，把 HANDOFF 的 Current Phase 更新为 Ready to Commit。最终 squash/merge 由人类执行。人类合并后若归档本任务并重写空闲期 HANDOFF.md：保留骨架全部节、不自创骨架（形状见 4.5 文首）。
 
 > 最终审查期间若发现 bug/失败，走第八节的系统化调试，不临时试错改。
 
@@ -1174,7 +1174,7 @@ Author 探索/规划/实现/修测试/更新交接；Reviewer 只做独立轻量
 1. 原始需求与验收已实现（正式对照 TASK_BRIEF；快速版对照 HANDOFF 的扫描/简短计划/批准证据）。
 2. 任务分支 diff 范围合理、无无关修改，且**未超单轮 diff 预算或已获人类批准超限**。
 3. AGENTS.md、PRODUCT_BRIEF.md 没被错误覆盖。
-4. per-task 交接文件齐全且已更新（快速版至少有 HANDOFF）。
+4. per-task 交接文件齐全且已更新（快速版至少有 HANDOFF）；**节标题机械对照第四节骨架**（`grep '^## '`），缺节即不齐全。
 5. last_test_run.txt 有最新真实测试输出且可信，`tested_sha` 绑定成立。
 6. 没删测试或绕过逻辑（对照 diff 中测试文件改动确认）。
 7. 阶段 commit 齐全：计划批准 commit（正式版内含 `docs/ai/review_9P.md`——该文件含 9P verdict（默认一轮；人类明示加轮的依次追加）+ Author Responses，或人类减免记录；快速版以 Human Approval Evidence 替代、9P 记 `N/A — 快速版`）、author commit、docs(handoff) commit、review-fix commit（如有）。

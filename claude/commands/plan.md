@@ -9,7 +9,7 @@ description: 探索完成后撰写正式实现计划。当需要把方向落成�
 基于探索结果：
 1. 归档旧 per-task 文件到 `docs/ai/archive/`。
 2. 创建/增量更新 `AGENTS.md`(+`CLAUDE.md`)、`PRODUCT_BRIEF.md`（若 0.1 判为产品类）。
-3. 创建 `TASK_BRIEF.md`（含 0.1 扫描）、`IMPLEMENTATION_PLAN.md`、`HANDOFF.md`。**一律按 `~/.claude/workflow/templates/` 的 canonical 骨架建（结构按此抄）；archive 最近实例只供内容/项目约定参考，绝不作结构模板（这是模板漂移根源）。** 同时从 `~/.claude/workflow/QUALITY_GATES.md` 把质量清单 scaffold 进 `docs/ai/QUALITY_GATES.md`（供 Reviewer 独立读），项目已有则跳过。
+3. 创建 `TASK_BRIEF.md`（含 0.1 扫描）、`IMPLEMENTATION_PLAN.md`、`HANDOFF.md`。**一律按 `~/.claude/workflow/templates/` 的 canonical 骨架建（结构按此抄）；archive 最近实例只供内容/项目约定参考，绝不作结构模板（这是模板漂移根源）。写完即机械对照：`grep '^## '` 三个文件与对应模板逐节比对，缺节补上（无内容写 None/N/A），多出的节可留但不得顶替模板节。** 同时从 `~/.claude/workflow/QUALITY_GATES.md` 把质量清单 scaffold 进 `docs/ai/QUALITY_GATES.md`（供 Reviewer 独立读），项目已有则跳过。
 4. 不实现代码。**方案比较必须先过复用检索**（`/explore` 的 Reuse Findings）：存在能覆盖大部分需求的成熟实现/库/模板时（按需求适配度、维护状态、许可证、集成成本与安全风险综合判断，不设固定阈值），默认采用/移植/包装，从零自建须在计划里写明否决理由。计划采用**满足 Frozen Acceptance 的最小完整方案**——既不选漏需求/会返工的偷懒小方案，也不为抽象/统一而扩大范围；**扩大架构必须有证据且经人类批准**（反的是"偷懒选差方案"，不是"越大越好"）。「最小」约束**实现范围**（不夹带无关改动/重构）。必须有测试计划（命令须真实存在）。**计划自检**：通读确保无自相矛盾步骤、无与 TASK_BRIEF 验收冲突、无"计划要求但会被 Reviewer 判缺陷"处——让实现期 `/implement` 的 Pre-Flight 能一次通过。
    * **架构层拆分评估（触发式，非机械拒绝）**：任务同时涉及 **≥3 架构层**（DB / core / API / CLI / GUI / 真实软件兼容）→ **必须做拆分评估 + 请人类批准**。判据 = 能否拆成**有独立验收性质 / 独立测试 / 独立回退边界**的切片；能拆则拆成独立可交付切片；确属正常纵向功能不宜拆的，在计划里记理由、请人类批准整体推进——**不按层数机械拒绝**。
    * **验收判定方式**：TASK_BRIEF 的每条 AC（含 Frozen Acceptance）都要写出判定方式，按 `AGENTS.md` → **验收条款必须可复现判定**（唯一定义处，含"命令形态不等于合格""不可自动化的产品/安全性质如何写成人类判定步骤"）。声称「机制 X 拒绝 Y」的 AC 还须按同文件 → **守护有效性装置** 配齐覆盖各等价类的负向对照。

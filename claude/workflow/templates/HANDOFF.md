@@ -2,6 +2,7 @@
 
 > per-task 核心交接文件，每次 Agent 切换前更新。简短，证据指向 git log 和 last_test_run.txt。
 > 下列每节都保留（无内容写 None/N/A）；Quality Gates 必须逐维度表格，不得用"已过所有闸门"一句话替代。
+> **空闲期形状（任务归档后、下一任务 `/plan` 之前；2026-09-06 裁决）**：本文件仍保留下列全部节、不自创骨架——Current Phase 写 `Idle`，Remaining Risks / Debt 承接未偿 `[DEBT]` 账本，Next Step 指向候选任务，其余各节写 N/A。
 
 ## Current Phase
 Planning / Author Implementation / Independent Review / Final Review / Ready to Commit

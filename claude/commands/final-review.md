@@ -40,7 +40,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 ## PR Description   ### What changed ### Why ### How tested ### Risks ### Notes for reviewer
 ```
 
-仅当结论"可以提交"时，把 HANDOFF 的 Current Phase 更新为 Ready to Commit。最终 squash/merge 由人类执行。
+仅当结论"可以提交"时，把 HANDOFF 的 Current Phase 更新为 Ready to Commit。最终 squash/merge 由人类执行。人类合并后若归档本任务并重写空闲期 `HANDOFF.md`：保留模板全部节、不自创骨架（形状唯一定义处 = `~/.claude/workflow/templates/HANDOFF.md` 文首）。
 
 > 最终审查期间若发现 bug/失败，走 `/debug`（系统化调试），不临时试错改。
 
@@ -55,7 +55,7 @@ Reviewer（Codex）context 比 Author 少，**意见不一定对**。盲目照�
 1. 原始需求与验收已实现（正式对照 TASK_BRIEF；快速版对照 HANDOFF 的扫描/简短计划/批准证据）。
 2. 任务分支 diff 范围合理，无无关修改。
 3. AGENTS.md、PRODUCT_BRIEF.md 没被错误覆盖。
-4. per-task 交接文件齐全且已更新（快速版至少有 HANDOFF）。
+4. per-task 交接文件齐全且已更新（快速版至少有 HANDOFF）；**节标题机械对照模板**（`grep '^## '` vs `~/.claude/workflow/templates/`），缺节即不齐全。
 5. last_test_run.txt 有最新真实测试输出且可信。
 6. 没删测试或绕过逻辑（对照 diff 中测试文件改动确认）。
 7. 阶段 commit 齐全：计划批准 commit（正式版内含 `docs/ai/review_9P.md`——该文件含 9P verdict（默认一轮；人类明示加轮的依次追加）+ Author Responses，或人类减免记录；快速版以 Human Approval Evidence 替代、9P 记 `N/A — 快速版`）、author commit、review-fix commit（如有）。
