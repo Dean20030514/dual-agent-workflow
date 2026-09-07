@@ -40,7 +40,7 @@ For complex tasks requiring deep reasoning:
 ## Build Troubleshooting
 
 If build fails:
-1. Use **build-error-resolver** agent (availability & fallback: see [agents.md](agents.md))
+1. Diagnose it yourself with systematic debugging (`/debug`) — no build-error agent exists on this machine (fallback rule: [agents.md](agents.md))
 2. Analyze error messages
 3. Fix incrementally
 4. Verify after each fix

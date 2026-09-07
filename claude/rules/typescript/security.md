@@ -25,4 +25,4 @@ if (!apiKey) {
 
 ## Agent Support
 
-- Use the **security-reviewer** agent for comprehensive security audits (it is an agent, not a skill; availability & fallback: see [common/agents.md](../common/agents.md))
+- No security-review agent exists on this machine — walk this file plus [common/security.md](../common/security.md) yourself; the security review is never skipped (fallback rule: [common/agents.md](../common/agents.md))

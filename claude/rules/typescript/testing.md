@@ -15,4 +15,4 @@ Use **Playwright** as the E2E testing framework for critical user flows.
 
 ## Agent Support
 
-- **e2e-runner** - Playwright E2E testing specialist (availability & fallback: see [common/agents.md](../common/agents.md))
+- No E2E-runner agent exists on this machine — run the project's own Playwright suite yourself and report the real output (fallback rule: [common/agents.md](../common/agents.md))
