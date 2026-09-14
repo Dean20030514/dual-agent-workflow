@@ -1,5 +1,7 @@
 # Snapshot-first authority contract — task record
 
+> **2026-09-06 增补（非原记录内容）**：DSH 落地（`dsh/AGENTS.md`、`dsh/workflow/`、`dsh/skills/{dual-agent-workflow,independent-review}/`、`portable/通用prompt-DSH-v1.txt`）**已写入 `install.ps1` 的部署段，因而进入本契约定义的受管部署面**（部署器持续镜像/覆盖的路径）。随之适用于 DSH 侧的两条既有条款：① **迁移期与 H3 的差别在"整树覆盖"与"选择性镜像"**——DSH 段**不**整树 mirror `~/.dsh`（那是 harness home，含 sessions/settings/凭据），只镜像 `AGENTS.md`、`workflow/` 与本工作流自有的两个 skill 目录，其余 `~/.dsh/skills` 内容一概不动；`~/.dsh/settings.yaml` 与凭据属 **machine-local / keep-local-only**，与 `~/.codex/config.toml` 同类，H3 的 drift check **不得**要求它们匹配仓库。② **seed-only 例外** 目前仍只有 `~/.codex/config.toml` 一项（`~/.dsh/AGENTS.md` 是持续镜像目标，不是 seed-only）。**尚未执行**：本轮未运行 `install.ps1`（守卫锁定），部署面清单与镜像语义属**已登记但未实测**的规划事实；改点与未偿还的债见 `docs/ai/DSH-LANDING-NOTES.md`。
+
 > Versioned process record for `task/snapshot-first-authority-contract`
 > (fast-path task; same dedicated-record pattern as `docs/ai/INSTALLER_GUARD.md`).
 > Base: main @ 06ffd49 (branch rebuilt onto current main via cherry-pick after

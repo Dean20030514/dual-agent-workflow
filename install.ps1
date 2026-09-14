@@ -12,6 +12,11 @@ param([switch]$IUnderstandThisReplacesLiveConfig)
 # (-DryRun, -ValidateOnly, typos) fail at binding time before any statement
 # runs, instead of being silently swallowed by $args; the switch below is the
 # only way to reach the deploy path.
+# DSH side: ~/.dsh/AGENTS.md and ~/.dsh/workflow/ are mirror-replaced; ~/.dsh/skills/
+# files whose name starts with 'phase-' are mirror-replaced (they are the workflow's
+# own phase bodies), every other file under ~/.dsh/skills/ is left untouched and new
+# ones are only copied when missing — .dsh is the harness home (sessions, settings,
+# credentials, storages all live there).
 if (-not $IUnderstandThisReplacesLiveConfig) {
     throw 'install.ps1 is guarded during the snapshot-first migration (MORATORIUM-LOCAL-001). Re-run with -IUnderstandThisReplacesLiveConfig after the migration gates pass.'
 }
@@ -20,6 +25,7 @@ $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $MyInvocation.MyCommand.Path
 $claudeDir = Join-Path $env:USERPROFILE '.claude'
 $codexDir = Join-Path $env:USERPROFILE '.codex'
+$dshDir = Join-Path $env:USERPROFILE '.dsh'
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 
 function Backup-IfExists([string]$path) {
@@ -31,6 +37,7 @@ function Backup-IfExists([string]$path) {
 
 New-Item -ItemType Directory -Force $claudeDir | Out-Null
 New-Item -ItemType Directory -Force $codexDir | Out-Null
+New-Item -ItemType Directory -Force $dshDir | Out-Null
 
 # 1. Global instructions + settings (single files)
 foreach ($f in 'CLAUDE.md', 'settings.json') {
@@ -61,6 +68,37 @@ if (-not (Test-Path $codexConfig)) {
     Write-Host 'seeded: ~/.codex/config.toml from config.example.toml (adjust model if needed)'
 } else {
     Write-Host 'kept: existing ~/.codex/config.toml (reference: codex/config.example.toml)'
+}
+
+# 3b. DSH side (harness home — back up the whole subtree once, then mirror-replace
+# only the managed paths; ~/.dsh/settings.yaml, sessions, storages and credentials
+# are machine-local and are never touched).
+Backup-IfExists $dshDir
+foreach ($f in 'AGENTS.md') {
+    $target = Join-Path $dshDir $f
+    Backup-IfExists $target
+    Copy-Item (Join-Path $repo "dsh\$f") $target -Force
+    Write-Host "deployed: ~/.dsh/$f"
+}
+$target = Join-Path $dshDir 'workflow'
+Backup-IfExists $target
+if (Test-Path $target) { Remove-Item $target -Recurse -Force }
+Copy-Item (Join-Path $repo 'dsh\workflow') $target -Recurse -Force
+Write-Host 'deployed: ~/.dsh/workflow/ (mirror-replace)'
+
+# Skills: only THIS workflow's own skill bundles are mirror-replaced — their names
+# are stable, so a stale phase file or retired skill under them cannot linger. Any
+# other skill living under ~/.dsh/skills (machine-local or third-party) is left
+# alone, and new files are added only when missing.
+$srcSkills = Join-Path $repo 'dsh\skills'
+$dstSkills = Join-Path $dshDir 'skills'
+New-Item -ItemType Directory -Force $dstSkills | Out-Null
+foreach ($skill in Get-ChildItem $srcSkills -Directory) {
+    $dst = Join-Path $dstSkills $skill.Name
+    Backup-IfExists $dst
+    if (Test-Path $dst) { Remove-Item $dst -Recurse -Force }
+    Copy-Item $skill.FullName $dst -Recurse -Force
+    Write-Host "deployed: ~/.dsh/skills/$($skill.Name)/ (mirror-replace)"
 }
 
 # 4. Plugins (settings.json already enables them; install populates the cache)

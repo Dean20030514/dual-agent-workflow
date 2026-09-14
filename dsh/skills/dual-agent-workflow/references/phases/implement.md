@@ -1,0 +1,84 @@
+---
+name: phase-implement
+disable-model-invocation: true
+description: 实现命令。日常任务默认走文首「Routine 模式」（无交接文件、无 SHA 账本、无强制 Reviewer）。Critical 模式（人类明确启用）在 IMPLEMENTATION_PLAN 已 Approved 且已被人类 commit 后按正式版执行；Critical 内小任务走文末「快速版」。
+---
+
+# Routine 模式（默认路径，2026-08-05 裁决）
+
+> 日常改动 = Claude 改 → 人类扫 diff → 人类 commit/merge。**不需要** TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF / SHA 账本 / Reviewer。Safety Rules、零暗债红线与「真实执行才可下结论」照常适用。
+
+1. 读相关代码、现有模式与项目规则；给出简短方向（可只在对话中），仅在真实歧义会改变结果时提问。
+2. 做任务范围内的最小充分修改，不夹带无关改动或重构；diff 将超预算时停下报告人类（阈值与处置见 `AGENTS.md` → 单轮任务 diff 预算）。
+3. 运行能直接证明本次行为的测试/检查（目标测试 + 直接相关套件；**未运行的部分明确说明**）。测试输出原样展示——真实执行、真实退出码，不允许凭推理断言"通过"。
+4. 展示 diff + 验证证据 + 残余风险，交人类扫 diff 并 commit/merge。
+5. **升级建议（只建议，不得自行升级）**：改动触及 认证/授权/密钥、金钱/账单、数据库迁移或不可逆数据操作、部署/回滚/CI 核心、公共 API 或兼容性契约、跨多架构层大改，或人类明确要求严格流程 → 建议启用 Critical，**等人类确认**后才进入下方正式流程。任务级「做吧 / 直接做」不构成 Critical 模式确认；触发上述风险面时，必须在修改文件或安装依赖前停下，并按全局 全局 `dsh/AGENTS.md` → Mode Routing 获得针对模式的明确确认；启用 Critical 后仍须经过其正常计划批准门。
+
+---
+
+# Phase 3：实现（Author）—— Critical 模式（人类明确启用）
+
+人类批准后（Status=Approved 且计划文件已被人类 commit）开始：
+
+1. **实现前自检 Pre-Flight**：批准 ≠ 免检。写第一行代码前通读 `IMPLEMENTATION_PLAN.md`，专找三类问题：
+   * (a) 自相矛盾步骤（如 Task 3 用 `clearLayers()`、Task 7 写 `clearFullLayers()`）；
+   * (b) 计划与 TASK_BRIEF 验收冲突；
+   * (c) 计划本身要求的某项会被 Reviewer 判缺陷（绕过校验/缺测试）。
+   此外确认 `TASK_BRIEF.md` → Acceptance Criteria 已写成冻结验收（要成立的性质 / 适用范围 / 明确例外 / 正反案例 / 边界 / 必经真实路径；禁反推自实现），且 `IMPLEMENTATION_PLAN.md` 的 Frozen Acceptance 节只含指针与实现期边界、不复述条款——缺则回 `/plan` 补。
+   一次性全列出交人类裁决，不要边做边撞。无问题则 Work Log 记"Pre-Flight 通过"。
+2. 严格按计划执行，只做任务相关修改。
+3. 发现计划不合理先暂停说明，不擅自扩大范围；实际 diff 将超出计划预估的预算（`AGENTS.md` → 单轮任务 diff 预算）同样停下交人类裁决。
+4. 完成后（**顺序严格**，让 `tested_sha` 真含本次实现）：
+   1. **清除临时 probe / mutation harness**（值得留的行为先重写为正式 regression test，预期来自验收契约）。
+   2. **创建 author commit**：`git commit -m "wip(author): [任务名] implementation"`——这是被测/被审的 tip。
+   3. **确认 review-sensitive 路径干净**：`git status --porcelain -- <HANDOFF 的 review_sensitive_paths>` 为空（非空则回 1，先把改动纳入 commit）。
+   4. **针对该 commit 跑测试**：`… 2>&1 | tee docs/ai/last_test_run.txt`（按项目实际命令）；`last_test_run.txt` 记 `tested_sha`(=该 author commit) + 真实命令。
+   5. 对照 `docs/ai/QUALITY_GATES.md` 适用组自查；有界面/内容过 `/design-check`。
+   6. 更新 `HANDOFF.md`（Review & Test Binding 的 tested_sha、Fix-Loop Counter、Work Log/Known Issues/Remaining Risks/Quality Gates/Next Step）。
+   7. **只提交测试产物 + 普通交接文档**；若之后又改了 **`review_sensitive_paths` 中任一文件（源码 / 测试 / 验收 / 配置 等）** → 回步骤 2 重来（`tested_sha` 失效）；**仅新增独立测试用例文件时只重测不重审**（见 `AGENTS.md` → 最后一轮独立审查门 ③）。
+5. 遵守 `AGENTS.md` 的 Safety Rules。**遇 bug 走 `/debug`，不允许"试着改改看"。修 `[Product Blocking]` / 任何改生产代码的"修 A 别破 B" 一律走 `/debug` 的回归安全修复协议（blast-radius 枚举 + 全量相关套件 + Fix-Loop Counter 跨轮硬停），不许只盯触发点局部修；纯证据代跑与账本修正不走该协议。** 临时 probe / mutation harness 标 `diagnostic only`、**提交前删除、不作完成证据**（值得留的行为重写为正式 regression test，预期来自验收契约非反推）；同轮改实现与改 harness 须**分开展示各自 diff 与依据**（见 AGENTS 验证三分类）。
+6. 声称"完成/通过/修好"前走声称闸门（见下）。
+
+## 声称完成纪律（心理闸门，与产物化互补）
+
+说"完成/通过/修好"前先走一遍：
+1. IDENTIFY：哪条命令能证明这结论？
+2. RUN：新鲜地跑一遍（不引用上次输出）。
+3. READ：读完整输出 + exit code，数清 failure 数。
+4. VERIFY：输出是否真支持结论？不支持就如实陈述当前状态（带证据）。
+5. 到此才允许下结论，且必须附证据。
+
+**禁止词（红旗，出现即代表你在替证据打包票）**：`should work` / `probably` / `seems to` / `应该没问题` / `大概` / `八成`；以及没跑就说 `Done!` / `Perfect!` / `搞定了`。
+
+| 你想声称 | 真正要求的证据 | 不充分（会被打回） |
+|---|---|---|
+| 测试通过 | 本次命令输出明确 0 failures | "上次跑过了" / "应该会过" |
+| Bug 已修 | 复现原症状的用例现在通过 | "代码改了，应该修好了" |
+| 回归用例有效 | **守护有效性装置的结构化产物**（必填字段与失败判据见 `AGENTS.md` → 守护有效性装置，唯一定义处） | 自然语言自述 / 任何未经装置产物支撑的叙述（含"删码变红"口头证明） |
+
+## 输出
+
+* **Implementation Summary**
+* **Files Changed**（逐文件：改了什么、为什么）
+* **Test Results**（命令 + 结论，完整输出见 last_test_run.txt）
+* **Commit**（hash）
+* **Ready for Review**：给出**可直接投给 DSH Reviewer 的两份 prompt**（见 `~/.dsh/workflow/reviewer-prompt.md`，**默认双审 9A+9B**，配额吃紧或纯小任务人类可减档只跑 9A；调用形态 = `subagent` 前台 + `provider: "deepseek-official"` + `model: "deepseek-flash"` + `reasoning_effort: "high"`，见该文件 → 双审隔离协议 ③）。**不得删减固定要件**：① 先读 AGENTS.md + TASK_BRIEF/PLAN/HANDOFF/git diff/last_test_run.txt；② 原样含 Reviewer-Lightweight Protocol 那句中文；③ 原样含完整输出契约（Review Verdict / Blocking Issues / Non-Blocking Suggestions / Test Coverage Gaps / Cannot Verify From Diff / Verification Needed / Debt Verdict；**9B 同时含 Recommended Next Step + Requirement-Level Concerns、不替换**）**以及 DSH 新增的 `writes_performed` 证据行**——别只留 Debt Verdict 丢了 Review Verdict 与 Cannot-Verify-From-Diff；④ 粘贴本任务适用的设计/质量清单或指向 `docs/ai/QUALITY_GATES.md`；⑤ **双审隔离三要求**（详见 reviewer-prompt.md「双审隔离协议」）：两份 prompt 锚定**同一** `review_tip_sha` + **同一个 `handoff_snapshot_sha`**（= 交接 docs commit；`review_base_sha` / `review_tip_sha` 由 Author 逐字写进 prompt，不写『见 HANDOFF』；并写明「代码审 base..tip 的**带排除项正文 diff**（`:(exclude)` 清单见 reviewer-prompt.md 的 9A/9B prompt）、HANDOFF 与 last_test_run 读工作树」——**正式版与快速版都一样，tip 里的 HANDOFF 必然是过期版**）；双审窗口内**任何人不得改生产代码 / `review_sensitive_paths` / HANDOFF**；两份 verdict 由 Author 在窗口结束后落到**仓外 holding**、后跑的 Reviewer 启动前工作树内不得存在前一份 verdict 或 raw log。
+
+---
+
+# 小任务快速版（Critical 模式内的减档路径）
+
+> 本节仍属 **Critical 模式**：适用于人类已启用重流程、但任务本身小的情形。未启用 Critical 的日常任务走文首 Routine 模式，不进本节。
+> 小 bug/小作业/小文件修改默认**跳过产品展开**：`/define` 的 0.2~0.5 与上线后清单整段 N/A，只走开发主干 + 三条硬规则。仍保留：0.1 快扫（写进 HANDOFF）、QUALITY_GATES 11.2 基础安全恒查、设计/质量清单中与本次改动**实际相关**的项；无关项 N/A。
+> **升级触发（强制回流）**：若发现"这小任务其实是新功能/新产品/会产生真实用户可见行为变化"，立即停止快速版，回 `/define` 跑 0.1 扫描再继续。
+> **hotfix 裁决**：改动落在已上线、有真实用户的产品上，凡改变用户可见行为或新增/改变埋点，不得走跳过——至少过上线后适用项 + 质量相关组；纯内部重构/无行为变化的 hotfix 才可走快速版。
+
+三条硬规则不变：git 分支与 commit；测试输出写 last_test_run.txt；人类批准门（凭证 = 人类一句话批准记入 HANDOFF 的 Human Approval Evidence）。
+
+1. Author 只读分析（plan mode）。
+2. Author 输出简短计划（可只在对话中），等人类一句话批准。（无 `IMPLEMENTATION_PLAN.md` 文件，9P 计划审天然不适用、记 N/A；需要 9P 级计划把关的任务不应走快速版。）
+3. Author 实现 → **清 probe → 建 author commit（这就是被测/被审的 tip）→ 确认 review-sensitive 路径干净（`git status --porcelain -- <review_sensitive_paths>` 为空；非空则先把改动纳入 commit 重来）→ 针对该 commit 跑测试（`… 2>&1 | tee docs/ai/last_test_run.txt`），`tested_sha` = `review_tip_sha` = 该 author commit**。**本步不提交任何交接文档**（顺序同正式版步骤 4）。
+4. Author 更新 HANDOFF（快速版唯一必须的交接文件），至少填：Review & Test Binding（`review_base_sha` / `review_tip_sha` / `tested_sha` / `review_sensitive_paths`）、Applicability Scan(0.1)、Human Approval Evidence、Remaining Risks/Debt、Quality Gates(本次相关行)。零暗债红线同样适用（格式见 `AGENTS.md`，无债写 "Debt: none"）；Payback-on-Touch 照常生效。
+5. **HANDOFF 更新完毕后**才提交交接产物，且只含这两个文件：`git commit -m "docs(handoff): [任务名] test run + handoff" -- docs/ai/last_test_run.txt docs/ai/HANDOFF.md`。二者**不在** `review_sensitive_paths` 内，按 AGENTS 的内容比对不使 `tested_sha` / `review_tip_sha` 失效（tip 仍指步骤 3 的 author commit）。**顺序不可颠倒**——先提交再更新 = 提交的是旧 HANDOFF、更新后的内容没进任何 commit，Reviewer 读到的 HANDOFF 与仓库状态不一致。此后若又改了 `review_sensitive_paths` 任一文件 → 回步骤 3 重来（`tested_sha` 失效）；仅新增独立测试用例文件时只重测不重审（见 `AGENTS.md` → 最后一轮独立审查门 ③）。
+6. **有 review-sensitive 改动且不在该门 ③ 例外内 → Reviewer 必须执行**（走收敛门；Reviewer-Lightweight Protocol + `reviewer-prompt.md` 的**双审隔离协议**强制）。步骤 5 的 docs commit 即双审共读的**审前 HANDOFF 快照**：记下它的 sha 作为 `handoff_snapshot_sha` 写进两份 review prompt，并在 prompt 里明确「HANDOFF / last_test_run 读工作树，代码审 base..tip 的带排除项正文 diff（`:(exclude)` 清单见 reviewer-prompt.md）」——**tip 里的 HANDOFF 是过期的**，不这么写 Reviewer 会去 `git show <tip>:docs/ai/HANDOFF.md` 读到旧版（2026-07-28 实测）。双审窗口内该快照不得再动。**仅完全不触及 review-sensitive 路径的纯文档任务才可跳过 Reviewer**。
+7. 人类检查 diff 后提交。

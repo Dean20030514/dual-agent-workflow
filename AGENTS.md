@@ -3,7 +3,9 @@
 > 本文件是在**本仓库内做开发任务**时的项目级 Agent 契约。跨项目纪律不在此复述——本仓库在树内自带母本 `claude/workflow/AGENTS.md`(Safety Rules / Reviewer-Lightweight Protocol / No-Hidden-Debt·[DEBT] / 证据 vs 假设标签 / 验证三分类 / 守护有效性装置 / Fix-Loop / Git Discipline,各节均为唯一定义处),**全部条款对本仓库任务原样适用**。本文件只记录项目特有事实、命令与差异。
 
 ## Project Overview
-个人双 Agent 工作流 + Claude Code/Codex 全局配置的**规范事实源(canonical source)**。当前规范版本 = `main` 当前 tip;本机 `~/.claude/` 与 `~/.codex/` 中**由部署器持续镜像的受管路径**是本仓库的运行副本,受管面上的可复用修改须经仓库可见 diff 晋升——受管面边界、seed-only 与 machine-local 例外**以 README 文首契约与 `docs/ai/AUTHORITY_CONTRACT.md` 为唯一定义处,此处不另行定义**。`IMPROVEMENT_PLAN.md`(tag `plan-v1.1`)自 2026-08-05 起为**参考材料(REFERENCE ONLY)**——Round 1 执行经人类裁决停止(H5A 停牌 `stopped, NOT converged — over-engineered`,已知漂移已直接修复);不按其 phase 开工,重启需人类明确决定。
+个人双 Agent 工作流 + Claude Code/Codex 全局配置的**规范事实源(canonical source)**。当前规范版本 = `main` 当前 tip;本机 `~/.claude/`、`~/.codex/` 与 `~/.dsh/` 中**由部署器持续镜像的受管路径**是本仓库的运行副本,受管面上的可复用修改须经仓库可见 diff 晋升——受管面边界、seed-only 与 machine-local 例外**以 README 文首契约与 `docs/ai/AUTHORITY_CONTRACT.md` 为唯一定义处,此处不另行定义**。`IMPROVEMENT_PLAN.md`(tag `plan-v1.1`)自 2026-08-05 起为**参考材料(REFERENCE ONLY)**——Round 1 执行经人类裁决停止(H5A 停牌 `stopped, NOT converged — over-engineered`,已知漂移已直接修复);不按其 phase 开工,重启需人类明确决定。
+
+**两套落地,一套纪律(2026-09-06)**:`claude/` = Claude Code(Author)+ Codex CLI(Reviewer);`dsh/` = **DeepSeek Harness**——**Author 与 Reviewer 都是 deepseek/dsh**(Author = 当前 DSH 会话主 agent;Reviewer = `subagent` 子 agent / `dsh --profile headless` 进程,模型档 `provider: deepseek-official` + `model: deepseek-flash`)。两套判据与阈值一致,**只允许「怎么跑」不同**;DSH 会话的判据唯一出处是 `dsh/workflow/AGENTS.md`(与 `claude/workflow/AGENTS.md` 冲突时以它为准)。派生方法的改点清单与**未偿还的审查债**见 `docs/ai/DSH-LANDING-NOTES.md`。
 
 ## Build / Test / Lint Commands
 可执行面 = `install.ps1`(PS 5.1 兼容,**受迁移期 installer guard 锁定,勿直接运行**;部署 = 从 main 精确同步受管文件 + 哈希比对)。
