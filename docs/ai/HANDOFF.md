@@ -39,7 +39,8 @@ Independent Review 已产出、**未收敛** → 停在修补前等人类裁决�
 * [2026-09-06] [Author] 人类授权建 reviewable commit（本仓 Routine 下 agent 不自建 commit，此处为 Critical 阶段 commit）。 | `a361bc19`
 * [2026-09-06] [Reviewer 9B（盲审，先跑）] 结论 **不通过**：3 条 `[Product Blocking]`、8 条 Suggestion、5 条 VN、4 条 Requirement-Level Concerns；Debt `Noted`。 | 仓外 holding `~/.dsh-review-holding/dsh-landing/9B.md`
 * [2026-09-06] [Reviewer 9A（标准审，后跑）] 结论 **不通过**：4 条 `[Product Blocking]`、8 条 Suggestion、4 条 VN；Debt `Noted`。 | 仓外 holding `~/.dsh-review-holding/dsh-landing/9A.md`
-* [2026-09-06] [Author] 落账：两份 verdict 收进 `docs/ai/review_9A.md` / `docs/ai/review_9B.md`；把上一任务的 `docs/ai/HANDOFF.md` 改名为 `docs/ai/HANDOFF-2026-09-06-agent-reference-and-phase-rulings.md` 并加归档说明头。 | `c91b7c5`
+* [2026-09-06] [Author] 自查又发现同一类缺陷：本文档引用了 `docs/ai/review_9A.md` / `review_9B.md`，但当时只有仓外 holding 副本、仓内并不存在。已补落仓内并入 commit。**同类错误在一轮内出现两次**（另见下条 CRLF），说明"先写声称、后做动作"是我的实际失误模式，下一轮修 B2 时须把"声称 vs 实际"逐条自查（9A S1/S2/S5 与 9B S1 都是这一族）。 | `7c5505f`
+* [2026-09-06] [Author] 落账：两份 verdict 收进 `docs/ai/review_9A.md` / `docs/ai/review_9B.md`（**先落仓外 holding，后补仓内副本**，见上条）；把上一任务的 `docs/ai/HANDOFF.md` 改名为 `docs/ai/HANDOFF-2026-09-06-agent-reference-and-phase-rulings.md` 并加归档说明头。 | `c91b7c5`
 * [2026-09-06] [Author] 自查发现归档文件的工作树副本被写成了 CRLF（`.gitattributes` 要求 `eol=lf`），已就地归一为 LF 并复扫（`crlf_files=0`）。**注**：git 侧因 `text=auto` 归一化，`c91b7c5` 里存的本就是 LF，无历史污染；但工作树出现 CRLF 是我用 PowerShell 字符串替换写文件造成的，属本轮自造缺陷，记此备案。 | 未产生新 commit（`git status` 为空）
 
 ## Known Issues
