@@ -1,0 +1,130 @@
+# last_test_run.txt — task/dsh-landing（DSH 落地）
+
+收集时间：2026-09-06 · 收集者：Author · **绑定 `tested_sha = a361bc1942546484e0edd102cbd789d4dc498c61`**
+说明：本任务**没有功能测试套件**（改的是文档 + 一个受 guard 锁定的安装脚本）。下列均为机制核验，命令与真实输出照抄；失败/未跑项如实标注。
+
+---
+
+## A. 本任务产出物的一致性（Author 自跑）
+
+```
+$ git -C <repo> rev-parse HEAD
+a361bc1942546484e0edd102cbd789d4dc498c61
+
+$ git -C <repo> status --porcelain
+(空)
+
+$ git -C <repo> status --porcelain --ignored | Select-String -Pattern '9A|9B|review_|_raw\.log'
+(空)
+
+$ # 仓内 dsh/** 与部署副本 ~/.dsh 逐文件 SHA256 比对
+compared=23 mismatches=0
+
+$ git diff --no-index --numstat claude/workflow/reviewer-prompt.md dsh/workflow/reviewer-prompt.md
+100     36      {claude => dsh}/workflow/reviewer-prompt.md
+```
+
+结论：快照干净、部署副本与仓内全等；`reviewer-prompt.md` 的变更量为 100 增 / 36 删（远超"12 处有界改点"的登记面 → 印证 9A 的 B2）。
+
+---
+
+## B. 证伪 9A/9B 的 B1（`reasoning_effort: medium` 不存在）
+
+```
+$ $raw = Get-Content "$npmCache\@deepseek-ai\dsh-llm-deepseek\lib\index.js" -Raw
+$ $i = $raw.IndexOf('function reasoningEffort(effort)'); $raw.Substring($i, 260)
+function reasoningEffort(effort) {
+        if (effort === "off" || effort === "low" || effort === "high" || effort === "max") return effort;
+        throw new LlmError(`DeepSeek does not support reasoning effort "${effort}"`, "UNSUPPORTED_REASONING_EFFORT");
+}
+/** Resolve o
+
+$ Select-String -Path <同上> -Pattern '"medium"'
+(零命中 —— 退出码 1)
+```
+
+结论：**适配器取值域 = off / low / high / max，`medium` 不存在**。`dsh/workflow/reviewer-prompt.md`、`fanout-toolchain.md`、`skills/independent-review/SKILL.md`、`portable/通用prompt-DSH-v1.txt`、`README.md` 共 11 处把 9P 写成 `medium` → **9P 调用必然失败**。9A/9B 的 B1 **成立**。
+（`claude/workflow/reviewer-prompt.md` 与 `portable/通用prompt-v3.8.txt` 里的 `medium` 属 Codex 侧 `model_reasoning_effort`，那里合法，**不在本任务修复范围**。）
+
+---
+
+## C. 证伪 9A 的 B3（`install.ps1` 注释 vs 代码）
+
+```
+$ (Get-ChildItem -Recurse dsh\skills | Where-Object Name -like 'phase-*').Count
+0
+
+$ Select-String -Path install.ps1 -Pattern 'phase-'
+16: # files whose name starts with 'phase-' are mirror-replaced (they are the workflow's
+```
+
+结论：**注释描述的文件名不存在**（`phase-` 只出现在 phase 文件的 frontmatter `name:` 字段里），而代码按目录整树 mirror-replace 两个 bundle → 注释低报/错报爆炸半径。B3 **成立**。
+
+---
+
+## D. 证伪 9A 的 B4 / 9B 的 B2(ii)（headless 真实 CLI 面）
+
+```
+$ Select-String -Path "$npmCache\@deepseek-ai\dsh-headless\lib\startup.js" -Pattern 'helpOption|argument\(|name\('
+21: return new Command().name("dsh --profile headless")
+      .description("Answer one task, stream reasoning to stderr, print the final assistant message, and exit.")
+      .helpOption("-h, --help", "show this help")
+      .argument("[task...]", "the task text; multiple words are joined by spaces")
+```
+
+结论：headless 只接受 `-h/--help` 与位置参数 `[task...]` → **无 `-o`、无 `--model`/`--provider`/推理档参数**。`dsh/workflow/AGENTS.md:148` 的"由 Author 启动的 `-o`（headless 路径）"是**跑不通的指令**（B4 成立），且备用路径**钉不住模型档**（9B B2(ii) 成立）。
+
+---
+
+## E. 逐字一致审计（Author 自跑，17 对派生文件）
+
+```
+dsh\workflow\AGENTS.md            ->  25     15
+dsh\workflow\reviewer-prompt.md   -> 100     36
+dsh\workflow\QUALITY_GATES.md     ->   3      3
+dsh\workflow\index.md             ->  20     20
+dsh\workflow\workflow-design-notes.md -> 1    1
+dsh\workflow\AB-model-diagnostic.md   -> 0 (逐字节相同)
+phases\debug.md          ->  4   2      phases\design-check.md -> 3  1
+phases\define.md         ->  4   2      phases\explore.md      -> 3  1
+phases\final-review.md   ->  6   4      phases\implement.md    -> 5  3
+phases\plan.md           ->  8   5
+templates\{HANDOFF,IMPLEMENTATION_PLAN,PRODUCT_BRIEF,TASK_BRIEF}.md -> 0 (逐字节相同)
+```
+
+```
+$ # QUALITY_GATES 指针漂移
+$ (Select-String claude\workflow\reviewer-prompt.md -Pattern 'docs/ai/QUALITY_GATES\.md').Count
+3
+$ (Select-String dsh\workflow\reviewer-prompt.md -Pattern 'docs/ai/QUALITY_GATES\.md').Count
+1
+$ (Select-String dsh\workflow\reviewer-prompt.md -Pattern '~/\.dsh/workflow/QUALITY_GATES\.md').Count
+2
+```
+
+结论：**`docs/ai/QUALITY_GATES.md` 的指针有 2 处被机械替换成了母本路径**（9B B3 成立）——这是我做全局 `~/.claude` → `~/.dsh` 替换时**没有排除 `docs/ai/QUALITY_GATES.md` 这个看起来同形的字符串**造成的。同时 `dsh/workflow/AGENTS.md` 的 25+15 明显大于登记面（9A B2 成立）。
+
+---
+
+## F. 安装器与技能的机械核验
+
+```
+$ [System.Management.Automation.Language.Parser]::ParseFile('install.ps1', [ref]$t, [ref]$e); $e.Count
+0        # 语法解析 0 错误（尚未运行；脚本受迁移期 guard 锁定）
+
+$ # skill frontmatter：两个 SKILL.md 含 name/description；phase 文件额外含 disable-model-invocation: true
+$ # 活证据：本会话技能目录只剩两项 dual-agent-workflow / independent-review
+$ #          （references/** 未被当作技能 → 与 dsh-skill-filesystem 的"嵌套 **/SKILL.md 不被发现"一致）
+```
+
+结论：解析与技能发现面成立；`install.ps1` 的**运行行为**未验证（guard 锁定，H3 后需实跑，见 9A VN3）。
+
+---
+
+## G. 未跑 / 未验证（如实登记，不得当作通过）
+
+* **未跑 9P 真实调用**（B1 修复后必须补一次实跑取证：`reasoning_effort` 用修复后的取值）。
+* **未跑 `dsh --profile headless` 的完整审查轮**（只跑过两次"可用性/模型 id"冒烟，见 `docs/ai/DSH-LANDING-NOTES.md` §5）。
+* **未运行 `install.ps1`**（受迁移期 guard 锁定；AGENTS.md 明令勿直接运行）。
+* **未做 `subagent` 端到端审查取证**：本轮两次 9A/9B 调用**是**真实发生的（返回正文已落账），但**未实测** `medium` 被拒的完整错误报文（仅静态证据）——若要坐实，见 9A 的 VN1。
+* 本任务**无功能测试套件**，故不存在"全量测试退出码"这类证据。
