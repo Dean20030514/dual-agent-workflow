@@ -190,22 +190,12 @@ phase 文件额外做了三处归一（**`explore.md` 只有前两处；`define.
   disposition: added
   entry: "§2.1 #25"
 ```
-## 3. 债台账 —— **本节的唯一权威副本在 `docs/ai/HANDOFF.md` → Remaining Risks / Debt**
+## 3. 债台账 —— **唯一权威副本已迁至 `docs/ai/DEBT.md`（活台账，跨任务保留）**
 
-> **2026-09-06 第 6 轮订正（9A 的 S4）**：本节此前自述"四笔登记在本文件"，与 `HANDOFF` 的笔数不一致（当时 6 笔，现 7 笔）——同一工作流里两份互相矛盾的台账，本身就是"账/措辞层"缺陷的一种。**现指定 `HANDOFF` 为唯一权威台账**（理由：AC9 的 `[O]` 人工读点读 `HANDOFF`）。本节**只保留指针与计数**，不再复制条目文本；改债必须改 `HANDOFF`，并同步改本节的计数。
+> **2026-09-06 归档时的订正（本节第三次改口径，前两次都是"两份台账互相矛盾"引起的）**：本任务的 per-task 文件（`HANDOFF.md` / `TASK_BRIEF.md` / `last_test_run.txt` / `review_9{A,B}*.md`）已归档到 `docs/ai/archive/2026-09-06-dsh-landing/`，而**未偿债不能随任务消失**——故 8 笔 `[DEBT]` 与 6 项 `[U]` 已**原样承接**进新建的 **`docs/ai/DEBT.md`**，它现在是**唯一权威活台账**。本节**只保留导读**，不再复制条目文本；改债必须改 `DEBT.md`。
+> **核验命令**（**不写死笔数**——第 7 轮 9B 的 PB-1 就是"写死数字随加账过期"）：`(Select-String -Path docs/ai/DEBT.md -Pattern '^\[DEBT\]').Count`
 
-**本节与 `HANDOFF` 的关系（第 7 轮 9B 的 PB-1 订正）**：此前本行写"与 `HANDOFF` **逐条一致**"，而两者集合实测差 4 项——**那是假声称**。现改为：两者**同源但不等集**（本节按"性质"归类、`HANDOFF` 按 `[DEBT]` 条目列），**唯一权威是 `HANDOFF` 的 `[DEBT]` 块**；本节只做导读。
-**核验命令**：`Select-String -Path docs/ai/HANDOFF.md -Pattern '^\[DEBT\]'` → 条数即权威笔数（2026-09-06 实测 **8** 笔）。导读分类如下：
-1. `dsh/` 全套 + portable 的阶段性 delta 待审 —— Payback trigger：合并前
-2. `dsh/workflow/fanout-toolchain.md` 的 DSH 事实绑定 `@deepseek-ai/dsh` 0.1.5-rc.x —— 升级后首次派发审查之前
-3. `~/.dsh` 运行副本由人工同步产生、无 `*.bak-*` —— 首次用镜像脚本覆盖之前
-4. `install.ps1` 整树备份复制凭据且不自动清理 —— **已按人类裁决偿还**（收窄 README 措辞），仅余残余风险
-5. **AC4-门的实现自身无机械完整性保护**（AC6 是路径级谓词，已登记路径的内部修改零信号）—— 下次改动该脚本之前
-6. **AC4-门正则只覆盖"未加引号小写"形态**（驼峰键 / 反引号值可逃逸）—— 下次改动该脚本或 AC4 声称之前
-7. **AC6 对未跟踪文件不可见**（`git diff` 不列未跟踪文件；门只能在提交之后发现漏登记）—— 下次依赖"新增文件必被拦住"这个假设之前
-8. **AC4 的判定脚本硬绑本机路径**（换 checkout/换机执行会在 `Set-Location` 处直接终止，拿不到 verdict 与 exit code）—— 下次改动该脚本之前
-
-**没有第三种状态**：要么跑一轮审查转成已审版本，要么人类明确批准延期。
+**导读（**曾在此处列 8 条，其中两条已随处置过期**——此处不静默删除，改为点明)**：原导读第 1 条（"`dsh/` 全套 + portable 的阶段性 delta 待审"）已随"不再开新审查轮"的裁决与归档失效；第 6 条（"AC4-门只覆盖未加引号小写形态"）已随人类选择 **2a** 加宽而失效；第 8 条原写的机制（"换 checkout 会在 `Set-Location` 处直接终止"）**经第 8 轮实测证伪**（真实失效形态是同机异 checkout **静默读错树给出假绿**），`DEBT.md` 内保留的是**订正后**的文本。**权威条目一律读 `DEBT.md`。**
 
 ## 4. 部署（本轮已人工执行）
 
@@ -222,13 +212,13 @@ dsh/skills/{dual-agent-workflow,independent-review}/** → ~/.dsh/skills/ 同名
 
 ## 5. 验证记录（**Author 自报，未构成独立证据**）
 
-* 逐对 diff 审计：17 对派生文件的变更行数与 §2/§2.1 对齐（命令见 §1 第 4 步；输出见 `docs/ai/last_test_run.txt`）。**首轮 9A 的 B2 就是这么被发现的**（`dsh/workflow/AGENTS.md` 25 增 15 删，而登记表只覆盖 12 处）。
+* 逐对 diff 审计：17 对派生文件的变更行数与 §2/§2.1 对齐（命令见 §1 第 4 步；输出见归档副本 `docs/ai/archive/2026-09-06-dsh-landing/last_test_run.txt`）。**首轮 9A 的 B2 就是这么被发现的**（`dsh/workflow/AGENTS.md` 25 增 15 删，而登记表只覆盖 12 处）。
 * `docs/ai/QUALITY_GATES.md` 指针：**母本 3 处、DSH 版 3 处项目副本 + 2 处母本兜底**（首轮曾被机械替换成 1 处项目副本 + 2 处母本，已修回并与母本处数一致）。
 * 档位取值：`Select-String <dsh-llm-deepseek/lib/index.js> -Pattern '"medium"'` **零命中**；适配器 `reasoningEffort()` 只放行 `off/low/high/max`。`dsh/**` 与 portable 里剩余的 `medium` 字样**全部是解释性引用**（说明"该档不存在"或"母本为何这么写"），没有任何一处把它当作可用取值（首轮 B1 的独立复现）。
 * skill 结构：两个 `SKILL.md` 的 frontmatter 含 `name`（kebab-case、与目录名一致）/`description`；7 个 phase 文件带 `disable-model-invocation: true` 且末尾换行已补。
 * 工具面事实来源（一手）：`@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml`、`@deepseek-ai/dsh-tool-subagent/README.md`、`@deepseek-ai/dsh-llm-deepseek/lib/index.js`、`@deepseek-ai/dsh-headless/lib/startup.js`（helpOption/argument）、`@deepseek-ai/dsh-skill-filesystem/README.md`；模型档位佐证 = [DeepSeek 官方公告 2026-09-10](https://api-docs.deepseek.com/zh-cn/news/news260910/)（V4.1-Flash 超过 V4 Pro；旧 id 下线或路由到它）。
-* 首轮独立双审（真实发生）：9A/9B 均"不通过"，4+3 条 Product Blocking，隔离协议五项核验两份全过。verdict 落 `docs/ai/review_9A.md` / `review_9B.md`。后续第 2/3/4 轮见 `review_9{A,B}_r2.md` / `_r3.md` / `_r4.md` 与 HANDOFF 的轮次账。
-* **未做/未验证（不得当作通过）** —— **本清单是 `TASK_BRIEF.md` → AC11 的镜像，两处必须逐条一致（AC9 的现行判定读这里）；改一处必须同改另一处。注意：这条"逐条一致"说的是"未验证清单"，不是上面的 `[DEBT]` 集合**：
+* 首轮独立双审（真实发生）：9A/9B 均"不通过"，4+3 条 Product Blocking，隔离协议五项核验两份全过。**6 轮 verdict 均已随任务归档**：`docs/ai/archive/2026-09-06-dsh-landing/review_9A.md` / `review_9B.md`（第 1 轮）与同目录的 `_r2` / `_r3` / `_r4` / `_r6`；轮次账见同目录 `HANDOFF.md`。**活树不再保留 `docs/ai/review_9*.md`**——那是每一轮任务自己落账的位置（见 `dsh/skills/independent-review/SKILL.md` 的收件规则）。
+* **未做/未验证（不得当作通过）** —— **本清单的活台账是 `docs/ai/DEBT.md` §2**（由已归档的 `TASK_BRIEF.md` → AC11 **原样承接**，归档副本在 `docs/ai/archive/2026-09-06-dsh-landing/TASK_BRIEF.md`）；**两处必须逐条一致，改一处必须同改另一处**。注意：这条"逐条一致"说的是"未验证清单"，不是 `[DEBT]` 集合：
   1. 除 `AGENTS.md` 外的其余派生对（`reviewer-prompt.md` / `QUALITY_GATES.md` / `index.md` / `workflow-design-notes.md` / 7 个 phase）相对母本是否存在判据漂移 —— 触发：下一次改动任一该文件之前。
   2. 备用路径（headless）完整审查轮 —— 触发：首次用备用路径发审之前。
   3. 真实 9P 审查轮（两次都只是档位探针）—— 触发：下一次启用 Critical 之前。
