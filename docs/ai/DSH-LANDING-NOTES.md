@@ -194,7 +194,8 @@ phase 文件额外做了三处归一（**`explore.md` 只有前两处；`define.
 
 > **2026-09-06 第 6 轮订正（9A 的 S4）**：本节此前自述"四笔登记在本文件"，与 `HANDOFF` 的笔数不一致（当时 6 笔，现 7 笔）——同一工作流里两份互相矛盾的台账，本身就是"账/措辞层"缺陷的一种。**现指定 `HANDOFF` 为唯一权威台账**（理由：AC9 的 `[O]` 人工读点读 `HANDOFF`）。本节**只保留指针与计数**，不再复制条目文本；改债必须改 `HANDOFF`，并同步改本节的计数。
 
-**当前计数：7 笔**（与 `HANDOFF` 逐条一致）：
+**本节与 `HANDOFF` 的关系（第 7 轮 9B 的 PB-1 订正）**：此前本行写"与 `HANDOFF` **逐条一致**"，而两者集合实测差 4 项——**那是假声称**。现改为：两者**同源但不等集**（本节按"性质"归类、`HANDOFF` 按 `[DEBT]` 条目列），**唯一权威是 `HANDOFF` 的 `[DEBT]` 块**；本节只做导读。
+**核验命令**：`Select-String -Path docs/ai/HANDOFF.md -Pattern '^\[DEBT\]'` → 条数即权威笔数（2026-09-06 实测 **8** 笔）。导读分类如下：
 1. `dsh/` 全套 + portable 的阶段性 delta 待审 —— Payback trigger：合并前
 2. `dsh/workflow/fanout-toolchain.md` 的 DSH 事实绑定 `@deepseek-ai/dsh` 0.1.5-rc.x —— 升级后首次派发审查之前
 3. `~/.dsh` 运行副本由人工同步产生、无 `*.bak-*` —— 首次用镜像脚本覆盖之前
@@ -202,6 +203,7 @@ phase 文件额外做了三处归一（**`explore.md` 只有前两处；`define.
 5. **AC4-门的实现自身无机械完整性保护**（AC6 是路径级谓词，已登记路径的内部修改零信号）—— 下次改动该脚本之前
 6. **AC4-门正则只覆盖"未加引号小写"形态**（驼峰键 / 反引号值可逃逸）—— 下次改动该脚本或 AC4 声称之前
 7. **AC6 对未跟踪文件不可见**（`git diff` 不列未跟踪文件；门只能在提交之后发现漏登记）—— 下次依赖"新增文件必被拦住"这个假设之前
+8. **AC4 的判定脚本硬绑本机路径**（换 checkout/换机执行会在 `Set-Location` 处直接终止，拿不到 verdict 与 exit code）—— 下次改动该脚本之前
 
 **没有第三种状态**：要么跑一轮审查转成已审版本，要么人类明确批准延期。
 
@@ -226,7 +228,7 @@ dsh/skills/{dual-agent-workflow,independent-review}/** → ~/.dsh/skills/ 同名
 * skill 结构：两个 `SKILL.md` 的 frontmatter 含 `name`（kebab-case、与目录名一致）/`description`；7 个 phase 文件带 `disable-model-invocation: true` 且末尾换行已补。
 * 工具面事实来源（一手）：`@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml`、`@deepseek-ai/dsh-tool-subagent/README.md`、`@deepseek-ai/dsh-llm-deepseek/lib/index.js`、`@deepseek-ai/dsh-headless/lib/startup.js`（helpOption/argument）、`@deepseek-ai/dsh-skill-filesystem/README.md`；模型档位佐证 = [DeepSeek 官方公告 2026-09-10](https://api-docs.deepseek.com/zh-cn/news/news260910/)（V4.1-Flash 超过 V4 Pro；旧 id 下线或路由到它）。
 * 首轮独立双审（真实发生）：9A/9B 均"不通过"，4+3 条 Product Blocking，隔离协议五项核验两份全过。verdict 落 `docs/ai/review_9A.md` / `review_9B.md`。后续第 2/3/4 轮见 `review_9{A,B}_r2.md` / `_r3.md` / `_r4.md` 与 HANDOFF 的轮次账。
-* **未做/未验证（不得当作通过）** —— **本清单是 `TASK_BRIEF.md` → AC11 的镜像，两处必须逐条一致（AC9 的现行判定读这里）；改一处必须同改另一处**：
+* **未做/未验证（不得当作通过）** —— **本清单是 `TASK_BRIEF.md` → AC11 的镜像，两处必须逐条一致（AC9 的现行判定读这里）；改一处必须同改另一处。注意：这条"逐条一致"说的是"未验证清单"，不是上面的 `[DEBT]` 集合**：
   1. 除 `AGENTS.md` 外的其余派生对（`reviewer-prompt.md` / `QUALITY_GATES.md` / `index.md` / `workflow-design-notes.md` / 7 个 phase）相对母本是否存在判据漂移 —— 触发：下一次改动任一该文件之前。
   2. 备用路径（headless）完整审查轮 —— 触发：首次用备用路径发审之前。
   3. 真实 9P 审查轮（两次都只是档位探针）—— 触发：下一次启用 Critical 之前。

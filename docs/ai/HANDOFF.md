@@ -33,7 +33,7 @@
 
 * verdict 文件：`docs/ai/review_9{A,B}.md`（第 1 轮）、`_r2.md`、`_r3.md`、`_r4.md`
 * tested_sha：`87528d49d658eec5f52efae7e75783dd15d18207`（收口轮 tip；`last_test_run.txt` 的 §X/§Y/§Z 绑此值）
-* review_sensitive_paths：`dsh portable install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md`
+* review_sensitive_paths：`dsh portable tools install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md`（**2026-09-06 第 7 轮补 `tools`**：`tools/ac4-reasoning-effort-check.ps1` 是 AC4-门的实现，第 6 轮 9B 的 R6-S3 指出本清单与 AC6 的 scope 对同一交付面给出两个定义）
 * **第 4 轮隔离核验**：两份 `observed_head_sha` == `fc32899f`、`worktree_clean: yes`、`writes_performed: none`、无覆盖缺口。9A 自报 `deepseek-official/deepseek-flash@high`（与实发参数**逐字一致**）；9B 自报仅 `deepseek-flash` 并**如实说明**它看不到 provider/effort 两项——两份都不回避自证限度。
 * **第 3 轮隔离核验**：两份 `observed_head_sha` == `34b60370`、`worktree_clean: yes`、`writes_performed: none`、无覆盖缺口；`model_route` 双双自报 `deepseek-official/deepseek-flash@high`，与实发参数**逐字一致**。
 * **两处如实登记的隔离瑕疵**：① 9B 用 `git grep` 做全仓检索时**回显**了 `review_9A*.md` 的 3 行文本（声明未打开该文件、未作为推理输入）；② 9A **自行推断**"人类只要求跑 9A"因而记 `9B = N/A 减档`，而 9B 实际已跑——**本轮不是合法减档轮**。
@@ -64,12 +64,13 @@
 * **双审轮次已用: 4**（上限 3；第 4 轮出自人类"修完再跑一轮"的逐次批准）。**第 5 轮是收口轮**：只跑了 9A 单审（现在判定为**判断错误**——它正是漏掉 B-1/B-3 的原因，人类已确认**恢复 9B**）。**第 6 轮起恢复双审 9B + 9A。**
 * **第 5 轮 9A 单审结论：不通过（3 条 Product Blocking）** → **B-1 归因 `yes`（两套定义一致）→ streak 由 1 增至 2 → 硬停触发**。B-2/B-3 归因 `dispute`（未计）。
 * **关闭阀状态**：① 第 3 轮那条 Product Blocking **已实质闭合**（两份独立实跑确认）；② 第 4 轮 9B 那条的**归类与归因仍待人类裁决**——裁 `yes` 则 streak 达 2 → 硬停；③ 轮次账已 4 > 上限 3，**再开完整双审须人类再次逐次批准**（本收口轮为单审，不占双审轮次）。
-* **合并门：关闭。** 第 5 轮 9A 报 **3 条 Product Blocking**（B-1 归因 `yes`）→ streak = 2 硬停；按 `AGENTS.md` → Fix-Loop 三者优先级 ②，**存在未解决 `[Product Blocking]` 时"限制交付"不含合并**。第 6 轮：9B **拒审**（无 verdict）、9A **不通过**（1 条 Product Blocking，归因 `dispute`）。**债台账现为 6 笔**（其中 1 笔为已实质闭合的历史记录）。**在人类裁定本轮那条 `dispute` 之前，本门保持关闭。**
+* **合并门：关闭。** 第 5 轮 9A 报 **3 条 Product Blocking**（B-1 归因 `yes`）→ streak = 2 硬停；按 `AGENTS.md` → Fix-Loop 三者优先级 ②，**存在未解决 `[Product Blocking]` 时"限制交付"不含合并**。第 6 轮：9B **拒审**（无 verdict）、9A **不通过**（1 条 Product Blocking，归因 `dispute`）。**债台账见下节代码块**（**不在此写死数字**——第 7 轮 9B 的 PB-1 就是"本行写 6 笔而块内 7 条"导致合并门输入不唯一；写死数字必然随加账过期）。**核验方式**：`Select-String -Path docs/ai/HANDOFF.md -Pattern '^\[DEBT\]'` 的条数即当前笔数。**在人类裁定本轮那条 `dispute` 之前，本门保持关闭。**
 
 ## Remaining Risks / Debt
 ```
 [DEBT] AC4-门（档位取值域）的实现自身无机械完整性保护：AC6 是路径级谓词，已登记路径的内部修改零信号，削弱该脚本只能靠人工读 diff（2026-09-06 第 6 轮 9B 的 R6-B3）| Payback trigger: 下次改动 tools/ac4-reasoning-effort-check.ps1 之前；或下次由人类复核 dsh/** 判据面之前 | Impact: 一道机械门可在双门全绿的情况下被静默削弱
 [DEBT] AC4-门的覆盖边界：它只枚举"赋值位"（`reasoning_effort: <未加引号小写>`），而取值**还可以以散文式**（`` 9A/9B = `high` ``）**或驼峰键**（`reasoningEffort`）出现——那两类不在域内、门不看（2026-09-06 第 6 轮 9B 的 R6-S1 + 第 11 轮量化：域内 23 处提及 / 11 行未捕获，其中 **7 行是键名提及或占位模板、本非赋值位**，真正"陈述取值"的 6 行取值全为 `high`，**当前无活假绿**）| Payback trigger: 下次改动该脚本或 AC4 声称之前 | Impact: 声称若仍写"枚举全部取值"则名不副实；按实测**收窄声称**为"只管赋值位"即可与谓词一致
+[DEBT] AC4 的判定脚本硬绑本机路径（`tools/ac4-reasoning-effort-check.ps1:2` = `$repo = 'C:\Users\16097\Desktop\workflow'`，`:4` 走 `$env:LOCALAPPDATA\npm-cache\_npx\*`），而 `TASK_BRIEF` twice 写它"可复制执行"（2026-09-06 第 6 轮 9B 的 R6-S5 → 第 7 轮 PB-2 判为暗账）| Payback trigger: 下次改动该脚本之前 | Impact: 这道 `[M]` 门**只在本机 checkout 可执行**；换 checkout/换机执行会在 `Set-Location` 处因 `$ErrorActionPreference='Stop'` 直接终止，**拿不到 verdict 与 exit code**——"可复制执行"在验收意义上不成立
 [DEBT] AC6 对**未跟踪文件不可见**：其 scope 来自 `git diff --name-only <base>..HEAD`，而 `git diff` 不列未跟踪文件（2026-09-06 第 7 轮实测 VN-4：在 `tools/validate/` 下新建一个未登记且**未提交**的文件 → 判定仍 GREEN、`missing` 为空）| Payback trigger: 下次依赖"新增文件一定会被 AC6 拦住"这个假设之前 | Impact: 门只能在**提交之后**才发现漏登记；"提交前自查"这一步没有任何机械保证——本任务的 `.tmp-r6.ps1` 正是这样进过一次 tip
 [DEBT] 第 3 轮 9B 的 B1（AC6 按字面恒红 + <base> 未钉死）——**已实质闭合**（第 4 轮两份独立实跑确认），保留为历史记录 | Payback trigger: —（已闭合）| Impact: —
 [DEBT] dsh/ 的相对母本"判据无漂移"缺少机械门禁（AC10 的判定对声称无区分力，9A-S4）| Payback trigger: 下次改动 dsh/** 之前 | Impact: 判据漂移不会被任何门检出（本轮靠 Reviewer 手工逐行读才排除）
