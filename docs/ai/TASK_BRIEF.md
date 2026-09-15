@@ -90,6 +90,7 @@ verdict 契约含 `writes_performed` 与 `model_route`；三份 prompt 都要求
 **判定依据**：`docs/ai/DSH-LANDING-NOTES.md` → **§2.3 机读登记表**（`- path:` 行）。
 **钉死的 base**：`bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17`。
 **scope 的组成**：`dsh` / `portable` / **`tools`** / `install.ps1` / 根 `AGENTS.md` / `README.md` / `docs/ai/AUTHORITY_CONTRACT.md` / `docs/ai/DSH-LANDING-NOTES.md` / `docs/ai/TASK_BRIEF.md`。
+**边界说明（第 6 轮 9A 的 S3）**：pathspec 里的 `tools` 也包含 `tools/validate/**`——那是 **H5A 封存档**（项目 `AGENTS.md` 明令"非门禁、勿续建、勿修"，其 Pester 套件对当前 main **预期失败**）。**它落在 AC6 的 pathspec 内但不属交付面、不是门禁，且本 AC 不执行任何测试**，故其"预期失败"不会污染本门；触发它只会走"未登记路径 → `$missing`"这一条路径。
 **为什么 `tools` 在内**（第 5 轮 9A 的 B-1）：`tools/ac4-reasoning-effort-check.ps1` 是 **AC4-门本身的实现**，它此前既不在 scope 也不在登记表内，于是"门绿而登记不全"。
 **但它进 scope 能买到什么，必须说准（2026-09-06 第 6 轮 9B 的 R6-B3）**：AC6 是**路径级**谓词，所以它买到的是"**`tools/` 下新出现未登记路径会被判红**"，**不是**"削弱第二道门必然被 AC6 发现"。**已登记路径的内部修改（含削弱 AC4 脚本本身）在本 AC 下零信号**，只能靠人工读 diff。此限制属 `[DEBT]`（见 HANDOFF），**不得**被写成"防削弱已关闭"。
 **判定命令（可复制执行）**：
@@ -170,7 +171,8 @@ if ($missing -or $stale) { $missing; $stale; exit 1 } else { 'AC6: register == s
 
 ## Open Questions
 
-**None**。人类自首轮起逐条裁决：进入第 2 轮 / 9P 档 = `high` / 先跑审查 / 补 TASK_BRIEF / 偿还 installer 债（收窄 README 措辞）/ 跑第 3 轮 9A / 接受 Amendment / **采纳第 3 轮 9B 的 Product 归类并再跑一轮** / **2026-09-06 按 Author 建议收口 AC 分层**。
+**3 项待人类裁决**（与 `docs/ai/HANDOFF.md` → 「待人类裁决」节同源；此处不再写 None）：① **任务 B 的交付边界是否现在冻结**（不冻结则"收口"没有可复现判据）；② **第 4 轮那条 `dispute` 的归类**（AC9 判定①）+ **第 6 轮那条 `dispute` 的归类**（HANDOFF 合并门条目）；③ **B-2 的处置方向**（加宽 AC4 正则 vs 收窄其声称）。
+人类已裁决的历史（按序）：进入第 2 轮 / 9P 档 = `high` / 先跑审查 / 补 TASK_BRIEF / 偿还 installer 债（收窄 README 措辞）/ 跑第 3 轮 9A / 接受 Amendment / 采纳第 3 轮 9B 的 Product 归类并再跑一轮 / 按 Author 建议收口 AC 分层 / **走「重新拆任务」退出硬停** / **先只修 B-1 + 恢复 9B 跑一轮**。
 
 ## Human Approval Status
 
