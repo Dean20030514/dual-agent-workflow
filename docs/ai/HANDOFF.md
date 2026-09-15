@@ -69,7 +69,7 @@
 ## Remaining Risks / Debt
 ```
 [DEBT] AC4-门（档位取值域）的实现自身无机械完整性保护：AC6 是路径级谓词，已登记路径的内部修改零信号，削弱该脚本只能靠人工读 diff（2026-09-06 第 6 轮 9B 的 R6-B3）| Payback trigger: 下次改动 tools/ac4-reasoning-effort-check.ps1 之前；或下次由人类复核 dsh/** 判据面之前 | Impact: 一道机械门可在双门全绿的情况下被静默削弱
-[DEBT] AC4-门的正则只覆盖"未加引号小写"形态：驼峰键 `reasoningEffort: <v>` 与被反引号包裹的值均可逃逸（2026-09-06 第 6 轮 9B 的 R6-S1，独立实测逃逸）| Payback trigger: 下次改动该脚本或 AC4 声称之前 | Impact: `[M]` 标记名不副实——域外取值可以合法写法进入文档而门报 PASS
+[DEBT] AC4-门的覆盖边界：它只枚举"赋值位"（`reasoning_effort: <未加引号小写>`），而取值**还可以以散文式**（`` 9A/9B = `high` ``）**或驼峰键**（`reasoningEffort`）出现——那两类不在域内、门不看（2026-09-06 第 6 轮 9B 的 R6-S1 + 第 11 轮量化：域内 23 处提及 / 11 行未捕获，其中 **7 行是键名提及或占位模板、本非赋值位**，真正"陈述取值"的 6 行取值全为 `high`，**当前无活假绿**）| Payback trigger: 下次改动该脚本或 AC4 声称之前 | Impact: 声称若仍写"枚举全部取值"则名不副实；按实测**收窄声称**为"只管赋值位"即可与谓词一致
 [DEBT] AC6 对**未跟踪文件不可见**：其 scope 来自 `git diff --name-only <base>..HEAD`，而 `git diff` 不列未跟踪文件（2026-09-06 第 7 轮实测 VN-4：在 `tools/validate/` 下新建一个未登记且**未提交**的文件 → 判定仍 GREEN、`missing` 为空）| Payback trigger: 下次依赖"新增文件一定会被 AC6 拦住"这个假设之前 | Impact: 门只能在**提交之后**才发现漏登记；"提交前自查"这一步没有任何机械保证——本任务的 `.tmp-r6.ps1` 正是这样进过一次 tip
 [DEBT] 第 3 轮 9B 的 B1（AC6 按字面恒红 + <base> 未钉死）——**已实质闭合**（第 4 轮两份独立实跑确认），保留为历史记录 | Payback trigger: —（已闭合）| Impact: —
 [DEBT] dsh/ 的相对母本"判据无漂移"缺少机械门禁（AC10 的判定对声称无区分力，9A-S4）| Payback trigger: 下次改动 dsh/** 之前 | Impact: 判据漂移不会被任何门检出（本轮靠 Reviewer 手工逐行读才排除）
