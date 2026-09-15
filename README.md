@@ -14,11 +14,11 @@ cd dual-agent-workflow
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-> **⚠️ 迁移期安全锁定（临时）**：安装器当前处于 snapshot-first 迁移锁定状态，**上面的一键命令会被脚本直接拒绝**。它的真实语义是 **mirror-replace** 本机受管目录（`~/.claude/{rules,workflow,commands}`，含其中仅存在于本机的内容如 `workflow/archive/**`）、覆盖 `~/.codex/AGENTS.md`，并镜像 `~/.dsh/AGENTS.md` / `~/.dsh/workflow/` / `~/.dsh/skills/{dual-agent-workflow,independent-review}/`（`~/.dsh` 为 harness home，先整树备份一次；`settings.yaml` / sessions / storages / 凭据**从不触碰**）；未知参数（如 `-DryRun`，尚未实现）会在参数绑定阶段直接失败。只有在明确接受上述覆盖语义时，才手动附加确认开关 `-IUnderstandThisReplacesLiveConfig`（这是破坏性确认，不是常规默认参数，故不写入上方示例）。待 H3 提供真实 `-DryRun`/`-ValidateOnly` 与 keep-local-only 保护后，此锁定与本说明一并移除。
+> **⚠️ 迁移期安全锁定（临时）**：安装器当前处于 snapshot-first 迁移锁定状态，**上面的一键命令会被脚本直接拒绝**。它的真实语义是 **mirror-replace** 本机受管目录（`~/.claude/{rules,workflow,commands}`，含其中仅存在于本机的内容如 `workflow/archive/**`）、覆盖 `~/.codex/AGENTS.md`，并镜像 `~/.dsh/AGENTS.md` / `~/.dsh/workflow/` / `~/.dsh/skills/{dual-agent-workflow,independent-review}/`（`~/.dsh` 为 harness home）。**关于机器态，分两句说清（2026-09-06 修正：原文"从不触碰"与代码不符）**：脚本**只读写受管路径**，`settings.yaml`、`sessions/`、`storages/`、`profiles/`、凭据**不被修改或删除**；**但脚本会先把整个 `~/.dsh` 整树备份为 `~/.dsh.bak-<时间戳>`**，因此那些文件会**被复制一份**到备份目录（且不自动清理——人类确认后自行删除）。要避免复制凭据，需先修 `install.ps1`（已登记为 `[DEBT]`）；未知参数（如 `-DryRun`，尚未实现）会在参数绑定阶段直接失败。只有在明确接受上述覆盖语义时，才手动附加确认开关 `-IUnderstandThisReplacesLiveConfig`（这是破坏性确认，不是常规默认参数，故不写入上方示例）。待 H3 提供真实 `-DryRun`/`-ValidateOnly` 与 keep-local-only 保护后，此锁定与本说明一并移除。
 
 脚本（PowerShell 5.1 兼容）会：备份现有目标为 `*.bak-<时间戳>` → 部署全局 CLAUDE.md / settings.json / rules / workflow / commands → 部署 Codex 侧 AGENTS.md（config.toml 仅在缺失时用 example 播种）→ 部署 DSH 侧 `AGENTS.md` / `workflow/` / 本工作流自有的两个 skill 目录 → 安装 5 个官方插件（`context7` `chrome-devtools-mcp` `pyright-lsp` `typescript-lsp` `frontend-design`；无 claude CLI 时打印手动命令）。
 
-**刻意不部署**（换设备需自行私有迁移或重新登录）：`.credentials.json` / `~/.claude.json` / `~/.codex/auth.json` / `~/.dsh/.credentials.yaml` 等凭据与登录态；session/日志/缓存等机器状态；`settings.local.json`（本机临时授权）；**`~/.dsh/settings.yaml`**（本机用户设置：权限预设、模型白名单）；**auto-memory**（`~/.claude/projects/*/memory`，含私有项目内情，不进公开仓库——需要时整目录自行拷贝）。
+**刻意不部署**（换设备需自行私有迁移或重新登录）：`.credentials.json` / `~/.claude.json` / `~/.codex/auth.json` / `~/.dsh/.credentials.yaml` 等凭据与登录态（**注**：`install.ps1` 不修改它们，但整树备份会把它们复制进 `~/.dsh.bak-<时间戳>`，见上方锁定说明）；session/日志/缓存等机器状态；`settings.local.json`（本机临时授权）；**`~/.dsh/settings.yaml`**（本机用户设置：权限预设、模型白名单）；**auto-memory**（`~/.claude/projects/*/memory`，含私有项目内情，不进公开仓库——需要时整目录自行拷贝）。
 
 ## 布局与安装位置
 

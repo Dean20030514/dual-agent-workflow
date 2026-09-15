@@ -47,7 +47,7 @@ npx -y @deepseek-ai/dsh --profile headless (Get-Content "$HOLD\9B_prompt.txt" -R
 ```
 
 * headless 进程**没有 `-o`**（`-o` 是原 Claude 侧 `codex exec` 的参数，DSH 无对应项），verdict 走 **stdout**，raw log 走 stderr。
-* **headless 也钉不住模型档**：`dsh --profile headless` 只接受 `-h/--help` 与位置参数 `[task...]`（源：`@deepseek-ai/dsh-headless/lib/startup.js`），**没有 `--provider` / `--model` / 推理档参数**——它读部署的 `agentDefaultModel`。因此备用路径下"Author 与 Reviewer 都取 `deepseek-flash`"这条**不由调用参数保证**；要钉死须先用 `--patch` 或 profile patch 固定 `agent-default-model`，否则只能靠 verdict 里的 `model_route` 自报值暴露漂移。
+* **headless 也钉不住模型档**：`dsh --profile headless` 只接受 `-h/--help` 与位置参数 `[task...]`（源：`@deepseek-ai/dsh-headless/lib/startup.js`），**没有 `--provider` / `--model` / 推理档参数**——它读部署的 `agentDefaultModel`。因此备用路径下"Author 与 Reviewer 都取 `deepseek-flash`"这条**不由调用参数保证**。**要钉死的两条路不一样（2026-09-06 第 2 轮 9B 实测修正）**：`provider` / `model` 可由 `--patch` 或 profile patch 固定（`AgentDefaultModelConfig.Config` 只有这两个键）；**推理档 `reasoningEffort` 不在那一层**——它只存在于 `settings` 层的 `agent-default-model` 节，落 `<harness home>/settings.yaml`。两者都不做时，备用路径的档位**无任何机械保证**，只有 verdict 里的 `model_route` 自报值能让漂移可见。
 * headless 会话**是持久化的**（每次运行落一个新 session），因此它比 `subagent` 更接近原 Codex 形态：fresh 进程、独立会话、可事后回看。
 * 该路径下 Reviewer 同样**不能**把 verdict 写进仓库——重定向目标由 **Author 指定为仓外 holding**。
 * 两条路径都遵守同一条顺序：**9B 先跑、9A 后跑**，两次之间确认工作树内无 verdict 残留。

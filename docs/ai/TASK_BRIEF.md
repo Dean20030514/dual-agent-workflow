@@ -5,7 +5,7 @@
 ## 补写说明（如实登记）
 
 > **Amendment 记录（2026-09-06，第 2 轮双审后）**：第 2 轮 9A 的 S7 判定 AC4/AC6 的判定方式按字面不可满足/会假红，AC1/AC8/AC9 属"散文对读"。处置：**AC4 与 AC6 已改写为可执行形态**（限定输入域 + 具体命令 + 反例实跑）；**AC1 保持原判据但判为"本轮只可抽样核验"**——它要求"17 对派生文件逐条一致"，Author 与 Reviewer 都只做了抽样（全量需逐条人工读 2600+ 行），按「验收条款必须可复现判定」这属于**证据面不足而非未满足**；它**不作为阻止合并的 AC**，改列本任务的 Known Limitation。
-> **本 Amendment 由 Author 记录，等待人类在合并前确认**（按收敛门 ③(c)，验收条款的修订只能出自人类裁决；此处如实标注"待确认"，人类若不接受请直接改回并记录日期）。本任务由人类在对话中直接下达（"将我这套本应用于 claude code 和 codex 的工作流作用于 dsh，但是 Author 和 Reviewer 都是 deepseek/dsh"），Author **直接进入实现**并落 commit，未走 `/plan`、未产出 TASK_BRIEF、未跑 9P、未取得计划批准门——因此首轮双审是在**没有需求文件**的情况下进行的（两份 prompt 里的 Frozen Acceptance 由 Author 当场写入 prompt）。人类在首轮双审后裁决"补一份 TASK_BRIEF 含本任务 Frozen Acceptance"，本文件即该裁决的产物。
+> **人类裁决（2026-09-06）：按 Author 建议接受本 Amendment**（AC4/AC6 改写为可执行判定；AC1 降为 Known Limitation）。按收敛门 ③(c)，验收条款的修订出自人类裁决 → 该 delta 不使既有审查失效。本任务由人类在对话中直接下达（"将我这套本应用于 claude code 和 codex 的工作流作用于 dsh，但是 Author 和 Reviewer 都是 deepseek/dsh"），Author **直接进入实现**并落 commit，未走 `/plan`、未产出 TASK_BRIEF、未跑 9P、未取得计划批准门——因此首轮双审是在**没有需求文件**的情况下进行的（两份 prompt 里的 Frozen Acceptance 由 Author 当场写入 prompt）。人类在首轮双审后裁决"补一份 TASK_BRIEF 含本任务 Frozen Acceptance"，本文件即该裁决的产物。
 
 **这修补的是流程缺口，不是给已完成的实现补一张事后授权单**：首轮双审的 verdict（9A/9B 均"不通过"）与 Fix-Loop 计数不因本文件而改变；本文件的作用是让**第 2 轮修补**有可对照的验收基线。
 

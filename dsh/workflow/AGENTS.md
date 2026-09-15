@@ -135,7 +135,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 DSH 里 Author 与 Reviewer **同机、同权限、同工作目录**（不同于 Codex 的进程沙箱）；角色隔离靠**进程/上下文隔离 + 零写入纪律**，不靠沙箱。两条路径：
 
 * **主路径（同会话）**：Author = 本会话主 agent；Reviewer = `subagent` 工具起的子 agent，**必须显式指定 `provider: deepseek-official` + `model: deepseek-flash`**，默认前台等待、直接拿回 verdict 文本。子 agent 是 fresh context（`inheritsParentContext: false`），天然满足双审隔离的上下文独立性；**但它能写仓库，所以零写入规则在 DSH 下是唯一屏障**（见上文 Reviewer-Lightweight Protocol 的 DSH 注）。
-* **备用路径（独立进程）**：需要物理级隔离或跨会话复现时，用 `dsh --profile headless "<prompt>"` 起独立进程（**headless 钉不住 provider/model/推理档，也 `-o` 不可用**——verdict 走 stdout、raw log 走 stderr，由 Author 重定向到**仓外** holding；要钉档位须先用 `--patch` / profile patch 固定部署的 `agent-default-model`）。**Author 与 Reviewer 绝不可共用同一会话上下文**：把 reviewer prompt 粘进 Author 自己的会话，等于让 Author 自审，该轮审查作废。
+* **备用路径（独立进程）**：需要物理级隔离或跨会话复现时，用 `dsh --profile headless "<prompt>"` 起独立进程（**headless 钉不住 provider/model/推理档，也 `-o` 不可用**——verdict 走 stdout、raw log 走 stderr，由 Author 重定向到**仓外** holding；备用路径要钉死的话**分两层**：`provider`/`model` 可由 `--patch` / profile patch 固定，**推理档只能写 `<harness home>/settings.yaml` 的 `agent-default-model` 节**——详见 `~/.dsh/workflow/fanout-toolchain.md` §3）。**Author 与 Reviewer 绝不可共用同一会话上下文**：把 reviewer prompt 粘进 Author 自己的会话，等于让 Author 自审，该轮审查作废。
 * **两条路径都不许做的**：`git archive` 重建副本、重装依赖、重跑全量测试、把 verdict 写进仓库工作树。（`subagent` 的 `workflow` 工具可批量派发审查，但**审查价值来自独立判断而非并发度**——派发上限与"不得一事一 agent"见全局 `dsh/AGENTS.md` → Fan-out。）
 
 ## AI Collaboration Rules（仅 Critical 模式）
