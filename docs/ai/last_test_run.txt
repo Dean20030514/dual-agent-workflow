@@ -854,3 +854,38 @@ $ 搜索 .github / .gitlab-ci.yml / azure-pipelines.yml / appveyor.yml / .travis
 ```
 
 本仓**没有任何 CI 配置**，故原文"push 到 `origin/main`（+ CI）"中的"（+ CI）"是**空指**——push 不会触发流水线。`README.md` 与 `HANDOFF` §五 的对应处已同时订正。**这与 PB-1 / PB-2 同类：不是行为缺陷，而是"说与做不一致"的账目缺陷。**
+
+## AU. 第二次 push 的核验 + 订正 §AT 自己引入的可失效字面量（2026-09-06）
+
+**为什么这一节存在**：§AT 那笔把状态写成了"`origin/main` = `9a10db7`"——**人类下一次 push（把 §AT 那笔自身送上去）就使这句话失效**，与 §AS 所修的"写死笔数"是**同一种病，只是换了形式（sha 而非计数）**。同一个坑在两笔之内踩了两次，故本节既记第二次 push 的核验，也订正该字面量。
+
+**① 第二次 push 的核验（本机 ref 证据，不是网络回读）**
+
+```
+$ git rev-parse main / HEAD / origin/main
+main        = cad8b31628eca057db7588c93b985ec34b77ed16
+HEAD        = cad8b31628eca057db7588c93b985ec34b77ed16
+origin/main = cad8b31628eca057db7588c93b985ec34b77ed16
+$ git rev-list --count origin/main..HEAD   → 0
+$ git rev-list --count HEAD..origin/main   → 0
+$ git branch -vv
+* main cad8b31 [origin/main] docs: record the completed push and correct the CI reference
+$ git reflog show origin/main | Select-Object -First 3
+cad8b31 refs/remotes/origin/main@{0}: update by push
+9a10db7 refs/remotes/origin/main@{1}: update by push
+bf06c65 refs/remotes/origin/main@{2}: update by push
+```
+
+**② 订正**：`README.md` 与 `HANDOFF`（Current Phase / Next Step / §五（三））里的"`origin/main` = `9a10db7`"一律改为**"push 时点"的历史记录**，并把"当前值"交给现查命令：`git rev-parse origin/main` / `git rev-list --count origin/main..HEAD` / `git reflog show origin/main`。**新措辞不含任何会随下一次 push 失效的字面量**。
+
+**③ 由此得到的、可复用的结论（本条才是本节的价值）**
+
+| 写死的东西 | 何时失效 | 正确形态 |
+|---|---|---|
+| 提交笔数（§AS 修） | **写下即失效**（记录它的那笔提交自己计入） | `git rev-list --count <range>` |
+| 远端 ref 的 sha（§AT 引入，§AU 修） | **下一次 push 即失效** | `git rev-parse origin/main` + 明确标注"push 时点" |
+| 文件集合 / 计数（PB-1 修） | 下一次加账即失效 | 指向"唯一权威 + 现查命令" |
+
+**规律**："把可变量写进文档"这件事**不能靠更仔细来避免**——本任务已在同一处栽了三次（PB-1 笔数、§AS 笔数、§AT 的 sha）。**唯一防住的形式是：文档里只写"判定命令 + 该数值的时点"。**
+
+**④ 真实退出码（同一工作树，本次改动已在内）**：`AC4: PASS`（`exit=0`）、`AC6: register == scope`（`reg=31 scope=31 missing=0 stale=0`，`exit=0`）、`git status --porcelain=v1 -uall` = ` M README.md` / ` M docs/ai/HANDOFF.md`（无未跟踪文件）。
