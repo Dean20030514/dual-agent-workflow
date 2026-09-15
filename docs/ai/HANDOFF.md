@@ -4,7 +4,7 @@
 > **本文件在工作树中恒滞后于 tip**（按流程它在 `review_tip_sha` **之后**的 docs commit 里提交）——数值以 review prompt 逐字给出的为准。
 
 ## Current Phase
-**第 3 轮双审已产出、两份结论不一致 → 已到硬停判据（streak = 1）与轮次上限（3/3），停在人类裁决前。**
+**第 4 轮双审已产出**：9A「有条件通过（Blocking = None）」、9B「不通过（1 条 Product Blocking，归因标 `dispute`）」。**两份对该条给出相反归类 → 停在人类裁决前。** 另：第 3 轮那条 Product Blocking（AC6）经两份独立实跑确认**已闭合**。
 
 ## Task Summary
 把本仓的双 Agent 工作流（原 Claude Code Author × Codex CLI Reviewer）落到 **DeepSeek Harness**：Author 与 Reviewer 都是 deepseek/dsh。产出 `dsh/` 一等公民、两个可加载 skill、DSH 便携 prompt，并登记部署面。**已跑 3 轮 9A/9B**：第 1 轮两份"不通过"、第 2 轮两份"有条件通过"、第 3 轮 9B"不通过（1 条 Product）"而 9A"有条件通过（同一条判为 Suggestion）"。
@@ -20,10 +20,12 @@
 | 1 | `bf06c65` → `a361bc19` | **不通过**（3 Product，全 `no`） | **不通过**（4 Product，全 `yes`）|
 | 2 | `a361bc19` → `7084fb75` | **有条件通过**（0 Product） | **有条件通过**（0 Product）|
 | 3 | `7084fb75` → `34b60370` | **不通过**（1 Product，`yes`）| **有条件通过**（0 Product）|
+| 4 | `34b60370` → `fc32899f` | **不通过**（1 Product，**`dispute`** → 不计）| **有条件通过**（0 Product）|
 
-* verdict 文件：`docs/ai/review_9{A,B}.md`（第 1 轮）、`_r2.md`、`_r3.md`
-* tested_sha：`34b60370fdac02b3d2670a0058b729bc99a7589f`
+* verdict 文件：`docs/ai/review_9{A,B}.md`（第 1 轮）、`_r2.md`、`_r3.md`、`_r4.md`
+* tested_sha：`fc32899f5d6addd0cbafd43ab33fd56c607e9cd3`（第 4 轮审 tip；`last_test_run.txt` 的 §Q/§T 绑此值）
 * review_sensitive_paths：`dsh portable install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md`
+* **第 4 轮隔离核验**：两份 `observed_head_sha` == `fc32899f`、`worktree_clean: yes`、`writes_performed: none`、无覆盖缺口。9A 自报 `deepseek-official/deepseek-flash@high`（与实发参数**逐字一致**）；9B 自报仅 `deepseek-flash` 并**如实说明**它看不到 provider/effort 两项——两份都不回避自证限度。
 * **第 3 轮隔离核验**：两份 `observed_head_sha` == `34b60370`、`worktree_clean: yes`、`writes_performed: none`、无覆盖缺口；`model_route` 双双自报 `deepseek-official/deepseek-flash@high`，与实发参数**逐字一致**。
 * **两处如实登记的隔离瑕疵**：① 9B 用 `git grep` 做全仓检索时**回显**了 `review_9A*.md` 的 3 行文本（声明未打开该文件、未作为推理输入）；② 9A **自行推断**"人类只要求跑 9A"因而记 `9B = N/A 减档`，而 9B 实际已跑——**本轮不是合法减档轮**。
 * 9A 另如实登记一处仓外写入（`%TEMP%\old_handoff.txt`，在仓库与 holding 之外）。
@@ -46,9 +48,11 @@
 ## Fix-Loop Counter
 * 第 1 轮 | 修 B1–B4 | **[Product] 1**（四条同轮去重）| 9A 全 `yes`、9B 全 `no`
 * 第 2 轮 | 未修 Product（Blocking = None）| **[Product] 0** → **streak 归 0**
-* 第 3 轮 | 修 Suggestion + 偿还债 #4（**未修任何 Product**）| **[Product]：9B 判 1 条 `caused_by_last_fix: yes`；9A 判 0 条** → 按 9B 计 **streak = 1**
-* **streak（当前连续计数）: 1** · **双审轮次已用: 3 / 3**
-* **两条关闭阀同时到达**：① 第 3 轮存在 1 条 `caused_by_last_fix: yes` 的 Product Blocking（9B 判）→ 该条未解决期间**合并门关闭**；② 双审轮次达 **3** → **停止再审**（延长须人类逐次明确批准）。**Author 不得自行择路。**
+* 第 3 轮 | 修 Suggestion + 偿还债 #4（未修任何 Product）| **[Product]：9B 判 1 条 `caused_by_last_fix: yes`；9A 判 0 条** → 按 9B 计 **streak = 1**
+* 第 4 轮 | 修 AC6（第 3 轮那条 Product）+ 补 AC1/AC4/AC9/AC10 判定方式 + 状态块收口 | **[Product]：9B 判 1 条但归因标 `dispute`；9A 判 0 条** → 按契约**`dispute` 不自动计数**，且 9A 同条判 Suggestion → **本轮暂计 0，streak 维持 1**；最终归属**交人类裁决**
+* **streak（当前连续计数）: 1** · **双审轮次已用: 4**（上限 3；第 4 轮出自人类"修完再跑一轮"的**逐次批准**）
+* **关闭阀状态**：① 第 3 轮那条 `caused_by_last_fix: yes` 的 Product Blocking **已实质闭合**（两份独立实跑确认）；② 第 4 轮 9B 的 Product Blocking **归因待人类裁决**——**裁 `yes` 则 streak 达 2 → 硬停**（只能回退／重新拆任务／架构升级，**不得**改走"限制交付"）；**裁 `no`（或采纳 9A 的 Suggestion 归类）则 streak 维持 1**；③ 轮次账已达 4 > 上限 3，**再开一轮须人类再次逐次批准**。
+* **合并门**：第 4 轮 9A 判 Blocking = None，但 9B 那条归类未决 + 两份 Debt 均为 **Unpaid** → **现在不得合并、不得标"已收敛"**。
 
 ## Remaining Risks / Debt
 ```
