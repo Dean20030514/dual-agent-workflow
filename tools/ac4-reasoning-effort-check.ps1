@@ -1,5 +1,5 @@
 $ErrorActionPreference = 'Stop'
-$repo = 'C:\Users\16097\Desktop\workflow'
+$repo = Split-Path -Parent $PSScriptRoot  # <checkout>/tools -> <checkout>
 Set-Location $repo
 $adapter = (Get-ChildItem "$env:LOCALAPPDATA\npm-cache\_npx\*\node_modules\@deepseek-ai\dsh-llm-deepseek\lib\index.js" | Select-Object -First 1).FullName
 

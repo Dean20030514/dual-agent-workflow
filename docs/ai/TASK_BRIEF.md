@@ -77,7 +77,8 @@
 ### AC4-门 — 档位取值域 → **[M] 机械门（本任务两个机械门之一）**
 
 **输入域**：仅 DSH 面（`dsh/**`、`portable/通用prompt-DSH-v1.txt`、`README.md`）；**排除** `claude/**` 与 `portable/通用prompt-v3.8.txt`（那里的 `medium` 属 Codex 侧 `model_reasoning_effort`，合法）。
-**判定命令（可复制执行，脚本已入库）**：`pwsh -File tools/ac4-reasoning-effort-check.ps1` → 枚举上述范围内**两种拼写**（`reasoning_effort` / `reasoningEffort`）的赋值位，每个值必须 ∈ `{off, low, high, max}`；且适配器 `dsh-llm-deepseek/lib/index.js` 中 `"medium"` 零命中。任一不满足即 `exit 1`。
+**判定命令（任意 checkout 可复制执行；脚本已入库，`$repo` 由脚本自身位置推导）**：`pwsh -File tools/ac4-reasoning-effort-check.ps1` → 枚举上述范围内**两种拼写**（`reasoning_effort` / `reasoningEffort`）的赋值位，每个值必须 ∈ `{off, low, high, max}`；且适配器 `dsh-llm-deepseek/lib/index.js` 中 `"medium"` 零命中。任一不满足即 `exit 1`。
+**路径面（第 7 轮 9B 的 PB-2；2026-09-06 人类裁决"修路径推导 + 改准声称"后已偿还）**：`$repo = Split-Path -Parent $PSScriptRoot` → **任意 checkout 均可执行**（实测：异 checkout 副本上"只改副本 README"会 `FAIL`、未改则 `PASS`，原始输出见 `last_test_run.txt` §AR）。仍余一条环境依赖：适配器取自 `%LOCALAPPDATA%\npm-cache\_npx\*`，**需本机存在 npx 缓存的 dsh 适配器**，找不到时**报错退出**（非静默通过）。
 **声称边界（2026-09-06 人类裁决：选选项 2a，不加宽到散文）**：本门覆盖的是**赋值位**（`键: 值` / `键 = 值` 形态，两种拼写）；**散文式取值陈述**（如 `` 9A/9B = `high` ``）**不在域内、本门不声称覆盖**。这是如实收窄后的声称，与谓词实际能力一致。
 **产物（真实退出码）**：正向 `DSH-side values = high / out-of-domain = (none) / adapter medium hits = 0 → AC4: PASS, exit=0`。
 **负向对照（已实跑两条，均有原始输出）**：① 把 `dsh/workflow/fanout-toolchain.md` 的 `high` 改成 `medium` → `DSH-side values = high, medium / out-of-domain = medium → AC4: FAIL, exit=1`；② **第 8 轮新增（选项 2a 的配套对照）：在域内写入驼峰赋值位 `reasoningEffort: medium`** → 同一判定 → `AC4: FAIL, exit=1`（原始输出见 `last_test_run.txt` §AQ ②；加宽前的谓词对该形态是**零命中**，故②同时是"加宽有效"的证据）。两条都还原并复核 blob 后重跑正向 `AC4: PASS, exit=0`。→ **有区分力。**

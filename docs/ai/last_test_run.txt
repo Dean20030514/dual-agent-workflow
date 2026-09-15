@@ -696,3 +696,57 @@ AC4: FAIL
 **③ 还原与复核**：`git checkout -- dsh/workflow/fanout-toolchain.md` → blob 复核 `cb99d7c2a2eb6862814b4920e1583c2e4f65b308`（与改动前一致）→ 重跑正向仍 `DSH-side values = high / out-of-domain = (none) / AC4: PASS`，`exit=0`。**提交前工作树不含任何负向对照残留**（实测 `git status --porcelain` 只剩本脚本自身的改动与 scratch 条目）。
 
 **④ 仍未覆盖（已在 AC4 声称里写明，非暗账）**：**散文式取值陈述**（如 `` 9A/9B = `high` ``）不在门的域内——人类在三个选项中**未选 2b**，故该面按"AC4 只声明赋值位（两种拼写）"如实收窄，**不再声称覆盖**。
+
+## AR. PB-2 偿还：AC4 门的 checkout 根改为从脚本自身位置推导（含"异 checkout 假绿"对照）
+
+**裁决**：2026-09-06 人类裁决"修路径推导 + 把声称改准"（`HANDOFF` §五）。本笔债的 Payback trigger 是"下次改动该脚本之前"，而选项 **2a** 刚刚改动过它 → 按 Payback-on-Touch 当场偿还。
+
+**改动**（`git diff --numstat` = `1 1`）：
+
+```diff
+@@ -2 +2 @@ $ErrorActionPreference = 'Stop'
+-$repo = 'C:\Users\16097\Desktop\workflow'
++$repo = Split-Path -Parent $PSScriptRoot  # <checkout>/tools -> <checkout>
+```
+
+**① 修复前的真实失效形态是"假绿"，不是"报错终止"（本对照推翻了此前账目里的机制描述）**
+
+做法：把 `HEAD` 版门脚本（`$repo` 硬绑本机路径）放进一个与仓库无关的副本目录（`%TEMP%\ac4-prefix`，内含 `tools/`、`dsh/`、`portable/`、`README.md`），**只给副本的 `README.md` 注入一行 `reasoning_effort: medium`**，然后在 `cwd = C:\` 下运行**副本里的**脚本。原始输出：
+
+```
+adapter            = C:\Users\16097\AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\dsh-llm-deepseek\lib\index.js
+DSH-side values    = high
+out-of-domain      = (none)
+adapter medium hits= 0
+AC4: PASS
+```
+
+`exit=0`——**副本 README 里明明有 `medium`，门却报 PASS**：它读的是脚本里写死的本机仓库，不是调用者的 checkout。**故此前账目写的"换 checkout 会在 `Set-Location` 处直接终止、拿不到 verdict"不准确**：同一台机器上换 checkout **不会**终止，而是**静默读错树、给出假绿**（比终止更危险）；只有换到不存在该硬编码路径的机器才会终止。账目已按实测订正。
+
+**② 修复后的三组实跑**
+
+`A. 异 cwd（cwd = C:\，调用本仓脚本）`：
+
+```
+DSH-side values    = high
+out-of-domain      = (none)
+adapter medium hits= 0
+AC4: PASS
+```
+
+`exit=0`。**本项不具区分力**——本机硬编码路径恰好就是本仓，故它与"读对树"结果相同；区分力来自 B/C。
+
+`B / C. 异 checkout 副本（同一副本两次运行，差别只有副本 README 里那一行）`：
+
+```
+B. 副本未改动        → DSH-side values = high         / out-of-domain = (none)   → AC4: PASS
+C. 只改副本 README   → DSH-side values = high, medium / out-of-domain = medium   → AC4: FAIL
+```
+
+原始退出码：`B` = `exit=0`、`C` = `exit=1`。**C 的 FAIL 证明脚本读的是调用者所在的 checkout**——若它仍读原仓，C 必然与 B 一样假绿。副本用后即删（实测 `Test-Path = False`）。
+
+`D. 本仓正向复跑`：`DSH-side values = high / out-of-domain = (none) / adapter medium hits = 0 → AC4: PASS`，`exit=0`。
+
+**③ 改准后的声称**：AC4 判定命令**在任意 checkout 可执行**（`$repo` 由脚本位置推导）。仍余一条环境依赖：适配器路径取自 `%LOCALAPPDATA%\npm-cache\_npx\*`，**需本机存在 npx 缓存的 dsh 适配器**；找不到时门报错退出（**非静默通过**）。此限度已写入 `TASK_BRIEF` AC4。
+
+**④ 与本文件其余各节的关系**：`§AQ` 是同一脚本在同一天的另一次改动（2a 加宽）。`§AQ` 证明**谓词有区分力**，本节证明**这道门在哪棵树上执行是确定的**——两者互补，缺任一条这道 `[M]` 门的声称都不完整。
