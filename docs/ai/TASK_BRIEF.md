@@ -89,18 +89,20 @@ verdict 契约含 `writes_performed` 与 `model_route`；三份 prompt 都要求
 
 **判定依据**：`docs/ai/DSH-LANDING-NOTES.md` → **§2.3 机读登记表**（`- path:` 行）。
 **钉死的 base**：`bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17`。
+**scope 的组成**：`dsh` / `portable` / **`tools`** / `install.ps1` / 根 `AGENTS.md` / `README.md` / `docs/ai/AUTHORITY_CONTRACT.md` / `docs/ai/DSH-LANDING-NOTES.md` / `docs/ai/TASK_BRIEF.md`。
+**为什么 `tools` 必须在内**（第 5 轮 9A 的 B-1）：`tools/ac4-reasoning-effort-check.ps1` 是 **AC4-门本身的实现**；若它不在 scope 也不在登记表内，那么"把 `medium` 加进 `$allowed`"这类削弱第二道门的改动既不进账、也不触发 AC6——**门可以在没有任何账目信号的情况下被削弱**。它被加进 scope 后立即成为本 AC 的第一个真实反例素材（见下「产物」）。
 **判定命令（可复制执行）**：
 ```powershell
 $base = 'bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17'
 $notes = Get-Content docs/ai/DSH-LANDING-NOTES.md -Raw
 $reg   = [regex]::Matches($notes, '(?m)^- path:\s*(\S+)\s*$') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
-$scope = git -c core.quotepath=false diff --name-only "$base..HEAD" -- dsh portable install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md | Sort-Object -Unique
+$scope = git -c core.quotepath=false diff --name-only "$base..HEAD" -- dsh portable tools install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md | Sort-Object -Unique
 $missing = $scope | Where-Object { $_ -notin $reg }   # 改了却没登记
 $stale   = $reg   | Where-Object { $_ -notin $scope } # 登记了却没改
 if ($missing -or $stale) { $missing; $stale; exit 1 } else { 'AC6: register == scope'; exit 0 }
 ```
 **三条纪律**：① `core.quotepath=false` **必带**（否则非 ASCII 路径被转义 → 假红）；② 谓词**只读 §2.3 的 `- path:` 行**，不得用"文件名是否出现在文档里"（无区分力）；③ 判定前确认工作树干净（`$reg` 读工作树、`$scope` 读 HEAD）。
-**产物**：正向 `reg=30 scope=30 → GREEN, exit=0`；**三条负向对照已实跑且全红**（`last_test_run.txt` §Q）：删登记行→`$missing` 报该文件；改登记路径→`$missing`+`$stale`；加幻影行→`$stale`。
+**产物**：见 `last_test_run.txt` §AG（scope 扩到含 `tools` 后重跑的正向数值 + 第 4 条负向对照「把 `tools/ac4-reasoning-effort-check.ps1` 的登记名改错 → 判定必须红」）。此前 §Q 的三条负向对照（删登记行 / 改登记路径 / 加幻影行）仍有效。
 **声称边界（第 4 轮两份 verdict 独立确认，已据此收窄）**：本门保证的是**路径级**覆盖——**已登记路径内部**的未登记内容改动**检不出来**（例：往 `dsh/workflow/index.md` 加一行未登记进 §2 #9 的判据文本 → 判定仍 GREEN）。**本任务不声称"覆盖全部实际变更"**，只声称"覆盖交付面的路径集合"。
 
 ### AC7 — 说与做一致 → **[O] 单点观测**

@@ -69,6 +69,7 @@ phase 文件额外做了三处归一（**`explore.md` 只有前两处；`define.
 | 22 | `docs/ai/AUTHORITY_CONTRACT.md` | **仓级修改** | 增补：DSH 部署面进入受管面、机器态例外、seed-only 例外仍只有 `~/.config.toml` 一项、尚未实跑 |
 | 23 | `docs/ai/DSH-LANDING-NOTES.md` | **新增** | 本文件（改点登记与债台账） |
 | 24 | `docs/ai/TASK_BRIEF.md` | **新增** | 本任务的需求与验收基线（**事后补写**，含两条 Amendment 与人类裁决记录）；它是**交付面**成员，故在 AC6 的判定范围内 |
+| 25 | `tools/ac4-reasoning-effort-check.ps1` | **新增** | **AC4-门本身的实现**（枚举 DSH 面 `reasoning_effort` 赋值位 + 适配器 `"medium"` 零命中）。**2026-09-06 第 6 轮补登**：第 5 轮它被新增时既不在 AC6 的 scope、也不在本表内 → "门绿而登记不全"（第 5 轮 9A 的 B-1）。现已在 scope 内。 |
 
 **手册 16/17 是有意精简的执行手册，不是母本副本**：其中两条曾被首轮 9B 的 S1 指出丢了母本的反滥用条件（`conflict-hard-stop.md` 的收敛门 ③(a) 少了"新 `last_test_run.txt` 收集用例总数 ≥ 快照那次"；§1 的 Blocking 判据少了"Reviewer 须写出该测试仍能检出的具体缺陷或可达路径，写不出的记 Non-Blocking Suggestion"）——**已在第 3 轮逐字补回**（2026-09-06；第 2 轮我在此处误写"已补回"而实际未改，第 2 轮 9A 的 S1 用 blob 哈希抓到了这个假声称）。设计原则：**手册可以省略解释性文字，但不得省略任何判据、阈值或反滥用条件**；与母本冲突时以母本为准。
 
@@ -185,6 +186,9 @@ phase 文件额外做了三处归一（**`explore.md` 只有前两处；`define.
 - path: docs/ai/TASK_BRIEF.md
   disposition: added
   entry: "§2.1 #24"
+- path: tools/ac4-reasoning-effort-check.ps1
+  disposition: added
+  entry: "§2.1 #25"
 ```
 ## 3. 未偿还的债（登记，不藏）
 
