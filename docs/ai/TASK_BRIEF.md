@@ -175,7 +175,7 @@ if ($missing -or $stale) { $missing; $stale; exit 1 } else { 'AC6: register == s
 
 ## Open Questions
 
-**3 项待人类裁决**（与 `docs/ai/HANDOFF.md` → 「待人类裁决」节同源；此处不再写 None）：① **任务 B 的交付边界是否现在冻结**（不冻结则"收口"没有可复现判据）；② **第 4 轮那条 `dispute` 的归类**（AC9 判定①）+ **第 6 轮那条 `dispute` 的归类**（HANDOFF 合并门条目）；③ **B-2 的处置方向**（加宽 AC4 正则 vs 收窄其声称）。
+**3 项待人类裁决 → 已于 2026-09-06 全部有裁**（唯一权威 = `docs/ai/HANDOFF.md` §五「人类裁决记录」）：① 任务 B 的交付边界 → **现在冻结**；② 第 4 轮那条 `dispute`（AC9 判定①）+ 第 6 轮那条 `dispute`（合并门条目）→ **随处置闭合 / 按 yes 径判**；③ B-2 的处置方向 → **选项 2a（正则加宽到两种拼写的赋值位）**，已落地并附门级负向对照（`last_test_run.txt` §AQ）。**当前唯一剩余动作 = 人类决定"合并"还是"限制交付"。**
 人类已裁决的历史（按序）：进入第 2 轮 / 9P 档 = `high` / 先跑审查 / 补 TASK_BRIEF / 偿还 installer 债（收窄 README 措辞）/ 跑第 3 轮 9A / 接受 Amendment / 采纳第 3 轮 9B 的 Product 归类并再跑一轮 / 按 Author 建议收口 AC 分层 / **走「重新拆任务」退出硬停** / **先只修 B-1 + 恢复 9B 跑一轮**。
 
 ## Human Approval Status
