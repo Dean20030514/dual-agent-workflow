@@ -4,7 +4,7 @@
 > **本文件在工作树中恒滞后于 tip**（按流程它在 `review_tip_sha` **之后**的 docs commit 里提交）——数值以 review prompt 逐字给出的为准。
 
 ## Current Phase
-**硬停已触发（streak = 2）→ 人类 2026-09-06 裁决走「重新拆任务」**，本文件记录拆法与再启动条件。 **第 8 轮进展**：任务 B 的处置已按人类裁决落地（AC4 选 **2a** 加宽、交付边界**冻结**、**不再开新审查轮**）；**剩余唯一未决项 = 第 7 轮 9B 的 PB-2**，定后由人类决定合并或限制交付。
+**硬停已触发（streak = 2）→ 人类 2026-09-06 裁决走「重新拆任务」**，本文件记录拆法与再启动条件。 **第 8 轮进展**：任务 B 的处置已按人类裁决落地（AC4 选 **2a** 加宽、交付边界**冻结**、**不再开新审查轮**）；矩阵上的岔口**至此全部有裁**——最后一项 PB-2 也已当场偿还（`1e8832e`，Payback-on-Touch）；**剩余动作 = 人类决定"合并"或"限制交付"**。
 
 **拆法**（依据第 5 轮 9A 的 finding 分布：五轮下来 finding **100% 落在"改点登记表 + 验收条款判定方式"这一层**，判据层 0；且两个机械门各自也不稳）：
 * **任务 A — 交付物本体**：`dsh/`（母本 + reviewer-prompt + fanout 工具面 + QUALITY_GATES + index + templates + 两个 skill + 7 个 phase + 2 份手册）、`portable/通用prompt-DSH-v1.txt`、`install.ps1` 的 DSH 段、部署登记（README / 根 `AGENTS.md` / `AUTHORITY_CONTRACT`）。
@@ -64,13 +64,13 @@
 * **双审轮次已用: 4**（上限 3；第 4 轮出自人类"修完再跑一轮"的逐次批准）。**第 5 轮是收口轮**：只跑了 9A 单审（现在判定为**判断错误**——它正是漏掉 B-1/B-3 的原因，人类已确认**恢复 9B**）。**第 6 轮起恢复双审 9B + 9A。**
 * **第 5 轮 9A 单审结论：不通过（3 条 Product Blocking）** → **B-1 归因 `yes`（两套定义一致）→ streak 由 1 增至 2 → 硬停触发**。B-2/B-3 归因 `dispute`（未计）。
 * **关闭阀状态**：① 第 3 轮那条 Product Blocking **已实质闭合**（两份独立实跑确认）；② 第 4 轮 9B 那条的**归类与归因仍待人类裁决**——裁 `yes` 则 streak 达 2 → 硬停；③ 轮次账已 4 > 上限 3，**再开完整双审须人类再次逐次批准**（本收口轮为单审，不占双审轮次）。
-* **合并门：关闭。** 第 5 轮 9A 报 **3 条 Product Blocking**（B-1 归因 `yes`）→ streak = 2 硬停；按 `AGENTS.md` → Fix-Loop 三者优先级 ②，**存在未解决 `[Product Blocking]` 时"限制交付"不含合并**。第 6 轮：9B **拒审**（无 verdict）、9A **不通过**（1 条 Product Blocking，归因 `dispute`）。**债台账见下节代码块**（**不在此写死数字**——第 7 轮 9B 的 PB-1 就是"本行写 6 笔而块内 7 条"导致合并门输入不唯一；写死数字必然随加账过期）。**核验方式**：`Select-String -Path docs/ai/HANDOFF.md -Pattern '^\[DEBT\]'` 的条数即当前笔数。**第 8 轮更新**：A3（第 5 轮 9A 的 B-2）已由人类裁决选 **2a** 落地（`f670fdc`）→ **随处置闭合**；**当前唯一未决的 Product Blocking 候选 = 第 7 轮 9B 的 PB-2**（AC4 判定脚本硬绑本机路径 vs 声称"可复制执行"，归因 `dispute`，处置方向待人类裁决）→ **本门仍关闭**。
+* **合并门：关闭。** 第 5 轮 9A 报 **3 条 Product Blocking**（B-1 归因 `yes`）→ streak = 2 硬停；按 `AGENTS.md` → Fix-Loop 三者优先级 ②，**存在未解决 `[Product Blocking]` 时"限制交付"不含合并**。第 6 轮：9B **拒审**（无 verdict）、9A **不通过**（1 条 Product Blocking，归因 `dispute`）。**债台账见下节代码块**（**不在此写死数字**——第 7 轮 9B 的 PB-1 就是"本行写 6 笔而块内 7 条"导致合并门输入不唯一；写死数字必然随加账过期）。**核验方式**：`Select-String -Path docs/ai/HANDOFF.md -Pattern '^\[DEBT\]'` 的条数即当前笔数。**第 8 轮更新**：A3（第 5 轮 9A 的 B-2）已由人类裁决选 **2a** 落地（`f670fdc`）→ **随处置闭合**；**当前唯一未决的 Product Blocking 候选 = 第 7 轮 9B 的 PB-2**（AC4 判定脚本硬绑本机路径 vs 声称"可复制执行"，归因 `dispute`）→ **同日当场偿还**（`1e8832e`）→ **当前无未解决 `[Product Blocking]`，本门的阻断输入已清零**；`streak = 2` 仍为历史事实，不因处置回退。**是否合并 / 限制交付由人类决定**（2a 与 PB-2 这两处 review-sensitive delta 按人类 2026-09-06"不再开新审查轮"的裁决处理，与 AC4 改写出自人类裁决的既有先例一致）。
 
 ## Remaining Risks / Debt
 ```
 [DEBT] AC4-门（档位取值域）的实现自身无机械完整性保护：AC6 是路径级谓词，已登记路径的内部修改零信号，削弱该脚本只能靠人工读 diff（2026-09-06 第 6 轮 9B 的 R6-B3）| Payback trigger: 下次改动 tools/ac4-reasoning-effort-check.ps1 之前；或下次由人类复核 dsh/** 判据面之前 | Impact: 一道机械门可在双门全绿的情况下被静默削弱
 [DEBT] AC4 门的残余覆盖边界（**处置已定，本条只剩残余**）：人类 2026-09-06 选选项 **2a** → 谓词现已覆盖**两种拼写的赋值位**（`reasoning_effort` / `reasoningEffort`，门级负向对照见 `last_test_run §AQ`）；**残余 = 散文式取值陈述**（如 `` 9A/9B = `high` ``）仍不在域内——人类**未选 2b**，故已按"只声明赋值位"如实收窄声称（`TASK_BRIEF` → AC4「声称边界」），**不记为暗账** | Payback trigger: 若将来确有散文式取值写错、或有人主张本门覆盖散文式之前 | Impact: 散文面写错档位不会被任何机械门发现（实测散文行取值全为 `high`、**当前无活假绿**）
-[DEBT] AC4 的判定脚本硬绑本机路径（`tools/ac4-reasoning-effort-check.ps1:2` = `$repo = 'C:\Users\16097\Desktop\workflow'`，`:4` 走 `$env:LOCALAPPDATA\npm-cache\_npx\*`），而 `TASK_BRIEF` twice 写它"可复制执行"（2026-09-06 第 6 轮 9B 的 R6-S5 → 第 7 轮 PB-2 判为暗账）| Payback trigger: 下次改动该脚本之前 | Impact: 这道 `[M]` 门**只在本机 checkout 可执行**；换 checkout/换机执行会在 `Set-Location` 处因 `$ErrorActionPreference='Stop'` 直接终止，**拿不到 verdict 与 exit code**——"可复制执行"在验收意义上不成立
+[DEBT] AC4 判定脚本的路径绑定——**已偿还**（2026-09-06 人类裁决"修路径推导 + 把声称改准"；`1e8832e`）：`$repo` 改为 `Split-Path -Parent $PSScriptRoot`，故**任意 checkout 均可执行**；`TASK_BRIEF` 的"可复制执行"同时改准（残余一条环境依赖：适配器取自 `%LOCALAPPDATA%\npm-cache\_npx\*`，**需本机存在 npx 缓存的 dsh 适配器**，找不到时报错退出、非静默通过）| Payback trigger: —（已偿还）| Impact: —（残余限度已写进 AC4 声称）。**本条目同时订正此前账目里的错误机制描述**：原文写"换 checkout 会在 `Set-Location` 处直接终止、拿不到 verdict"，**实测不成立**——同机异 checkout 下旧脚本**静默读错树并给出假绿**（副本 README 注入 `medium` 仍报 `AC4: PASS / exit=0`，原始输出 `last_test_run §AR ①`）；只有换到不存在该硬编码路径的机器才会终止。保留原文描述供对照：~~换 checkout/换机执行会在 `Set-Location` 处因 `$ErrorActionPreference='Stop'` 直接终止~~
 [DEBT] AC6 对**未跟踪文件不可见**：其 scope 来自 `git diff --name-only <base>..HEAD`，而 `git diff` 不列未跟踪文件（2026-09-06 第 7 轮实测 VN-4：在 `tools/validate/` 下新建一个未登记且**未提交**的文件 → 判定仍 GREEN、`missing` 为空）| Payback trigger: 下次依赖"新增文件一定会被 AC6 拦住"这个假设之前 | Impact: 门只能在**提交之后**才发现漏登记；"提交前自查"这一步没有任何机械保证——本任务的 `.tmp-r6.ps1` 正是这样进过一次 tip
 [DEBT] 第 3 轮 9B 的 B1（AC6 按字面恒红 + <base> 未钉死）——**已实质闭合**（第 4 轮两份独立实跑确认），保留为历史记录 | Payback trigger: —（已闭合）| Impact: —
 [DEBT] dsh/ 的相对母本"判据无漂移"缺少机械门禁（AC10 的判定对声称无区分力，9A-S4）| Payback trigger: 下次改动 dsh/** 之前 | Impact: 判据漂移不会被任何门检出（本轮靠 Reviewer 手工逐行读才排除）
@@ -84,7 +84,7 @@
 |---|---|---|
 | 测试 QA(11.1) | **有限 Pass** | `last_test_run.txt`（A–P 节；含首次 `medium` 负向对照实跑） |
 | 安全基础(11.2) | **Pass（有限）** | 无密钥入仓；备份复制凭据已如实披露；第 3 轮两份 verdict 均未报安全类 Product |
-| 文档一致性 | **Fail（未收敛）** | **尚存一处"说与做"不符：AC4 判定的"可复制执行" vs 脚本硬绑本机路径（第 6 轮 9B 的 R6-S5 → 第 7 轮 PB-2，归因 `dispute`，处置待裁）**；历轮其余 finding（第 3 轮 14 条 Suggestion + 第 5/6/7 轮的登记与判定方式项）已随四轮修复与人类 2026-09-06 的边界冻结收口。**本行按第 7 轮 9B 的"状态过期"意见一并刷新**（原写"第 3 轮 14 条 Suggestion + 9B 的 1 条 Product"）。 |
+| 文档一致性 | **有限 Pass（收敛判定交人类）** | 唯一一处"说与做"不符（PB-2：声称"可复制执行" vs 脚本硬绑本机路径）**已偿还**（`1e8832e`；异 checkout 假绿对照见 `last_test_run §AR`）→ AC4/AC6 的声称 ↔ 实现已一致。**未核面**（`install.ps1` 其余注释、AC10 其余派生对）按 `[U]` 登记、**不声称已核**，故为"有限"而非"全绿"；**是否标"收敛"由人类决定**（本行按第 7 轮 9B 的"状态过期"意见刷新）。 |
 | 依赖引入 | **Pass** | 未引入新依赖 |
 | 设计层闸门(§5) | **N/A** | 无界面 |
 
@@ -214,5 +214,5 @@
 | **A1 / A2 / A3 的归类** | **随处置闭合**（呈报时同上，人类未异议） | 本文件 §一 表 + §二 |
 | **B3**（第 6 轮 9B 拒审的处理口径） | **按 Author 的一致处理记录**（不计 verdict / 不计轮次，其可机械复核的事实按 Author 复跑采信）；人类保留否决权 | 本文件 §四 |
 
-**因此**：矩阵上的 5 条 `dispute` + 3 个岔口**只剩一项未决**——**第 7 轮 9B 的 PB-2**（AC4 判定脚本硬绑 `C:\Users\16097\Desktop\workflow`，而 `TASK_BRIEF` 两处写它"可复制执行"；归因 `dispute`）。注意：**该笔债的 Payback trigger 恰是"下次改动该脚本之前"，而 2a 刚刚改动过它**（`f670fdc`）——按 Payback-on-Touch，本笔已到偿还时点，需人类在"修路径推导"与"收窄声称"之间定方向。**它的处置定后，才轮到人类决定合并或限制交付。**
+**因此**：矩阵上的 5 条 `dispute` + 3 个岔口**至此全部有裁 / 有处置**——最后一项 **PB-2** 也按人类裁决当场偿还（`1e8832e`；它的 Payback trigger 正是"下次改动该脚本之前"，而 2a 刚改动过它；原始输出 `last_test_run §AR`，其中"异 checkout 假绿"对照同时订正了此前账目对该失效形态的错误描述）。**当前无未解决 `[Product Blocking]`**；`streak = 2` 作为历史事实保留。**下一步 = 人类决定"合并"还是"限制交付"**——二者都**不得标"已收敛"**：AC4 的散文式残余 + AC11 的 6 项 `[U]` 须在 README / HANDOFF 如实保留。
 
