@@ -190,16 +190,19 @@ phase 文件额外做了三处归一（**`explore.md` 只有前两处；`define.
   disposition: added
   entry: "§2.1 #25"
 ```
-## 3. 未偿还的债（登记，不藏）
+## 3. 债台账 —— **本节的唯一权威副本在 `docs/ai/HANDOFF.md` → Remaining Risks / Debt**
 
-```
-[DEBT] dsh/ 全套与 portable/通用prompt-DSH-v1.txt 的第 4 轮修补 delta 待重审 | Payback trigger: 合并前必须跑第 4 轮 9A/9B，或由人类明确批准"限制交付" | Impact: 已审 tip 与将合并的内容不一致，"有条件通过"会被误读成"已收敛"
-[DEBT] dsh/workflow/fanout-toolchain.md 的 DSH 事实绑定 @deepseek-ai/dsh 0.1.5-rc.x | Payback trigger: 下次改动 dsh/workflow/fanout-toolchain.md 之前，或 @deepseek-ai/dsh 升级后首次派发审查之前 | Impact: 参数/工具名变化会让调用范式静默失效
-[DEBT] ~/.dsh 的运行副本由人工复制产生，`.dsh.bak-*` 不存在 | Payback trigger: 首次用 install.ps1（或任何镜像脚本）覆盖 ~/.dsh 之前 | Impact: 首次自动部署没有上一版可回退
-[DEBT] install.ps1 的 DSH 段仍会把整个 ~/.dsh（含 sessions/storages/.credentials.yaml）整树备份为 ~/.dsh.bak-<stamp> 且不自动清理 | Payback trigger: 下次改动 install.ps1 的 DSH 段之前 | Impact: 凭据被复制到备份目录；**已于 2026-09-06 按人类裁决"偿还"**（路线 = 收窄 README 措辞到与代码一致，commit 34b6037；两份第 3 轮 verdict 各自独立逐句核对，未发现反向过度声称）。残余风险 = 复制行为仍在，人类需自行删除 ~/.dsh.bak-*
-```
+> **2026-09-06 第 6 轮订正（9A 的 S4）**：本节此前自述"四笔登记在本文件"，与 `HANDOFF` 的 **6 笔**不一致——同一工作流里两份互相矛盾的台账，本身就是"账/措辞层"缺陷的一种。**现指定 `HANDOFF` 为唯一权威台账**（理由：AC9 的 `[O]` 人工读点读 `HANDOFF`）。本节**只保留指针与计数**，不再复制条目文本；改债必须改 `HANDOFF`，并同步改本节的计数。
 
-四笔登记在本文件（**其中第 4 笔已按人类裁决偿还、仅保留残余风险**）；`README.md` 快照节记录其存在与指针（首轮 9B 的 S8 指出了第 2 笔在 README 里查不到——已收窄措辞为"存在与指针"）。**没有第三种状态**：要么跑一轮审查转成已审版本，要么人类明确批准延期。
+**当前计数：6 笔**（与 `HANDOFF` 逐条一致）：
+1. `dsh/` 全套 + portable 的阶段性 delta 待审 —— Payback trigger：合并前
+2. `dsh/workflow/fanout-toolchain.md` 的 DSH 事实绑定 `@deepseek-ai/dsh` 0.1.5-rc.x —— 升级后首次派发审查之前
+3. `~/.dsh` 运行副本由人工同步产生、无 `*.bak-*` —— 首次用镜像脚本覆盖之前
+4. `install.ps1` 整树备份复制凭据且不自动清理 —— **已按人类裁决偿还**（收窄 README 措辞），仅余残余风险
+5. **AC4-门的实现自身无机械完整性保护**（AC6 是路径级谓词，已登记路径的内部修改零信号）—— 下次改动该脚本之前
+6. **AC4-门正则只覆盖"未加引号小写"形态**（驼峰键 / 反引号值可逃逸）—— 下次改动该脚本或 AC4 声称之前
+
+**没有第三种状态**：要么跑一轮审查转成已审版本，要么人类明确批准延期。
 
 ## 4. 部署（本轮已人工执行）
 
