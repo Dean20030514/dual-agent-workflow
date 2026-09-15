@@ -750,3 +750,51 @@ C. 只改副本 README   → DSH-side values = high, medium / out-of-domain = me
 **③ 改准后的声称**：AC4 判定命令**在任意 checkout 可执行**（`$repo` 由脚本位置推导）。仍余一条环境依赖：适配器路径取自 `%LOCALAPPDATA%\npm-cache\_npx\*`，**需本机存在 npx 缓存的 dsh 适配器**；找不到时门报错退出（**非静默通过**）。此限度已写入 `TASK_BRIEF` AC4。
 
 **④ 与本文件其余各节的关系**：`§AQ` 是同一脚本在同一天的另一次改动（2a 加宽）。`§AQ` 证明**谓词有区分力**，本节证明**这道门在哪棵树上执行是确定的**——两者互补，缺任一条这道 `[M]` 门的声称都不完整。
+
+## AS. 交接前复核（`ac16fad` 之上的工作树，2026-09-06）：两道 `[M]` 门 + 工作树 + `~/.dsh` 同步面
+
+**为什么这一节存在**：人类裁决「合并 / push 由人类执行」之后，Author 在交接前把两道门、工作树与部署副本同步面在同一棵树上重跑一遍，并记下一处**新发现的自失效数字**（④）。**本节只把一处自失效的既有陈述改成可复核形态，未新增判据 / 登记表 / AC。**
+
+**① AC4-门（正向，真实退出码）**——与本节同一次运行中执行（即 ④ 的改动已在工作树里）：
+
+```
+adapter            = C:\Users\16097\AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\dsh-llm-deepseek\lib\index.js
+DSH-side values    = high
+out-of-domain      = (none)
+adapter medium hits= 0
+AC4: PASS
+exit=0
+```
+
+**② AC6-门（判定块逐字取自 `TASK_BRIEF.md` AC6，`base = bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17`）**
+
+```
+reg=31 scope=31 missing=0 stale=0
+AC6: register == scope
+exit=0
+```
+
+**③ 工作树与部署副本（`~/.dsh`）**
+
+```
+$ git status --porcelain=v1 -uall
+ M README.md
+ M docs/ai/HANDOFF.md          # 即本次订正自身；无未跟踪文件（第 6 轮 .tmp-r6.ps1 的教训项）
+$ repo->~/.dsh pairs=23 same=23 differing=0 missing=0
+$ ~/.dsh/workflow 下多出的文件 → none
+```
+
+即 `~/.dsh/{AGENTS.md, workflow/**, skills/{dual-agent-workflow,independent-review}/**}` 与仓内 `dsh/**` **逐字节一致（23/23，无多余文件）**——README 所记的"人工等价部署"在本 tip 上**未漂移**。
+
+**④ 新发现：写死的提交数已自失效（与第 7 轮 9B 的 PB-1 同类）**
+
+`README.md:54` 与 `HANDOFF.md:7/96/219` 原文写 `origin/main..HEAD = 37`。实测：
+
+```
+$ git rev-list --count origin/main..HEAD
+38
+$ git rev-list --count main..HEAD
+0
+```
+
+差 1 的成因是**自指**：写下「37」的那笔提交（`ac16fad`）自身就是第 38 笔——**任何"记录当前提交数"的改动都会使自己记录的数字过期**。这与 PB-1 的教训（"写死数字必然随加账过期"）同源，只是失效机制更机械（不是加账后才错，而是**写下即错**）。**处置**：4 处一律改为**现查命令** `git rev-list --count origin/main..HEAD`，不再写死笔数。
