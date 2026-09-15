@@ -230,3 +230,55 @@ compared=23 mismatches=0
 * **第 3 轮 delta 未再同步到 `~/.dsh`**，也未重审。
 * **`model_route` 的真实性无机械手段可证**——它是自报值。
 * **本任务无功能测试套件**，不存在"全量测试退出码"这类证据。
+
+---
+
+# 第 3 轮：Reviewer 的 Verification Needed 代跑（2026-09-06）
+
+收集者：Author · **绑定 `tested_sha = 34b60370fdac02b3d2670a0058b729bc99a7589f`**（第 3 轮审 tip）
+
+## M. VN1（9A 判为"最高优先"，9B 的 VN-1 同源）：`medium` 被拒的**负向对照**——首次实跑
+
+命令（真实执行：前台 `subagent`，`reasoning_effort` 取**不存在的档位**）：
+
+```
+subagent(description: "medium rejection probe", run_in_background: false,
+         provider: "deepseek-official", model: "deepseek-flash",
+         reasoning_effort: "medium",
+         prompt: "若你收到本消息并成功启动，说明本调用未被拒绝。请只回一行：PROBE-REACHED")
+```
+
+真实返回（照抄，这就是完整报错）：
+
+```
+Error: provider "deepseek-official" model "deepseek-flash" does not support reasoning effort "medium"
+```
+
+**结论**：**子 agent 未被创建，调用在预检即被拒**。文档三处（`reviewer-prompt.md:51`、`fanout-toolchain.md:33`、`portable/通用prompt-DSH-v1.txt:166` 语境）关于"写 `medium` 会抛 `UNSUPPORTED_REASONING_EFFORT`"的声称，由**静态 grep** 升级为**有原始报错原文的实跑证据**；同时它构成 `medium` 那条 negative control 的**完整对照对**（`high` 成功返回探针 + `medium` 被拒 → 机制存在且由该取值触发）。
+**如实标注**：报错文案与本文件旧稿写的错误码字面（`UNSUPPORTED_REASONING_EFFORT`）不完全一致（实际报文不含该码）；The 文档目前引用的是错误码，**建议保留错误码并附带这句原文**，或改为引用原文。
+
+## N. VN4（9A）：9P `high` 的"未被拒"与档位送达
+
+§H 的探针（`high`）**成功返回**，§M 的探针（`medium`）**被拒**——两者对照已能说明"该取值被适配器校验且 `high` 通过"。但**"值确已送达并生效"仍无法自证**：两份探针的子 agent 都声明无法读自己的运行时配置。
+**处置（采纳 9A 建议）**：把 §H 的结论**收窄**为"`high` 未被拒、`medium` 被拒（§M）；档位是否实际生效无机械证据"。`model_route` 仍是自报值。
+
+## O. 第 3 轮 tip 的机制核验
+
+```
+$ # skill frontmatter / 手册指针 / AC4 判定（DSH 面）
+取值集合: high
+越界: (空)
+适配器 'medium' 命中数 = 0
+$ # 仓内 dsh/** vs ~/.dsh
+compared=23 mismatches=0        （第 3 轮 delta 已在审查窗口开启前同步）
+```
+**时点更正**：本文件 §K/§L 曾写"第 3 轮 delta 未再同步"——该句写于 `956db71` 时点，`34b6037` 提交时已同步；**两份第 3 轮 verdict 都独立实测为 23/23 全等**。此句在此更正，§K/§L 保留原文以便对照。
+
+## P. 仍未跑 / 仍未验证（不得当作通过）
+
+* **真实 9P 审查轮**（两次探针都不是审查轮）——9B 的 VN-2。
+* **`settings.yaml` 的 `reasoningEffort` 效果**（只有 schema 层证据）——9B 的 VN-3。
+* **AC6 判定重跑**（B1 修复后必须留产物）——9B 的 VN-4。
+* **AC8 机器态实跑**（临时 HOME 下跑 `install.ps1` + 三项哈希比对）——9B 的 VN-5。
+* **headless 完整审查轮**——9B 的 VN-7。
+* **AC4 负向对照的"字面命令 + 退出码"产物**：§I 为转述；本轮 §M 提供了另一条更强的对照（真实报错），但 §I 的字面命令仍缺。
