@@ -53,4 +53,20 @@
 
 轮次账（`Review & Test Binding` / `Fix-Loop Counter`）、5 条 `dispute` 的裁决矩阵、`Known Issues` 里的 14 条未处置建议、每一步的 Work Log —— 全部保留在**归档副本** `docs/ai/archive/2026-09-06-dsh-landing/HANDOFF.md` 内，属**历史记录**，不再是活状态面。
 
-**两道机械门在任务归档后仍可复核**：判定命令写在归档的 `TASK_BRIEF.md`（AC4-门 / AC6）里，路径均为**仓库根相对路径**，从仓库根执行照旧有效；最近一次双门实跑的真实输出在归档的 `last_test_run.txt` §AS / §AT / §AU。
+**两道机械门的归档后状态**（含一处 Author 误判的如实登记）：见 §5。最近一次**双门同时绿**的真实输出在归档的 `last_test_run.txt` §AS / §AT / §AU。
+
+## 5. 归档后两道机械门的状态（含一处 Author 误判的如实登记）
+
+**AC4-门是常驻工具，归档后照旧可用**：
+
+```powershell
+pwsh -File tools/ac4-reasoning-effort-check.ps1
+```
+
+在归档后的 tip 上实测：`DSH-side values = high / out-of-domain = (none) / adapter medium hits = 0 → AC4: PASS`，`exit=0`。
+
+**AC6（改点登记门）是任务级门，它的绿值绑定"该任务的收口 tip"**：判定命令写在归档的 `TASK_BRIEF.md` → AC6，`base` 钉死 `bf06c65d…`。**绑定任务收口 tip `32e6ac3` 复核为绿**（`reg=31 scope=31 missing=0 stale=0`，`exit=0`）。**但在归档提交之后的 HEAD 上，它按构造必然为红**：唯一差异项是 `docs/ai/TASK_BRIEF.md`（`stale=1`，`missing=0`）——该文件在 `base` 时**尚不存在**，归档后其净变更落在新路径 `docs/ai/archive/2026-09-06-dsh-landing/TASK_BRIEF.md`（**不在** AC6 的 pathspec 内），于是登记表里那条旧路径不再出现在 `$scope` 里。**这不是产品缺陷，也不推翻该任务已收口的结论**——它是"任务级验收门随任务归档"的必然结果。**下一个任务会按模板重新实例化自己的 AC6，不复用这一份。**
+
+**如实登记 Author 的一处误判（本任务第四次踩同一条规律）**：动手归档**之前**，我在临时仓里"实测"过 AC6 是否会受影响，结论是"改名后按 pathspec 过滤仍会看到旧路径 → 登记表仍匹配 → 不会红"。**那次预检的配置与真实配置不同**：临时仓里 `base` **已经有**那个文件（改名 → 删除侧匹配 pathspec，故看到旧路径）；而真实 `base` `bf06c65` **没有**这个文件（净变更 = 只在新路径上新增，旧路径根本不进 `$scope`）。**预检给出假绿，只有真实运行才暴露。** 这是本任务已归档 `last_test_run.txt` §AK 那条规律的**第四次**复发：**"命令可复制"不够，还必须让预检的配置与真实配置一致**；凡"我测过了"的结论，附的是那次运行的环境，不是别的环境。
+
+**若将来要让它回到"在 HEAD 上可判绿"**：需要**同时**把 `DSH-LANDING-NOTES.md` §2.3 的那条登记行与 AC6 判定命令的 pathspec 改到归档路径。**这属于修改已冻结的验收判据，须人类逐次裁决**——本文件不自行改，也不假装它现在是绿的。
