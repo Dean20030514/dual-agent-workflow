@@ -90,7 +90,8 @@ verdict 契约含 `writes_performed` 与 `model_route`；三份 prompt 都要求
 **判定依据**：`docs/ai/DSH-LANDING-NOTES.md` → **§2.3 机读登记表**（`- path:` 行）。
 **钉死的 base**：`bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17`。
 **scope 的组成**：`dsh` / `portable` / **`tools`** / `install.ps1` / 根 `AGENTS.md` / `README.md` / `docs/ai/AUTHORITY_CONTRACT.md` / `docs/ai/DSH-LANDING-NOTES.md` / `docs/ai/TASK_BRIEF.md`。
-**为什么 `tools` 必须在内**（第 5 轮 9A 的 B-1）：`tools/ac4-reasoning-effort-check.ps1` 是 **AC4-门本身的实现**；若它不在 scope 也不在登记表内，那么"把 `medium` 加进 `$allowed`"这类削弱第二道门的改动既不进账、也不触发 AC6——**门可以在没有任何账目信号的情况下被削弱**。它被加进 scope 后立即成为本 AC 的第一个真实反例素材（见下「产物」）。
+**为什么 `tools` 在内**（第 5 轮 9A 的 B-1）：`tools/ac4-reasoning-effort-check.ps1` 是 **AC4-门本身的实现**，它此前既不在 scope 也不在登记表内，于是"门绿而登记不全"。
+**但它进 scope 能买到什么，必须说准（2026-09-06 第 6 轮 9B 的 R6-B3）**：AC6 是**路径级**谓词，所以它买到的是"**`tools/` 下新出现未登记路径会被判红**"，**不是**"削弱第二道门必然被 AC6 发现"。**已登记路径的内部修改（含削弱 AC4 脚本本身）在本 AC 下零信号**，只能靠人工读 diff。此限制属 `[DEBT]`（见 HANDOFF），**不得**被写成"防削弱已关闭"。
 **判定命令（可复制执行）**：
 ```powershell
 $base = 'bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17'

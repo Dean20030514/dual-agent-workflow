@@ -58,7 +58,7 @@
 * 第 3 轮 | 修 Suggestion + 偿还债 #4（未修任何 Product）| **[Product]：9B 判 1 条 `caused_by_last_fix: yes`；9A 判 0 条** → 按 9B 计 **streak = 1**
 * 第 4 轮 | 修 AC6（第 3 轮那条 Product）+ 补 AC1/AC4/AC9/AC10 判定方式 + 状态块收口 | **[Product]：9B 判 1 条但归因标 `dispute`；9A 判 0 条** → 按契约 `dispute` 不自动计数，本轮计 0，streak 维持 1
 * 第 5 轮（收口） | **未修任何 Product**；按人类裁决把 AC 分三级、只留两个机械门、废弃 AC9 两条坏判定 | **[Product] 0** → **streak 维持 1**
-* **streak（当前连续计数）: 1**（第 3 轮 9B 那条 Product Blocking；其缺陷本身已在第 4 轮实质闭合，但按契约 streak 只在"某轮 0 计"时归 0，而第 4/5 两轮各为 `dispute`/0 → **待人类裁决后归 0**）
+* **streak（当前连续计数）: 2 —— 硬停已触发**（第 5 轮 9A 的 B-1 归因 `yes`）。第 6 轮 9B 因工作树不净**拒审**（无 verdict），不改变该计数。
 * **双审轮次已用: 4**（上限 3；第 4 轮出自人类"修完再跑一轮"的逐次批准）。**第 5 轮是收口轮**：只跑了 9A 单审（现在判定为**判断错误**——它正是漏掉 B-1/B-3 的原因，人类已确认**恢复 9B**）。**第 6 轮起恢复双审 9B + 9A。**
 * **第 5 轮 9A 单审结论：不通过（3 条 Product Blocking）** → **B-1 归因 `yes`（两套定义一致）→ streak 由 1 增至 2 → 硬停触发**。B-2/B-3 归因 `dispute`（未计）。
 * **关闭阀状态**：① 第 3 轮那条 Product Blocking **已实质闭合**（两份独立实跑确认）；② 第 4 轮 9B 那条的**归类与归因仍待人类裁决**——裁 `yes` 则 streak 达 2 → 硬停；③ 轮次账已 4 > 上限 3，**再开完整双审须人类再次逐次批准**（本收口轮为单审，不占双审轮次）。
@@ -66,7 +66,9 @@
 
 ## Remaining Risks / Debt
 ```
-[DEBT] 第 3 轮 9B 的 B1（AC6 按字面恒红 + <base> 未钉死）未解决 | Payback trigger: 合并前必须修复该 AC 或由人类裁决归类 | Impact: 人类按 AC6 复核会得到错误的"登记完整"结论；这正是三轮里反复出现的"账/措辞层"缺陷
+[DEBT] AC4-门（档位取值域）的实现自身无机械完整性保护：AC6 是路径级谓词，已登记路径的内部修改零信号，削弱该脚本只能靠人工读 diff（2026-09-06 第 6 轮 9B 的 R6-B3）| Payback trigger: 下次改动 tools/ac4-reasoning-effort-check.ps1 之前；或下次由人类复核 dsh/** 判据面之前 | Impact: 一道机械门可在双门全绿的情况下被静默削弱
+[DEBT] AC4-门的正则只覆盖"未加引号小写"形态：驼峰键 `reasoningEffort: <v>` 与被反引号包裹的值均可逃逸（2026-09-06 第 6 轮 9B 的 R6-S1，独立实测逃逸）| Payback trigger: 下次改动该脚本或 AC4 声称之前 | Impact: `[M]` 标记名不副实——域外取值可以合法写法进入文档而门报 PASS
+[DEBT] 第 3 轮 9B 的 B1（AC6 按字面恒红 + <base> 未钉死）——**已实质闭合**（第 4 轮两份独立实跑确认），保留为历史记录 | Payback trigger: —（已闭合）| Impact: —
 [DEBT] dsh/ 的相对母本"判据无漂移"缺少机械门禁（AC10 的判定对声称无区分力，9A-S4）| Payback trigger: 下次改动 dsh/** 之前 | Impact: 判据漂移不会被任何门检出（本轮靠 Reviewer 手工逐行读才排除）
 [DEBT] dsh/workflow/fanout-toolchain.md 的 DSH 事实绑定 @deepseek-ai/dsh 0.1.5-rc.x | Payback trigger: @deepseek-ai/dsh 升级后首次派发审查之前 | Impact: 参数/工具名变化会让调用范式静默失效（第 2 轮已复核一次）
 [DEBT] ~/.dsh 的运行副本由人工同步产生，无 *.bak-*，且每次同步无落账规范 | Payback trigger: 首次用 install.ps1 覆盖 ~/.dsh 之前 | Impact: 首次自动部署没有上一版可回退；人工同步可能被遗忘
