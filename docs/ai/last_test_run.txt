@@ -282,3 +282,62 @@ compared=23 mismatches=0        （第 3 轮 delta 已在审查窗口开启前�
 * **AC8 机器态实跑**（临时 HOME 下跑 `install.ps1` + 三项哈希比对）——9B 的 VN-5。
 * **headless 完整审查轮**——9B 的 VN-7。
 * **AC4 负向对照的"字面命令 + 退出码"产物**：§I 为转述；本轮 §M 提供了另一条更强的对照（真实报错），但 §I 的字面命令仍缺。
+
+---
+
+# 第 4 轮：AC6 判定重做（人类裁决 9B 的 Product Blocking 成立）
+
+收集者：Author · 人类裁决（2026-09-06）：**9B 第 3 轮的 Product Blocking 归类成立**，修完再跑一轮。
+
+## Q. AC6：把"不可判定"改成"可判定"（含三条负向对照）
+
+**问题（第 3 轮 9B 的 B1）**：AC6 原判定谓词是"文件名是否出现在 `DSH-LANDING-NOTES.md` 里"——这个谓词**没有区分力**：正文别处任何一次提及都会匹配。实测：正向看似通过，但**两个负向对照都绿**（删掉 §2.2 的声明行、或删掉 portable 的登记行，判定照样 GREEN）。
+**根因两条**：① 谓词形态错（自由文本匹配）；② `git diff --name-only` 默认 `core.quotepath=true`，把非 ASCII 路径转义成 `\351\200\232…`，与登记表里的 `通用prompt-DSH-v1.txt` **永远不相等** → 假红。
+**处置**：在 `DSH-LANDING-NOTES.md` 增设 **§2.3 机读登记表**（`- path: <仓库相对路径>`，30 条），AC6 的谓词改为**直接读 §2.3**并双向比对。
+
+判定命令（与 `TASK_BRIEF.md` AC6 逐字一致）：
+
+```powershell
+$base = 'bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17'
+$notes = Get-Content docs/ai/DSH-LANDING-NOTES.md -Raw
+$reg = [regex]::Matches($notes, '(?m)^- path:\s*(\S+)\s*$') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+$scope = git -c core.quotepath=false diff --name-only "$base..HEAD" -- dsh portable install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md | Sort-Object -Unique
+$missing = $scope | Where-Object { $_ -notin $reg }
+$stale   = $reg   | Where-Object { $_ -notin $scope }
+if ($missing -or $stale) { $missing; $stale; exit 1 } else { 'AC6: register == scope'; exit 0 }
+```
+
+**正向真实输出**：
+```
+reg=30  scope=30
+register == scope → GREEN (exit 0)
+```
+
+**三条负向对照（每次只改一个变量，实测全红且抓到的正是被变异项）**：
+
+| # | 变异 | 结果 |
+|---|---|---|
+| NC1 | 删掉 §2.3 里 `- path: dsh/workflow/templates/HANDOFF.md` 那一行 | **RED**，`$missing` = `dsh/workflow/templates/HANDOFF.md` ✅ |
+| NC2 | 把 `- path: portable/通用prompt-DSH-v1.txt` 改成 `…-vX.txt` | **RED**，抓到 `portable/通用prompt-DSH-v1.txt`（missing）与 `…-vX.txt`（stale）✅ |
+| NC3 | 加一条不存在的登记 `- path: does/not/exist.md`（反向） | **RED**，`$stale` = `does/not/exist.md` ✅ |
+
+每次变异后均还原，并核 `git status --porcelain -- docs/ai/DSH-LANDING-NOTES.md` 回到仅有本轮正常改动（无遗留变异）。
+
+**结论**：AC6 从"按字面恒红且不可复现"变为**可复现 + 有区分力**；第 3 轮 9B 的 B1 所指缺陷已闭合。
+
+## R. 本轮其余修补（对应第 3 轮两份 verdict 的其余 Suggestion）
+
+* AC1 补判定方式（对象 = 单文件对；**第 3 轮 9A 已全量核验 40 行、结论"无漂移"**）；并纠正 Amendment 里"17 对/2600+ 行"的**张冠李戴**（那是 AC10 首句的活）。
+* AC4 的"冻结输入域"旧节改写为**指针**（旧域按字面会因 Codex 侧 `medium` 假红）。
+* AC9 计数"三笔"→"**四笔**"并补判定方式（被禁措辞零命中 + 与 `[DEBT]` 清单对应）。
+* AC10 判定从"指针行数相等"（对声称无区分力）改为**逐对 `--numstat` + 每行归入某改点**。
+* `DSH-LANDING-NOTES` §2 第 10 条的"只改了末尾换行"**事实订正**（`explore.md` 仅 frontmatter 两行；`define.md`/`design-check.md` 另含路径改写）。
+* README 快照节的 DSH 状态块、`DSH-LANDING-NOTES` 状态块、债 #1/#4 台账按轮次改写。
+
+## S. 仍未跑 / 仍未验证（不得当作通过）
+
+* 真实 9P **审查轮**（两次都只是探针）。
+* `settings.yaml` 的 `reasoningEffort` 实际生效证据（只有 schema 层）。
+* AC8 机器态实跑（临时 HOME 下跑安装器 + 三项哈希）。
+* headless 完整审查轮。
+* AC4 负向对照的**字面命令 + 退出码**产物（§I 是转述；§M 提供了更强的真实报错对照）。
