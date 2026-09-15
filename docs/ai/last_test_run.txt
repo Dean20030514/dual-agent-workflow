@@ -798,3 +798,59 @@ $ git rev-list --count main..HEAD
 ```
 
 差 1 的成因是**自指**：写下「37」的那笔提交（`ac16fad`）自身就是第 38 笔——**任何"记录当前提交数"的改动都会使自己记录的数字过期**。这与 PB-1 的教训（"写死数字必然随加账过期"）同源，只是失效机制更机械（不是加账后才错，而是**写下即错**）。**处置**：4 处一律改为**现查命令** `git rev-list --count origin/main..HEAD`，不再写死笔数。
+
+## AT. push 完成后的核验（2026-09-06）：本机 ref 证据 + 两道 `[M]` 门复跑 + 一处空指订正
+
+**为什么这一节存在**：人类执行 push 之后，账本里 3 处"剩余动作 = 人类 push"成了**状态过期**陈述（与第 7 轮 9B 对 `HANDOFF` 提的"状态过期"同类）。本节是该笔终账的证据面，同时记录一处**空指订正**（④）。
+
+**① 本机 ref 证据（**不是**网络回读）**
+
+```
+$ git rev-parse main / HEAD / origin/main
+main        = 9a10db740c793ad9bc7f1a5ea5974315ea79fb87
+HEAD        = 9a10db740c793ad9bc7f1a5ea5974315ea79fb87
+origin/main = 9a10db740c793ad9bc7f1a5ea5974315ea79fb87
+$ git rev-list --count origin/main..HEAD   → 0
+$ git rev-list --count HEAD..origin/main   → 0
+$ git branch -vv
+* main 9a10db7 [origin/main] docs: stop hardcoding the pre-push commit count
+$ git reflog show origin/main | Select-Object -First 2
+9a10db7 refs/remotes/origin/main@{0}: update by push
+bf06c65 refs/remotes/origin/main@{1}: update by push
+```
+
+（快照：本次核验时被推送的 tip 即 `origin/main@{0}`；**再次 push 后本条会下移一位**，属正常。）
+
+**如实标注的限度**：本仓契约禁止 agent 做任何远程操作（含 `fetch` / `ls-remote`），**故 agent 未独立复核远端**。"远端确实收到 `9a10db7`"由人类陈述 + 本机 `update by push` 共同担保；这是 **ref 级**证据，不是网络回读。
+
+**② 两道 `[M]` 门在同一工作树上复跑（真实退出码）**
+
+AC4-门：
+
+```
+adapter            = C:\Users\16097\AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\dsh-llm-deepseek\lib\index.js
+DSH-side values    = high
+out-of-domain      = (none)
+adapter medium hits= 0
+AC4: PASS
+exit=0
+```
+
+AC6-门（判定块逐字取自 `TASK_BRIEF.md` AC6，`base = bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17`）：
+
+```
+reg=31 scope=31 missing=0 stale=0
+AC6: register == scope
+exit=0
+```
+
+**③ 工作树**：`git status --porcelain=v1 -uall` = ` M README.md` / ` M docs/ai/HANDOFF.md`（即本次终账自身；**无未跟踪文件**）。
+
+**④ 订正一处空指："（+ CI）"**
+
+```
+$ Test-Path .github                                                        → False
+$ 搜索 .github / .gitlab-ci.yml / azure-pipelines.yml / appveyor.yml / .travis.yml → 无命中
+```
+
+本仓**没有任何 CI 配置**，故原文"push 到 `origin/main`（+ CI）"中的"（+ CI）"是**空指**——push 不会触发流水线。`README.md` 与 `HANDOFF` §五 的对应处已同时订正。**这与 PB-1 / PB-2 同类：不是行为缺陷，而是"说与做不一致"的账目缺陷。**
