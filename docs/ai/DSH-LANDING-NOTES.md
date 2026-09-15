@@ -217,5 +217,11 @@ dsh/skills/{dual-agent-workflow,independent-review}/** → ~/.dsh/skills/ 同名
 * 档位取值：`Select-String <dsh-llm-deepseek/lib/index.js> -Pattern '"medium"'` **零命中**；适配器 `reasoningEffort()` 只放行 `off/low/high/max`。`dsh/**` 与 portable 里剩余的 `medium` 字样**全部是解释性引用**（说明"该档不存在"或"母本为何这么写"），没有任何一处把它当作可用取值（首轮 B1 的独立复现）。
 * skill 结构：两个 `SKILL.md` 的 frontmatter 含 `name`（kebab-case、与目录名一致）/`description`；7 个 phase 文件带 `disable-model-invocation: true` 且末尾换行已补。
 * 工具面事实来源（一手）：`@deepseek-ai/dsh-agent-presets/presets/standard/agent.cordis.yml`、`@deepseek-ai/dsh-tool-subagent/README.md`、`@deepseek-ai/dsh-llm-deepseek/lib/index.js`、`@deepseek-ai/dsh-headless/lib/startup.js`（helpOption/argument）、`@deepseek-ai/dsh-skill-filesystem/README.md`；模型档位佐证 = [DeepSeek 官方公告 2026-09-10](https://api-docs.deepseek.com/zh-cn/news/news260910/)（V4.1-Flash 超过 V4 Pro；旧 id 下线或路由到它）。
-* 首轮独立双审（真实发生）：9A/9B 均"不通过"，4+3 条 Product Blocking，隔离协议五项核验两份全过。verdict 落 `docs/ai/review_9A.md` / `review_9B.md`。
-* **未做/未验证（不得当作通过）**：① 第 4 轮审查尚未跑（第 1–3 轮已完成，见 README 与 HANDOFF 的轮次账）；② 未实跑 `install.ps1`（guard 锁定）；③ 未实跑 headless 的完整审查轮；④ `model_route` 字段未经真实审查轮验证；⑤ 未在真实 Critical 项目任务上端到端跑过这套 DSH 流程。
+* 首轮独立双审（真实发生）：9A/9B 均"不通过"，4+3 条 Product Blocking，隔离协议五项核验两份全过。verdict 落 `docs/ai/review_9A.md` / `review_9B.md`。后续第 2/3/4 轮见 `review_9{A,B}_r2.md` / `_r3.md` / `_r4.md` 与 HANDOFF 的轮次账。
+* **未做/未验证（不得当作通过）** —— **本清单是 `TASK_BRIEF.md` → AC11 的镜像，两处必须逐条一致（AC9 的现行判定读这里）；改一处必须同改另一处**：
+  1. 除 `AGENTS.md` 外的其余派生对（`reviewer-prompt.md` / `QUALITY_GATES.md` / `index.md` / `workflow-design-notes.md` / 7 个 phase）相对母本是否存在判据漂移 —— 触发：下一次改动任一该文件之前。
+  2. 备用路径（headless）完整审查轮 —— 触发：首次用备用路径发审之前。
+  3. 真实 9P 审查轮（两次都只是档位探针）—— 触发：下一次启用 Critical 之前。
+  4. `~/.dsh/settings.yaml` 的 `reasoningEffort` 是否真被适配器读取 —— 触发：首次依赖 settings 层钉档位之前。
+  5. AC8 的机器态实跑（临时 HOME / 一次性 profile 下跑安装器 + 三项哈希）—— 触发：`install.ps1` 解锁后首次运行。
+  6. `install.ps1` 的其余注释逐句对读（AC7 只核了备份/镜像语义那一组）—— 触发：下次改动该文件之前。
