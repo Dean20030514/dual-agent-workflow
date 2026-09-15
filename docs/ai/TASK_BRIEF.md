@@ -43,45 +43,101 @@
 
 ## Acceptance Criteria（Frozen Acceptance；本任务的验收基线）
 
-1. **一等公民**：仓内出现 `dsh/`，与 `claude/`、`codex/` 并列；`dsh/workflow/AGENTS.md` 是 DSH 会话的判据唯一出处，且**与 `claude/workflow/AGENTS.md` 的判据、阈值、轮次上限逐条一致**（只允许"怎么跑"不同）。**判定方式（Amendment 2026-09-06 第 4 轮：原表述属"散文对读"，且底下的降级理由张冠李戴）**：判定对象 = **`claude/workflow/AGENTS.md` ↔ `dsh/workflow/AGENTS.md` 这一对文件**；判定 = `git diff --no-index --numstat` 的**每一条变更行**都能归入 §2 第 1–6 条或 §1 第 2 步的机械路径改写，且**未触及任何判据、阈值、轮次上限**。**第 3 轮 9A 已按此做过一次全量核验并给出"无漂移"结论**（40 行变更逐行读完）；本条**不要求**核验全部 17 对派生文件——那是 AC10 首句的活（见该条）。
-2. **可加载**：`dsh/skills/` 下至少一个 bundle 能被 DSH 的 skill 发现面加载（判定方式：把 bundle 放进 `<dshHome>/skills/` 后，一个 fresh DSH 会话的技能目录里出现它；**不是**靠读包内 README 推断）。
-3. **两条 Reviewer 路径**：主路径 = 同会话 `subagent` 前台调用，显式 `provider`/`model`/`reasoning_effort`；备用路径 = 独立 `dsh --profile headless` 进程。**两条路径给出的命令都必须真的能跑**（判定方式：主路径产生过真实 verdict；备用路径的 CLI 面经 `--help` 或实跑确认）。
-4. **模型档可指回一手来源**：Author 与 Reviewer 的模型/档位断言必须能指回官方公告、`list_subagent_models` 的实时返回或包内 `DEFAULT_MODELS`；**不得凭记忆**。所有写进文档的 `reasoning_effort` 取值必须落在适配器取值域（`off/low/high/max`）内。**判定方式（Amendment 2026-09-06，第 2 轮 9A 的 S7 指出原表述会假红）**：
-   * 输入域 = **仅 DSH 侧面**：`dsh/**`、`portable/通用prompt-DSH-v1.txt`、`README.md` 的 DSH 段；**明确排除** `claude/**` 与 `portable/通用prompt-v3.8.txt`（那里的 `medium` 属 Codex 侧 `model_reasoning_effort`，合法）。
-   * 判定命令：对上述范围枚举 `reasoning_effort` 的**赋值位**，每个值都必须 ∈ `{off, low, high, max}`；且 `Select-String -Path <dsh-llm-deepseek>/lib/index.js -Pattern '"medium"'` 零命中。
-   * **反例（负向对照，必须实际跑过一次并留产物）**：把 `dsh/workflow/fanout-toolchain.md` 的 `high` 临时改成 `medium` → 上述判定必须红（退出码非 0）→ 还原并确认 `git status --porcelain` 为空。
-5. **零写入闭环**：verdict 契约含 `writes_performed` 字段；三份 prompt 都要求它；Author 侧明确"落盘由 Author 在窗口结束后做"；零写入违反 = 该轮作废。
-6. **改点可复核**：`docs/ai/DSH-LANDING-NOTES.md` 的改点登记**覆盖全部实际变更**。**判定方式（Amendment 2026-09-06 第 2 轮：原表述含不可满足项；Amendment 2026-09-06 第 4 轮：`<base>` 未钉死 → 红集合随 base 变，且声明表本身缺机械复制面。两次都由 9B 的 B1 指出）**：
-   * **钉死的 base**：`BASE_SHA = bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17`（本次改动前的 `main` tip）。**不写 `<base>` 占位符**——红集合若不锚定就不可复现。
-   * **交付面**（判定范围，逐字）：`git diff --name-only $BASE_SHA..<tip> -- dsh portable install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md`
-   * **判定谓词**：上列输出的**每一项**都必须出现在 `DSH-LANDING-NOTES.md` → **§2.3 机读登记表**的 `- path:` 行里（**§2.3 是 AC6 的唯一判定依据**；§2 / §2.1 / §2.2 是它的散文说明与理由）。**双向**：scope 的每一项都要在表里（漏登记 = 红），表里的每一项也都必须在 scope 里（登记了却没改 = 表与事实脱节 = 红）。
-   * **判定命令（可复制执行）**——读 §2.3 的机读表（**`dsh/workflow/` 不在 scope 里，是因为它的改动全部由 §2 派生面覆盖；scope 见上**）：
-     ```powershell
-     $base = 'bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17'
-     $notes = Get-Content docs/ai/DSH-LANDING-NOTES.md -Raw
-     $reg = [regex]::Matches($notes, '(?m)^- path:\s*(\S+)\s*$') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
-     $scope = git -c core.quotepath=false diff --name-only "$base..HEAD" -- dsh portable install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md | Sort-Object -Unique
-     $missing = $scope | Where-Object { $_ -notin $reg }      # 改了却没登记
-     $stale   = $reg   | Where-Object { $_ -notin $scope }    # 登记了却没改
-     if ($missing -or $stale) { $missing; $stale; exit 1 } else { 'AC6: register == scope'; exit 0 }
-     ```
-     **两条纪律**：① `core.quotepath=false` **必带**——否则非 ASCII 路径（`portable/通用prompt-DSH-v1.txt`）会被 git 转义成 `\351\200\232…`，判定假红（第 4 轮实测）；② 谓词必须**直接读 §2.3 的 `- path:` 行**，**不得**用"文件名是否出现在本文档里"这种自由文本匹配——那种谓词没有区分力（同一个名字在正文别处出现也会匹配，第 4 轮实测两个负向对照都绿）。
-   * **反例（负向对照，必须实际跑过一次并留产物）**：删掉 §2.3 里任意一行 `- path: …`（**只改这一个变量**）→ 判定**必须红（exit 1，且 `$missing` 列出该文件）** → 还原并确认 `git status --porcelain` 为空。**注**：不能用"临时新增一个未登记文件"做反例——新文件本身就在 scope 里，会因自己未登记而红，那是同义反复。   * **明确排除**（过程产物，不属"改点登记"面，也不进上述 scope）：`docs/ai/HANDOFF*.md`、`docs/ai/last_test_run.txt`、`docs/ai/review_9*.md`。
-   * **反例（负向对照，必须实际跑过一次并留产物）**：把 §2.2 任一模板声明行改成不存在的文件名（例：`templates/HANDOFF.md` → `templates/HANDOFF-X.md`）→ 判定**必须红（exit 1，且列出未登记文件）** → 还原并确认 `git status --porcelain` 为空。**注**：不能靠"临时加一个未登记的新文件"做反例——新增文件本身就在 scope 里，判定会因它自己未登记而红，那是同义反复；必须用"已登记文件在登记表里被改名"这种**只改一个变量**的形态。
-7. **说与做一致**：`install.ps1` 的注释、`README.md` 的布局表与快照状态节、`AUTHORITY_CONTRACT.md` 的增补、`DSH-LANDING-NOTES` §4 对"镜像哪些路径 / 不碰哪些机器态"的描述必须与代码一致（判定方式：逐条对读，最近的反例是首轮 9A 的 B3）。
-8. **机器态不可触碰**：`~/.dsh` 下的 `settings.yaml`、`sessions/`、`storages/`、`.credentials.yaml`、`profiles/` 不被部署动作修改或删除（判定方式：安装器解锁后在一次性 profile/临时 HOME 下实跑并比对哈希；本轮只做静态核验并如实标注未实跑）。
-9. **如实标注**：未经审查/未实跑/未验证的东西必须写成未验证（含 `[DEBT]` **四笔**与验证记录节——**计数以 `DSH-LANDING-NOTES` §3 为准，改那里必须同步改这里**）；**不得把"未做"写成"已验证"**。**判定方式**：① 对被禁模糊措辞做零命中扫描（`later` / `temporary` / `for now` / `should be fine` / `probably ok` / `暂时` / `先这样` / `回头再说`）＝ 必须零命中；② `last_test_run.txt` 末尾的"未做/未验证"节与 `[DEBT]` 清单逐条对应，缺一即红。**反例**：故意在任一文档写一句"先这样" → 判定①必须红。
-10. **判据无漂移**：`dsh/` 派生文件相对母本不存在"改判据而不是改执行器"的地方；`docs/ai/QUALITY_GATES.md`（项目副本）仍必须是 Reviewer 的质量清单输入。**判定方式（Amendment 2026-09-06 第 4 轮：原"指针行数相等"对它自己的声称没有区分力——漂移 10 处该计数也不变；来历 = 第 3 轮 9A 的 S4）**：判定 = `DSH-LANDING-NOTES` §1 第 4 步的**逐对** `git diff --no-index --numstat`，要求**每一条变更行都能归入 §2/§2.1 的某个改点**（AC1 已对其中一对给出全量结论），并**单列**任何触及判据/阈值/轮次的行。判定范围 = 有文本改点的派生对（`AGENTS.md` / `reviewer-prompt.md` / `QUALITY_GATES.md` / `index.md` / `workflow-design-notes.md` / 7 个 phase）；逐字节未改的 5 个文件见 §2.2，不参与本判定。`docs/ai/QUALITY_GATES.md` 的指针判定 = `reviewer-prompt.md` 里**指向项目副本的匹配数 == 母本对应匹配数**（第 3 轮实测 4 : 4；DSH 版另新增 2 处母本兜底，属有意的执行器差异，已在 §2 登记）。
+> **本节的形态由人类 2026-09-06 裁决确定（第 4 轮之后）**：四轮双审的 finding **全部**落在"改点登记表 + 验收条款判定方式"这一层，且**每一轮的修复又在这同一层新增了新的不可执行判定**（第 3 轮修好 AC6、同一份 Amendment 写坏 AC9；第 4 轮又发现 AC6 的第二条反例指向谓词永不读取的节）。人类裁决：**按 Author 建议收口**——不再新增自由文本判据，把每条 AC 归入下面三级之一。
+>
+> **判据白名单（封闭，不得增补）**：
+> * **[M] 机械门**——有可复制命令 + 真实退出码 + 已实跑的负向对照。**本任务只设两个机械门：AC6 与 AC4-门。**
+> * **[O] 单点观测**——只声称"做过一次并留了产物"，**明确不推广为"不存在"**。
+> * **[U] 未验证**——如实登记为未验证，附触发时机。**[U] 不是债**，故不要求 Payback trigger；但**不得**被写成"已验证"。
+>
+> 本条元规则自身的要求：**任何 AC 若无法归入 [M]/[O]/[U] 之一，必须当场收窄声称，而不是新造一条判据。**（"针对该要求的新判据"即为被禁的第三层判据。）
 
-## Frozen Acceptance 的冻结输入域（供负向对照用）
+### AC1 — 一等公民与判据一致性 → **[O] 单点观测（声称已收窄）**
 
-> **2026-09-06 第 4 轮订正**：本节此前写"输入域 = 文档中出现的每一个 `reasoning_effort` 取值"，与 AC4 已收窄的域**矛盾**——按旧域判定会扫进 `claude/**` 的 Codex 侧 `medium` 而**假红**（第 3 轮 9A 的 S2、9B 的 VN-3）。**冻结输入域的唯一出处 = AC4 的条目本身**，本节不再另立定义，只保留等价类枚举：
+仓内出现 `dsh/`，与 `claude/`、`codex/` 并列；`dsh/workflow/AGENTS.md` 是 DSH 会话的判据唯一出处。
+**判定**：`claude/workflow/AGENTS.md` ↔ `dsh/workflow/AGENTS.md` 这一对，`git diff --no-index -U0` 的全部 **40 行**变更（25 增 15 删）逐行归类。
+**产物**：第 3 轮 9A 全量核验（`docs/ai/review_9A_r3.md:43`）"**未发现判据/阈值漂移**"；第 4 轮 9A 独立复跑同 40 行，结论一致。
+**收窄后的声称**：**这一对文件**已核；**本任务不声称**其余派生对（`reviewer-prompt.md` / `QUALITY_GATES.md` / `index.md` / `workflow-design-notes.md` / 7 个 phase）无漂移——那需要逐对人工读，本任务未做（见 AC11 [U]）。
 
-验收 4 的输入域 = **仅 DSH 侧面**（`dsh/**`、`portable/通用prompt-DSH-v1.txt`、`README.md` 的 DSH 段；排除 `claude/**` 与 `portable/通用prompt-v3.8.txt`）。等价类枚举：
-* (a) 9A/9B 的取值；(b) 9P 的取值；(c) portable 与 README 里复述的取值；(d) skill 正文里复述的取值。
-**对照样本（"若移除该错误则会通过"的负向对照）**：把任一取值改成 `medium` → 验收 4 的判定命令必须红。
-**已实跑的更强对照（2026-09-06 第 3 轮）**：`reasoning_effort: "medium"` 的真实调用被拒，原文见 `last_test_run.txt` §M。
+### AC2 — skill 可加载 → **[O] 单点观测**
 
+`dsh/skills/` 下的 bundle 能被 DSH 的 skill 发现面加载。
+**产物**：首轮与本机实测——把 bundle 放进 `<dshHome>/skills/` 后，**fresh DSH 会话的技能目录里确实出现它**（`docs/ai/DSH-LANDING-NOTES.md` §5）。**不是**靠读包内 README 推断。
+**收窄后的声称**：本机一次观测成立；不声称在所有部署形态下成立。
+
+### AC3 — 两条 Reviewer 路径 → **[O]（主路径）/ [U]（备用路径端到端）**
+
+主路径 = 同会话 `subagent` 前台调用（显式 `provider`/`model`/`reasoning_effort`）；备用路径 = 独立 `dsh --profile headless` 进程。
+* 主路径：**[O]** —— 本轮起已用它跑过 **4 轮共 8 次**真实审查调用（verdict 已落账）。
+* 备用路径 CLI 面：**[O]** —— `npx -y @deepseek-ai/dsh --profile headless --help` 实测只有 `-h/--help` 与 `[task...]`，`exit=0`（`last_test_run.txt` §J）。
+* 备用路径**完整审查轮**：**[U]** —— 从未跑过（见 AC11）。
+
+### AC4-门 — 档位取值域 → **[M] 机械门（本任务两个机械门之一）**
+
+**输入域**：仅 DSH 面（`dsh/**`、`portable/通用prompt-DSH-v1.txt`、`README.md`）；**排除** `claude/**` 与 `portable/通用prompt-v3.8.txt`（那里的 `medium` 属 Codex 侧 `model_reasoning_effort`，合法）。
+**判定命令（可复制执行，脚本已入库）**：`pwsh -File tools/ac4-reasoning-effort-check.ps1` → 枚举上述范围的 `reasoning_effort` 赋值位，每个值必须 ∈ `{off, low, high, max}`；且适配器 `dsh-llm-deepseek/lib/index.js` 中 `"medium"` 零命中。任一不满足即 `exit 1`。
+**产物（真实退出码）**：正向 `DSH-side values = high / out-of-domain = (none) / adapter medium hits = 0 → AC4: PASS, exit=0`。
+**负向对照（已实跑）**：把 `dsh/workflow/fanout-toolchain.md` 的 `high` 改成 `medium` → `DSH-side values = high, medium / out-of-domain = medium → AC4: FAIL, exit=1` → 还原并确认工作树干净。→ **有区分力。**
+**一手来源断言**：`deepseek-flash` = DeepSeek-V4.1-Flash 及旧 id 路由状态，指回 [DeepSeek 官方公告 2026-09-10](https://api-docs.deepseek.com/zh-cn/news/news260910/)（次级来源不作采纳依据）。
+
+### AC5 — 零写入闭环 → **[O] 单点观测**
+
+verdict 契约含 `writes_performed` 与 `model_route`；三份 prompt 都要求；Author 侧明确"落盘由 Author 在窗口结束后做"。
+**产物**：4 轮 8 份 verdict 的 `writes_performed` 全为 `none`（其中 9A 第 3 轮**主动登记**了一处仓外 scratch 越界；9B 第 3 轮主动登记了一次 `git grep` 回显）。**自证字段，无机械手段可证**——这一限度已写进契约。
+
+### AC6 — 改点登记 → **[M] 机械门（本任务两个机械门之一）**
+
+**判定依据**：`docs/ai/DSH-LANDING-NOTES.md` → **§2.3 机读登记表**（`- path:` 行）。
+**钉死的 base**：`bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17`。
+**判定命令（可复制执行）**：
+```powershell
+$base = 'bf06c65d0831ebeb2b0982f35ae2d7f4c65c2c17'
+$notes = Get-Content docs/ai/DSH-LANDING-NOTES.md -Raw
+$reg   = [regex]::Matches($notes, '(?m)^- path:\s*(\S+)\s*$') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+$scope = git -c core.quotepath=false diff --name-only "$base..HEAD" -- dsh portable install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md | Sort-Object -Unique
+$missing = $scope | Where-Object { $_ -notin $reg }   # 改了却没登记
+$stale   = $reg   | Where-Object { $_ -notin $scope } # 登记了却没改
+if ($missing -or $stale) { $missing; $stale; exit 1 } else { 'AC6: register == scope'; exit 0 }
+```
+**三条纪律**：① `core.quotepath=false` **必带**（否则非 ASCII 路径被转义 → 假红）；② 谓词**只读 §2.3 的 `- path:` 行**，不得用"文件名是否出现在文档里"（无区分力）；③ 判定前确认工作树干净（`$reg` 读工作树、`$scope` 读 HEAD）。
+**产物**：正向 `reg=30 scope=30 → GREEN, exit=0`；**三条负向对照已实跑且全红**（`last_test_run.txt` §Q）：删登记行→`$missing` 报该文件；改登记路径→`$missing`+`$stale`；加幻影行→`$stale`。
+**声称边界（第 4 轮两份 verdict 独立确认，已据此收窄）**：本门保证的是**路径级**覆盖——**已登记路径内部**的未登记内容改动**检不出来**（例：往 `dsh/workflow/index.md` 加一行未登记进 §2 #9 的判据文本 → 判定仍 GREEN）。**本任务不声称"覆盖全部实际变更"**，只声称"覆盖交付面的路径集合"。
+
+### AC7 — 说与做一致 → **[O] 单点观测**
+
+`install.ps1` 注释、`README.md`、`AUTHORITY_CONTRACT.md`、`DSH-LANDING-NOTES` §4 对"镜像哪些路径 / 不碰哪些机器态"的描述必须与代码一致。
+**产物**：第 3 轮两份 verdict 各自**逐句核对**了 `README:17/21` ↔ `install.ps1` 的备份语义，确认无反向过度声称。**收窄声称**：只核了备份/镜像语义这一组；`install.ps1` 的**其余**注释未逐句对读（第 3/4 轮各发现 1 处残留 clause，已登记）。
+
+### AC8 — 机器态不被修改 → **[U] 未验证（附触发时机）**
+
+`~/.dsh` 下的 `settings.yaml`、`sessions/`、`storages/`、`.credentials.yaml`、`profiles/` 不被部署动作**修改或删除**（**注意**：整树备份会把它们**复制**一份到 `~/.dsh.bak-<stamp>`，见 README）。
+**触发时机**：`install.ps1` 解锁后首次实跑（临时 HOME / 一次性 profile 下比对三项哈希）。
+**现状**：只有静态读码核验；脚本受迁移期 guard 锁定，**从未运行**。
+
+### AC9 — 如实标注 → **[O] 单点观测（原判定方式已废弃）**
+
+未经审查 / 未实跑 / 未验证的东西必须写成未验证；不得把"未做"写成"已验证"。
+**原判定方式（已废弃，如实登记）**：① "被禁模糊措辞零命中扫描"——**第 4 轮 9B 与 9A 各自独立判定它按最自然范围恒红**（交付面含禁令原文引用，10 处命中，其中 8 处是母本判据自身）；**它从未被执行过**。② "与 `[DEBT]` 清单逐条对应"——**两集合零交集**，按字面不可满足。两条均已删除，不再作为判据。
+**现行判定**：**人工单点读** `docs/ai/HANDOFF.md` 的 Known Issues / Remaining Risks 与 `docs/ai/DSH-LANDING-NOTES.md` §5 的"未做/未验证"节，确认二者一致且无"未做写成已验证"。
+**产物**：第 4 轮 9A 独立读后结论"本轮未新增隐藏债；`§3` 四笔与 `TASK_BRIEF` 四笔计数一致"。
+
+### AC10 — 判据无漂移 → **[O] 单点观测（声称已收窄）**
+
+**判定对象**：与 AC1 相同的那一对文件，用 `git diff --no-index -U0`（**不是 `--numstat`**——该命令不输出变更行，支撑不了逐行归类，第 4 轮 9A 的 R4-S6）。
+**产物**：两轮 9A 独立逐行核验，结论"无判据/阈值/轮次漂移"。
+**收窄后的声称**：**只覆盖 `dsh/workflow/AGENTS.md` 这一对**（与 AC1 同一产物）。本任务**不声称**其余派生对无漂移——那是 [U]（见 AC11）。
+**`docs/ai/QUALITY_GATES.md` 指针面**：**已停止复述数字**（第 3/4 轮各因复述而出错一次）；如需核，直接读 `dsh/workflow/reviewer-prompt.md` 的对应处与母本比对，**不以本文档的复述为准**。
+
+### AC11 — 未验证清单 → **[U] 汇总（不是债，故无 Payback trigger）**
+
+以下在本任务内**未验证**，如实登记，附触发时机：
+1. 除 `AGENTS.md` 外的**其余派生对**（`reviewer-prompt.md` / `QUALITY_GATES.md` / `index.md` / `workflow-design-notes.md` / 7 个 phase）相对母本是否存在判据漂移 —— 触发：下一次改动任一该文件之前。
+2. **备用路径（headless）完整审查轮** —— 触发：首次用备用路径发审之前。
+3. **真实 9P 审查轮**（两次都只是档位探针）—— 触发：下一次启用 Critical 之前。
+4. **`~/.dsh/settings.yaml` 的 `reasoningEffort` 是否真被适配器读取**（现只有 schema 层证据）—— 触发：首次依赖 settings 层钉档位之前。
+5. **AC8 的机器态实跑**（见 AC8）。
+6. **`install.ps1` 的其余注释逐句对读**（见 AC7）。
+**本清单与 `docs/ai/DSH-LANDING-NOTES.md` §5 的"未做/未验证"节必须逐条一致**（这是 AC9 现行判定的人工读点之一）。
 ## Risks & Edge Cases
 
 * **最大风险 = 判据漂移**：机械复制 + 人工改点的边界靠人自觉；首轮双审已实测出三类清单外变更（含 2 处指针漂移）。缓解：§2/§2.1 完整登记 + 逐对 diff 作为审查输入。
@@ -91,24 +147,27 @@
 
 ## Execution Steps
 
-1. 机械复制骨骼 + 有界 DSH 化改点。 | commit `a361bc19`
-2. **第 1 轮**独立双审（9B 先、9A 后）→ 两份"不通过"（4+3 条 Product Blocking）。 | 落账 `7c5505f`
-3. **第 2 轮修补**：修首轮全部 Product Blocking + 收 Suggestion；9P 档取 `high`（人类裁决）；补本 TASK_BRIEF。 | `7084fb75`
-4. **第 2 轮**独立双审 → 两份"有条件通过"（Blocking = None）→ streak 归 0。 | 落账 `956db71`
-5. **第 3 轮修补**：偿还 installer 债（收窄 README 措辞，人类裁决）+ 修 9B-S1。 | `34b6037`
-6. **第 3 轮**独立双审 → **9B「不通过」（1 条 Product Blocking：AC6 改写后按字面仍红）**、9A「有条件通过」（同一条判为 Suggestion）→ **两份归类分歧交人类裁决**。 | 落账 `40c61bb`
-7. **人类裁决 9B 归类成立 → 第 4 轮修补**：把改点登记表改为机读形态（§2.3）、AC6 判定命令按 §2.3 重写并**实跑正例 + 三条负向对照**、AC1/AC4/AC9/AC10 判定方式补全、修 README/台账状态块。 | 见 HANDOFF
-8. **第 4 轮**独立双审 → 收敛门 → 人类 commit/merge。**账目提醒：本轮若出现 `caused_by_last_fix: yes` 的 Product Blocking，streak 达 2 → 硬停。** | —
+1. 机械复制骨骼 + 有界 DSH 化改点。 | `a361bc19`
+2. **第 1 轮**双审 → 两份"不通过"（4 + 3 条 Product Blocking）。 | 落账 `7c5505f`
+3. **第 2 轮修补**：修首轮全部 Product Blocking；9P 档取 `high`（人类裁决）；补本 TASK_BRIEF。 | `7084fb75`
+4. **第 2 轮**双审 → 两份"有条件通过"（Blocking = None）→ streak 归 0。 | 落账 `956db71`
+5. **第 3 轮修补**：偿还 installer 债（收窄 README 措辞）+ 修 9B-S1。 | `34b6037`
+6. **第 3 轮**双审 → 9B「不通过」（AC6 按字面仍红）、9A「有条件通过」（同条判 Suggestion）→ 归类分歧交人类。 | 落账 `40c61bb`
+7. **人类裁决 9B 归类成立 → 第 4 轮修补**：登记表改为机读形态（§2.3）、AC6 判定命令重写并实跑正例 + 三条负向对照。 | `fc32899`
+8. **第 4 轮**双审 → 9A「有条件通过」、9B「不通过（1 条，归因 `dispute`）」。**该轮又暴露：同一份 Amendment 把 AC9 的判定写坏（未定义 scope → 恒红、从未执行），并让 AC6 的第二条反例指向了谓词永不读取的节。** | 落账 `1c40e7a`
+9. **人类裁决（2026-09-06）→ 收口轮（本段）**：**停止在文本层继续加判据**，按 `[M]/[O]/[U]` 三级重写全部 AC；只保留 **AC6 与 AC4-门两个机械门**；废弃 AC9 的两条坏判定；把"其余派生对无漂移"等未核面显式列为 `[U]`。 | 见 HANDOFF
+10. **收口后的 9A 单审**（不新开 9B 轮：本次 delta 全是 AC 文本与登记表修正，9B 的盲审面未受影响）→ 由人类决定 commit/merge 或走限制交付。 | —
 
 ## Testing Plan
 
 * 无功能测试套件。核验 = 机制命令 + 真实输出，落 `docs/ai/last_test_run.txt`。
-* 已完成的实跑（见 `last_test_run.txt`）：`high` 探针成功、**`medium` 被拒的负向对照**（§M，原始报错原文）、headless `--help`、`~/.dsh` 23/23 同副本、AC4 判定与负向对照、**AC6 判定与三条负向对照**（§Q）。
-* 逐对 diff 审计（17 对派生文件）作为"判据无漂移"的机械输入。
+* **两个机械门的脚本/命令**：AC6 = 本文件内嵌的 PowerShell 判定块；AC4-门 = `tools/ac4-reasoning-effort-check.ps1`。
+* 已完成的实跑：`high` 探针成功（§H）、**`medium` 被拒的负向对照**（§M，原始报错原文）、headless `--help`（§J）、`~/.dsh` 23/23 同副本（§K/§O）、**AC4 字面命令与负向对照**（§R，`PASS/exit=0` ↔ `FAIL/exit=1`）、**AC6 判定与三条负向对照**（§Q）。
+* **逐对 diff 审计（17 对派生文件）已降级**：本任务只对 `AGENTS.md` 那一对做了全量逐行核验（AC1/AC10 的 [O] 产物）；其余派生对的逐对审计列为 AC11 `[U]`，**不再声称**为"判据无漂移"的机械输入。
 
 ## Open Questions
 
-**None**（人类已在首轮双审后逐条裁决：进入第 2 轮、9P 档 = `high`、先跑审查、补 TASK_BRIEF）。
+**None**。人类自首轮起逐条裁决：进入第 2 轮 / 9P 档 = `high` / 先跑审查 / 补 TASK_BRIEF / 偿还 installer 债（收窄 README 措辞）/ 跑第 3 轮 9A / 接受 Amendment / **采纳第 3 轮 9B 的 Product 归类并再跑一轮** / **2026-09-06 按 Author 建议收口 AC 分层**。
 
 ## Human Approval Status
 

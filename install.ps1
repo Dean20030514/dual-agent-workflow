@@ -18,7 +18,7 @@ param([switch]$IUnderstandThisReplacesLiveConfig)
 # directory, so machine-local edits inside those two bundles are NOT preserved (a
 # backup is written first). Every OTHER skill directory under ~/.dsh/skills/ is left
 # untouched. .dsh is the harness home: settings.yaml, sessions/, storages/, profiles/ and
-# credentials are never touched.
+# credentials are never modified or deleted (the whole-tree backup copies them — see above).
 if (-not $IUnderstandThisReplacesLiveConfig) {
     throw 'install.ps1 is guarded during the snapshot-first migration (MORATORIUM-LOCAL-001). Re-run with -IUnderstandThisReplacesLiveConfig after the migration gates pass.'
 }
@@ -73,8 +73,9 @@ if (-not (Test-Path $codexConfig)) {
 }
 
 # 3b. DSH side (harness home — back up the whole subtree once, then mirror-replace
-# only the managed paths; ~/.dsh/settings.yaml, sessions, storages and credentials
-# are machine-local and are never touched).
+# only the managed paths; ~/.dsh/settings.yaml, sessions, storages, profiles and
+# credentials are machine-local and are never modified or deleted — see the WARNING
+# below for the one thing that DOES happen to them: they get copied into the backup).
 # WARNING: this backs up the WHOLE ~/.dsh subtree, including sessions/, storages/ and
 # .credentials.yaml. Those files are never modified, but a copy of them lands in
 # ~/.dsh.bak-<stamp> and is never cleaned up automatically — delete it yourself when done.
@@ -94,7 +95,7 @@ Write-Host 'deployed: ~/.dsh/workflow/ (mirror-replace)'
 # Skills: only THIS workflow's own skill bundles are mirror-replaced — their names
 # are stable, so a stale phase file or retired skill under them cannot linger. Any
 # other skill living under ~/.dsh/skills (machine-local or third-party) is left
-# alone, and new files are added only when missing.
+# alone, and other skill directories are never enumerated or touched.
 $srcSkills = Join-Path $repo 'dsh\skills'
 $dstSkills = Join-Path $dshDir 'skills'
 New-Item -ItemType Directory -Force $dstSkills | Out-Null

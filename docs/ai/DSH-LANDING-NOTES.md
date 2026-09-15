@@ -28,7 +28,7 @@ git diff --no-index --numstat claude/<对应文件> dsh/<对应文件>   # 逐�
 #   把每一条变更行与 §2/§2.1 对齐：出现清单里没有的变更行 = 改点登记仍不完整
 ```
 
-phase 文件额外做了三处归一（**这三处就是它们相对母本的全部改动+`define.md`/`design-check.md` 的路径改写**）：加 `name: phase-<原命令名>`（**防御性写法**——嵌套 resources 本就不会被 skill 发现，见 `dsh-skill-filesystem` README 的"`**/SKILL.md` 故意不发现"；加 `name` 是为防止将来有人把它们挪到根层时被误当技能）、加 `disable-model-invocation: true`（同因）、补回文件末尾换行（复制工序曾丢，首轮 9B 的 S3）。
+phase 文件额外做了三处归一（**`explore.md` 只有前两处；`define.md` / `design-check.md` 另含路径改写**）：加 `name: phase-<原命令名>`（**防御性写法**——嵌套 resources 本就不会被 skill 发现，见 `dsh-skill-filesystem` README 的"`**/SKILL.md` 故意不发现"；加 `name` 是为防止将来有人把它们挪到根层时被误当技能）、加 `disable-model-invocation: true`（同因）、补回文件末尾换行（复制工序曾丢，首轮 9B 的 S3）。
 
 ## 2. 有界改点清单（`dsh/` 对 `claude/` 母本的**文本改点**）
 
@@ -45,7 +45,7 @@ phase 文件额外做了三处归一（**这三处就是它们相对母本的全
 | 7 | `reviewer-prompt.md` | 全文 DSH 化：调用形态 ③ 换成 `subagent` + headless 两个模板与参数；④ 的 holding 落盘改为 Author 执行；新增 `writes_performed` 与 `model_route` 必填字段；新增 `## Author 侧：发 9A/9B 前置检查` 清单；9P 改为 `reasoning_effort: high` 并重写降档来历节；**把两处 `docs/ai/QUALITY_GATES.md` 指针改回项目副本** | 只改"怎么跑"，判据/字段/阈值不动。**首轮 B1/B3/9B-B3**：首版把 9P 写成 `medium`（适配器无此档）、把 Reviewer 的质量清单输入误改成母本路径（机械替换误伤）、缺档位自报字段 |
 | 8 | `QUALITY_GATES.md` | 组织与角色分配节：删掉 Claude 侧专家 agent 的历史叙述，改为 DSH 现实（只有 `subagent`/`subagent_fork`/`workflow`）+ 派发上限指引，**并把母本"派 sub-agent 时要求继承主对话模型不降级"整句替换为"子 agent 一律显式钉住 `provider`/`model`"** | 该节原内容是关于已卸载插件的本机事实，在 DSH 下已失效；DSH 没有"继承即不降级"这条（首轮 9A 的 S5 要求把这个替换写清） |
 | 9 | `index.md` | 角色行、命令对照表、Reviewer prompt 行、模式路由指针改为 DSH 形态 | 导航必须指向真实存在的文件 |
-| 10 | `debug.md` / `final-review.md` / `plan.md` / `implement.md` / `design-check.md` / `define.md` / `explore.md`（后三者只做了 §1 的三处归一化：加 `name: phase-*`、加 `disable-model-invocation: true`、补末尾换行；其中 `define.md` / `design-check.md` 另含 `~/.claude` → `~/.dsh` 的路径改写，属 §1 第 2 步的机械改写面。**2026-09-06 第 3 轮订正**：此前本括注写"只改了末尾换行"，与 `--numstat` 实测不符） | "继承主对话模型"的判据改为"fresh 上下文"（`subagent` 天然 fresh）；`Reviewer（Codex）` → `Reviewer（DSH subagent / headless）`；加 `exit_plan_mode ≠ Critical 批准门`；`Ready for Review` 改为"可投给 DSH Reviewer 的两份 prompt"+ 调用参数（含 `writes_performed` 证据行；`model_route` 只出现在 `reviewer-prompt.md` 契约与 `independent-review` 手册，不在 phase 正文） | 这几个是 DSH 特有的认知陷阱 |
+| 10 | `debug.md` / `final-review.md` / `plan.md` / `implement.md` / `design-check.md` / `define.md` / `explore.md`（**`explore.md` = 2 增 0 删**，只有 frontmatter 两行 `name:` / `disable-model-invocation:`，**无末尾换行变更**；`define.md` = 4 增 2 删、`design-check.md` = 3 增 1 删，二者另含 `~/.claude` → `~/.dsh` 的路径改写，属 §1 第 2 步的机械改写面。**2026-09-06 第 3/4 轮两次订正**：本括注先后写过"只改了末尾换行"与"三处归一化"，均与 `--numstat` 实测不符） | "继承主对话模型"的判据改为"fresh 上下文"（`subagent` 天然 fresh）；`Reviewer（Codex）` → `Reviewer（DSH subagent / headless）`；加 `exit_plan_mode ≠ Critical 批准门`；`Ready for Review` 改为"可投给 DSH Reviewer 的两份 prompt"+ 调用参数（含 `writes_performed` 证据行；`model_route` 只出现在 `reviewer-prompt.md` 契约与 `independent-review` 手册，不在 phase 正文） | 这几个是 DSH 特有的认知陷阱 |
 | 11 | `workflow-design-notes.md` | 一行路径指针：`.claude/commands/design-check.md` → `~/.dsh/skills/.../phases/design-check.md` | 路径随命令面迁移 |
 | 12 | 新增 `fanout-toolchain.md` | DSH 工具面事实：委派三面、参数与白名单、档位取值域、**headless 钉不住路由**、派发上限、失败语义（含 `model_route` 不符的处置） | 母本没有对应物；把"事实"与"判据"分开，升级包后只需核对这一份 |
 
@@ -75,7 +75,7 @@ phase 文件额外做了三处归一（**这三处就是它们相对母本的全
 ## 2.2 派生后逐字节未改的文件（机械复制面）
 
 > **为什么单列一节**：这些文件在派生时**逐字节复制、无任何文本改点**，因此**不出现在任何 diff 的产出里**——既不在 §2（那里列"文本改点"），也不在 §2.1（那里列"新增/改写文件"）。但它们是交付面的一部分，AC6 的判定要覆盖它们，就必须有人把它们**声明出来**；本节即该声明，`git diff --no-index --numstat` 全 0 是它的机械证据。
-> **本节编号 `§2.2` 被 `TASK_BRIEF.md` 的 AC6 直接引用**（改编号 = 改验收基线）。
+> **AC6 现在只引用 §2.3**（本节是它的散文说明与理由，不再是判定的读取对象）——故本节改编号**不再**改验收基线；**§2.3 的编号与 `- path:` 行形态才是被 AC6 直接引用的部分**。
 
 | 文件 | 机械证据 |
 |---|---|
@@ -85,10 +85,12 @@ phase 文件额外做了三处归一（**这三处就是它们相对母本的全
 | `dsh/workflow/templates/PRODUCT_BRIEF.md` | 与 `claude/workflow/templates/PRODUCT_BRIEF.md` 逐字节相同 |
 | `dsh/workflow/templates/TASK_BRIEF.md` | 与 `claude/workflow/templates/TASK_BRIEF.md` 逐字节相同 |
 
-（复核：`git diff --no-index --numstat claude/workflow/templates/HANDOFF.md dsh/workflow/templates/HANDOFF.md` → 空；其余四对同理。**将来给其中任一文件加文本改点，必须把它从本节移入 §2**，否则声明表与事实脱节。）## 2.3 机读登记表（AC6 判定的唯一依据）
+（复核：`git diff --no-index --numstat claude/workflow/templates/HANDOFF.md dsh/workflow/templates/HANDOFF.md` → 空；其余四对同理。**将来给其中任一文件加文本改点，必须把它从本节移入 §2**，否则声明表与事实脱节。）
+
+## 2.3 机读登记表（AC6 判定的唯一依据）
 
 > **为什么要这一节**：前三轮 AC6 的判定一直靠"文件名是否出现在本文件里"，而那种谓词**没有区分力**——正文里任何一次提到某个名字都会让判定变绿，于是"删掉一条声明"也照样通过（第 4 轮实测：两个负向对照都绿）。**可机读的登记表**才是可判定的形态。
-> **判定谓词**：AC6 的交付面 scope 里的**每一项**，都必须出现在下表的 `docs/` 行里；`--check` 方向同时要求**表里的每一项都真的在 scope 里**（反向：登记了却没改的文件 = 表与事实脱节）。
+> **判定谓词**：AC6 的交付面 scope 里的**每一项**，都必须出现在下表的 `- path:` 行里；**双向**——表里的每一项也都必须真的在 scope 里（登记了却没改的文件 = 表与事实脱节）。
 > **只允许用这一种形态**：`- path: <仓库相对路径>` 之后跟 `  disposition:` / `  entry:` 两行。不要在别处另起第二份清单——两份清单就是两个事实源。
 
 ```yaml
