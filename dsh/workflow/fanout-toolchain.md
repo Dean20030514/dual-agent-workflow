@@ -24,14 +24,14 @@ subagent(
   run_in_background: false,                 # 审查要等结果：前台
   provider: "deepseek-official",
   model: "deepseek-flash",
-  reasoning_effort: "high",                 # 9A/9B；9P 用 "medium"
+  reasoning_effort: "high",                 # 9A/9B 与 9P 都是 high（无 medium 档）
   prompt: <reviewer-prompt.md 中对应的一节，变量逐字填好>
 )
 ```
 
-* **必须显式给 `provider` + `model`**：不带这两项时子 agent 继承父路由，审查"不同视角"这一层就没了（母本当初用 Codex 正是为了换模型视角；DSH 下换视角的成本就是这两个字段）。
-* **`reasoning_effort` 按审别取值**（唯一定义处 = `reviewer-prompt.md` → 双审隔离协议 ③）：9A / 9B = `high`，9P = `medium`。DeepSeek 适配器接受的取值是 `off` / `low` / `high` / `max`（`dsh-llm-deepseek` `Config.reasoningEffort`）；不写则落部署默认（本机 = 父会话档）。
-* **模型档位（2026-09-06 事实，本机目录）**：`deepseek-flash` = DeepSeek-V4.1-Flash，是当前最强档；`deepseek-v4-pro`、`deepseek-v4-flash`、`deepseek-v4-flash-vision-exp` 在 API 侧已**下线或路由到 V4.1 Flash**——所以 Author 与 Reviewer 都取 `deepseek-flash` 不是"降级"，而是取同一个最强模型、靠独立上下文而非不同模型取得独立性。改档前先跑 `list_subagent_models` 核实时目录，别照抄记忆。
+* **必须显式给 `provider` + `model`**：不带这两项时子 agent 继承父路由的档位——**注意本落地 Author 与 Reviewer 本来就是同一个模型**，所以这条的目的不是"换模型视角"，而是**钉住档位、防止部署默认漂移**（部署的 `agentDefaultModel` 若被改，显式给参数的那一轮不受影响），并使每轮审查的档位可复现、可与 verdict 里的 `model_route` 自报值比对。两者都要落在宿主 `subagent-model-selection.allowedModels` 白名单内，否则调用被拒。
+* **`reasoning_effort` 取值**（唯一定义处 = `reviewer-prompt.md` → 双审隔离协议 ③）：**三类审查统一 `high`**（9A / 9B / 9P）。DeepSeek 适配器接受的取值只有 `off` / `low` / `high` / `max`（`dsh-llm-deepseek` 的 `reasoningEffort()` 是**硬校验**）——**没有 `medium`**，写它会抛 `UNSUPPORTED_REASONING_EFFORT`；母本"9P 比实现审低一档"在 DSH 上不可表达，故不降档（2026-09-06 人类裁决）。不写则落部署默认（本机 = 父会话档）。
+* **模型档位（2026-09-06，一手来源已补）**：`deepseek-flash` = DeepSeek-V4.1-Flash（**当前最强档**）。**旧 id 的状态请勿只凭本机目录判断**：本机 `list_subagent_models` 与 `dsh-llm-deepseek` 的 `DEFAULT_MODELS` 仍把 `deepseek-v4-pro` 列为一个独立模型并给出"更强"的描述，那是**适配器目录里的 legacy 条目**，不反映 API 侧现状。据 [DeepSeek 官方公告（2026-09-10）](https://api-docs.deepseek.com/zh-cn/news/news260910/)：V4.1-Flash 在基准上超过 V4 Pro；`deepseek-v4-flash` / `deepseek-v4-flash-vision-exp` 已下线；**2026-09-14 12:00 起 `deepseek-v4-pro` 的请求全部路由到 V4.1 Flash 并按 V4.1 Flash 计费**。所以 Author 与 Reviewer 都取 `deepseek-flash` 不是"降级"，而是取同一个最强模型、靠**独立上下文**而非不同模型取得独立性。改档前先跑 `list_subagent_models` 核实实时目录。
 * **准入**：`subagent` 的模型选择受宿主设置 `subagent-model-selection.allowedModels` 白名单约束（本机 `~/.dsh/settings.yaml`）；选了白名单外的路由会被拒。要给 Reviewer 换档，先确认该项在 `allowedModels` 里。
 * **前台 vs 后台**：审查必须**前台**等待（`run_in_background: false`）。后台路径只通知"某次运行结束了"，verdict 要从子会话里另取，等于把"一次调用拿回一份 verdict"这条账目关系弄糊。
 
@@ -47,6 +47,7 @@ npx -y @deepseek-ai/dsh --profile headless (Get-Content "$HOLD\9B_prompt.txt" -R
 ```
 
 * headless 进程**没有 `-o`**（`-o` 是原 Claude 侧 `codex exec` 的参数，DSH 无对应项），verdict 走 **stdout**，raw log 走 stderr。
+* **headless 也钉不住模型档**：`dsh --profile headless` 只接受 `-h/--help` 与位置参数 `[task...]`（源：`@deepseek-ai/dsh-headless/lib/startup.js`），**没有 `--provider` / `--model` / 推理档参数**——它读部署的 `agentDefaultModel`。因此备用路径下"Author 与 Reviewer 都取 `deepseek-flash`"这条**不由调用参数保证**；要钉死须先用 `--patch` 或 profile patch 固定 `agent-default-model`，否则只能靠 verdict 里的 `model_route` 自报值暴露漂移。
 * headless 会话**是持久化的**（每次运行落一个新 session），因此它比 `subagent` 更接近原 Codex 形态：fresh 进程、独立会话、可事后回看。
 * 该路径下 Reviewer 同样**不能**把 verdict 写进仓库——重定向目标由 **Author 指定为仓外 holding**。
 * 两条路径都遵守同一条顺序：**9B 先跑、9A 后跑**，两次之间确认工作树内无 verdict 残留。
@@ -66,6 +67,7 @@ npx -y @deepseek-ai/dsh --profile headless (Get-Content "$HOLD\9B_prompt.txt" -R
 * `subagent` 前台调用**失败**（`Error: <stop reason>`、超时、配额拒绝）→ **该轮审查没发生**。重跑同一 prompt；重跑仍失败 → 停手报告人类。**不得把"没有 verdict"记成 `通过`，也不得由 Author 代写一份 verdict。**
 * 调用**成功但返回空**（或只有推理没有正文）→ 把"空返回"照实记进 verdict 文件并**重跑一次**；两次都空 → 停手报告人类。
 * 前台审查**不会**变成后台 job；如果调用意外返回了 job id / child id，说明调用形态写错了（应显式 `run_in_background: false`）——按失败处理，重跑，并把这次误用写进 HANDOFF Work Log。
+* **`model_route` 自报值与 Author 实发参数不符** → 本轮审查的档位不可信：把不符项照实记进 Work Log 并报告人类（这是 `model_route` 字段存在的**唯一目的**——它不是证据，只是让档位漂移可见）。是否作废重跑由人类裁决，不由 Author 自行择一采信。
 * **连续两次失败即停**（`AGENTS.md` → 停止事件优先级 ②）：不自动回退、不换第三条路，把控制权交回人类。
 
 ## 6. 与其他工具的边界

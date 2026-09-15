@@ -58,7 +58,7 @@
 ```
 subagent(description: "9B blind review", run_in_background: false,
         provider: "deepseek-official", model: "deepseek-flash",
-        reasoning_effort: "high",          # 9A/9B = high；9P = medium
+        reasoning_effort: "high",          # 9A/9B = high；9P = high（DSH 无 medium 档）
         prompt: <§7 的 prompt，变量逐字填好>)
 ```
 **备用路径**：`npx -y @deepseek-ai/dsh --profile headless "<prompt>"`（verdict = stdout、raw log = stderr，都重定向到**仓外** holding；headless 没有 `-o`）。
@@ -107,7 +107,7 @@ Routine + 临时 Reviewer：
 
 ## 7. 三个 prompt（精简版；完整契约见快照仓 `dsh/workflow/reviewer-prompt.md`）
 
-**共用输出契约**（三份都要）：先写证据首行 `observed_head_sha: <git rev-parse HEAD>` / `worktree_clean: <yes/no>` / `read_handoff_from: <工作树 / git show tip>`（9P 为 `9P_round` + `observed_head_sha` + 两个 blob sha），再追 `writes_performed: none`；然后
+**共用输出契约**（三份都要）：先写证据首行 `observed_head_sha: <git rev-parse HEAD>` / `worktree_clean: <yes/no>` / `read_handoff_from: <工作树 / git show tip>`（9P 为 `9P_round` + `observed_head_sha` + 两个 blob sha），再追 `writes_performed: none` 与 `model_route: <provider>/<model>@<effort>`（后者按实际收到的调用指令写；它是自报值、不是证据，仅为让档位漂移可见——Author 须与实发参数逐字比对）；然后
 `## Review Verdict` / `## Blocking Issues`（含 `caused_by_last_fix` + `Proposed Fix`）/ `## Non-Blocking Suggestions`（含 Proposed Fix）/ `## Test Coverage Gaps` / `## Cannot Verify From Diff` / `## Verification Needed` / `## Debt Verdict`；9A 末节 `## Recommended Next Step`；**9B 末节两节都要：`## Recommended Next Step` + `## Requirement-Level Concerns`**。
 
 **9A（对照计划审实现）**
@@ -163,7 +163,7 @@ HANDOFF 与 last_test_run 从工作树读（禁止 git show <tip>:…）。
 * **上限**：一次 fan-out ≤ **10** agent、并发 ≤ **6**、一轮 ≤ **3** 个 `workflow`；**不得一事一 agent**（按批分组，一组一个 agent）；对抗性复核每批一个复核者，**不做 loop-until-dry**；只有人类显式写下预算才可超过。撞上用量上限而死的一轮：**先缩小再恢复**（失败的 agent 不缓存）。
 * **给子 agent 派活时把写权限与范围写死在 prompt 里**——它们都是完整 agent、都能写文件。
 * **模型白名单**：`subagent` 的模型选择受 `~/.dsh/settings.yaml` 的 `subagent-model-selection.allowedModels` 约束；换档前先确认目标在名单内。
-* **`reasoning_effort` 取值**：9A/9B = `high`，9P = `medium`；不写则落部署默认。可接受值 `off / low / high / max`。
+* **`reasoning_effort` 取值**：9A/9B = `high`，9P = `high`；不写则落部署默认。可接受值 `off / low / high / max`。
 * **记忆与配置是 machine-local**：`~/.dsh/settings.yaml`、会话、缓存都不进仓、不晋升；可复用结论必须写进仓库文件才成立。
 
 ## 10. 环境与沟通

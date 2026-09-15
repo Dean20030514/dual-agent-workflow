@@ -12,11 +12,13 @@ param([switch]$IUnderstandThisReplacesLiveConfig)
 # (-DryRun, -ValidateOnly, typos) fail at binding time before any statement
 # runs, instead of being silently swallowed by $args; the switch below is the
 # only way to reach the deploy path.
-# DSH side: ~/.dsh/AGENTS.md and ~/.dsh/workflow/ are mirror-replaced; ~/.dsh/skills/
-# files whose name starts with 'phase-' are mirror-replaced (they are the workflow's
-# own phase bodies), every other file under ~/.dsh/skills/ is left untouched and new
-# ones are only copied when missing — .dsh is the harness home (sessions, settings,
-# credentials, storages all live there).
+# DSH side: ~/.dsh/AGENTS.md and ~/.dsh/workflow/ are mirror-replaced (whole subtree).
+# Under ~/.dsh/skills/ ONLY this workflow's own bundles (dual-agent-workflow/,
+# independent-review/) are mirror-replaced — each is deleted and re-copied as a whole
+# directory, so machine-local edits inside those two bundles are NOT preserved (a
+# backup is written first). Every OTHER skill directory under ~/.dsh/skills/ is left
+# untouched, and new files elsewhere are only copied when missing. .dsh is the harness
+# home: settings.yaml, sessions/, storages/, profiles/ and credentials are never touched.
 if (-not $IUnderstandThisReplacesLiveConfig) {
     throw 'install.ps1 is guarded during the snapshot-first migration (MORATORIUM-LOCAL-001). Re-run with -IUnderstandThisReplacesLiveConfig after the migration gates pass.'
 }
@@ -73,6 +75,9 @@ if (-not (Test-Path $codexConfig)) {
 # 3b. DSH side (harness home — back up the whole subtree once, then mirror-replace
 # only the managed paths; ~/.dsh/settings.yaml, sessions, storages and credentials
 # are machine-local and are never touched).
+# WARNING: this backs up the WHOLE ~/.dsh subtree, including sessions/, storages/ and
+# .credentials.yaml. Those files are never modified, but a copy of them lands in
+# ~/.dsh.bak-<stamp> and is never cleaned up automatically — delete it yourself when done.
 Backup-IfExists $dshDir
 foreach ($f in 'AGENTS.md') {
     $target = Join-Path $dshDir $f

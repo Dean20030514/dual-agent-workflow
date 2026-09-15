@@ -63,4 +63,4 @@ argument-hint: [可选：报错信息 / 失败的测试]
 * **Routine + 能保证同模型** → 同样派全新上下文 sub-agent，但输入换成 Routine 手上真有的东西：**人类的原始请求 + 对话内约定的验收 + 当前干净 diff + 失败案例 + blast-radius 枚举**（Routine 没有 TASK_BRIEF / 批准计划，**不要为此临时造一份**）。
 * **无法派 fresh 上下文 sub-agent（任何模式）** → **不派降级 sub-agent**（只降级执行方式，不降级职责）。改为**在新会话里由主 agent 重做**（或 `dsh --profile headless` 起一个新进程）；连新会话都开不了 → **停下报告人类**，**不允许已锚定的当前上下文继续打补丁**。
 
-（sub-agent 继承主对话模型、不降级，见全局 `dsh/AGENTS.md` → Roles；判"能力回退 vs 上下文锚定"见 `~/.dsh/workflow/AB-model-diagnostic.md`。）
+（sub-agent 必须**显式钉住 `provider`/`model`**——DSH 没有"继承即不降级"这条，见全局 `dsh/AGENTS.md` → Roles；判"能力回退 vs 上下文锚定"的诊断见 `~/.dsh/workflow/AB-model-diagnostic.md`，但**该诊断针对多模型落地，DSH 单模型下不适用**，只需保留其中的"停止事件优先级"指针。）

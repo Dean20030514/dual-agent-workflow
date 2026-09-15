@@ -56,10 +56,10 @@ whenToUse: Load when a task is or may become Critical (human asked for the heavy
 * **把 Routine 当 Critical 跑**（或反之）：前者白烧配额与仪式，后者把真改动漏过人类门。**模式不明确时先问一句**，别猜。
 * **命令漂移**：凭记忆复述 phase 内容而不是读文件——历史上 27 个会话里 20 个没加载过 phase 命令，写出来的交接文件全部偏离模板。**读文件，别复述。**
 * **tip 里装的是过期 HANDOFF**：`HANDOFF.md` / `last_test_run.txt` 不在 `review_sensitive_paths` 内、提交在 `review_tip_sha` 之后。任何 Reviewer 都必须**从工作树读**这两个文件，禁止 `git show <tip>:docs/ai/HANDOFF.md`（实测 Reviewer 真会这么干）。
-* **审前快照自检被跳过**：HEAD ≠ `handoff_snapshot_sha` 或工作树不净 → Reviewer 必须拒审。Author 发审前先自己核一遍（清单见 `independent-review` 技能）。
+* **审前快照自检被跳过**：HEAD ≠ `handoff_snapshot_sha` 或工作树不净 → Reviewer 必须拒审。Author 发审前先自己核一遍（清单见 `independent-review` 技能，或直接读 `~/.dsh/skills/independent-review/SKILL.md`）。
 * **Author 自证**：自编 mutation harness / "删码后测试变红"不能单独证明实现正确——须由 Author 之外的一方复核「变异内容 + 目标测试确实执行 + 具体失败原因」三项（Critical 由 Reviewer；Routine 在对话里展示由人类确认）。
 * **evidence 面膨胀**：面数多不等于证据强，`docs/ai/**` 不计入 diff 预算但受"简短、指向 git log 与产物"约束。
-* **派发失控**：一次 fan-out ≤ 10 agent / 并发 ≤ 6 / 一轮 ≤ 3 workflow，**不得一事一 agent**（定义见 `verification-evidence` 技能 → 派发与工具面，或 `~/.dsh/workflow/fanout-toolchain.md`）。
+* **派发失控**：一次 fan-out ≤ 10 agent / 并发 ≤ 6 / 一轮 ≤ 3 workflow，**不得一事一 agent**（定义见 `references/verification-evidence.md` → 派发与工具面，或 `~/.dsh/workflow/fanout-toolchain.md`）。
 
 ## 4. 生成项目脚手架（新项目接入本工作流）
 

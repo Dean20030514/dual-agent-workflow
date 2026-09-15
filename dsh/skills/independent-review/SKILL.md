@@ -32,7 +32,7 @@ subagent(
   run_in_background: false,             # 审查必须前台
   provider: "deepseek-official",
   model: "deepseek-flash",
-  reasoning_effort: "high",             # 9A/9B = high；9P = medium
+  reasoning_effort: "high",             # 9A/9B = high；9P = high（DSH 无 medium 档）
   prompt: <reviewer-prompt.md 对应段落，变量逐字填好>
 )
 ```
@@ -49,6 +49,7 @@ subagent(
 | 2 | `worktree_clean` | 两份都是 `yes`（全树 `git status --porcelain` 为空） |
 | 3 | `read_handoff_from` | 两份都是「工作树」；出现 `git show tip` 即作废 |
 | 4 | `writes_performed` | 两份都是 `none`；有任何写入尝试 → **该轮作废重跑**（DSH 无沙箱兜底，这是纪律的唯一落点） |
+| 4b | `model_route` | 两份都写了 `<provider>/<model>@<effort>`；**Author 必须拿它与自己实发的调用参数逐字比对**——不符即记 Work Log 并报告人类，不得自行择一采信。它是**自报值、不是证据**，只为让档位漂移可见 |
 | 5 | 覆盖率 | 每份的「覆盖缺口：<路径>」行已记下，Author 落账时补进 `review_sensitive_paths` |
 
 **作废就是作废**：不要"下不为例"、不要"反正内容看着没问题"。一份被污染的独立判断不是独立判断。
