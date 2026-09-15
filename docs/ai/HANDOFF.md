@@ -12,7 +12,7 @@
 ## Source of Truth
 * `docs/ai/TASK_BRIEF.md`：本轮补写 + 两条 Amendment（人类 2026-09-06 接受）
 * `IMPLEMENTATION_PLAN.md`：不存在（本任务无批准门，已如实登记）
-* base：`main` x `bf06c65` · approval_commit_sha：N/A · plan_review_9P：N/A（无规划文件）
+* base：`main` @ `bf06c65` · approval_commit_sha：N/A · plan_review_9P：N/A（无规划文件）
 
 ## Review & Test Binding
 | 轮 | review_base_sha → review_tip_sha | 9B | 9A |
@@ -25,8 +25,8 @@
 * verdict 文件：`docs/ai/review_9{A,B}.md`（第 1 轮）、`_r2.md`、`_r3.md`、`_r4.md`
 * tested_sha：`87528d49d658eec5f52efae7e75783dd15d18207`（收口轮 tip；`last_test_run.txt` 的 §X/§Y/§Z 绑此值）
 * review_sensitive_paths：`dsh portable install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md`
-* **第 4 轮隔离核验**：两份 `observed_head_sha` == `fc32899f`、`worktree_clean: yes`、`writes_performed: none`、无覆盖缺口。9A 自报 `deepseek-official/deepseek-flashxhigh`（与实发参数**逐字一致**）；9B 自报仅 `deepseek-flash` 并**如实说明**它看不到 provider/effort 两项——两份都不回避自证限度。
-* **第 3 轮隔离核验**：两份 `observed_head_sha` == `34b60370`、`worktree_clean: yes`、`writes_performed: none`、无覆盖缺口；`model_route` 双双自报 `deepseek-official/deepseek-flashxhigh`，与实发参数**逐字一致**。
+* **第 4 轮隔离核验**：两份 `observed_head_sha` == `fc32899f`、`worktree_clean: yes`、`writes_performed: none`、无覆盖缺口。9A 自报 `deepseek-official/deepseek-flash@high`（与实发参数**逐字一致**）；9B 自报仅 `deepseek-flash` 并**如实说明**它看不到 provider/effort 两项——两份都不回避自证限度。
+* **第 3 轮隔离核验**：两份 `observed_head_sha` == `34b60370`、`worktree_clean: yes`、`writes_performed: none`、无覆盖缺口；`model_route` 双双自报 `deepseek-official/deepseek-flash@high`，与实发参数**逐字一致**。
 * **两处如实登记的隔离瑕疵**：① 9B 用 `git grep` 做全仓检索时**回显**了 `review_9A*.md` 的 3 行文本（声明未打开该文件、未作为推理输入）；② 9A **自行推断**"人类只要求跑 9A"因而记 `9B = N/A 减档`，而 9B 实际已跑——**本轮不是合法减档轮**。
 * 9A 另如实登记一处仓外写入（`%TEMP%\old_handoff.txt`，在仓库与 holding 之外）。
 
@@ -60,7 +60,7 @@
 ```
 [DEBT] 第 3 轮 9B 的 B1（AC6 按字面恒红 + <base> 未钉死）未解决 | Payback trigger: 合并前必须修复该 AC 或由人类裁决归类 | Impact: 人类按 AC6 复核会得到错误的"登记完整"结论；这正是三轮里反复出现的"账/措辞层"缺陷
 [DEBT] dsh/ 的相对母本"判据无漂移"缺少机械门禁（AC10 的判定对声称无区分力，9A-S4）| Payback trigger: 下次改动 dsh/** 之前 | Impact: 判据漂移不会被任何门检出（本轮靠 Reviewer 手工逐行读才排除）
-[DEBT] dsh/workflow/fanout-toolchain.md 的 DSH 事实绑定 xdeepseek-ai/dsh 0.1.5-rc.x | Payback trigger: xdeepseek-ai/dsh 升级后首次派发审查之前 | Impact: 参数/工具名变化会让调用范式静默失效（第 2 轮已复核一次）
+[DEBT] dsh/workflow/fanout-toolchain.md 的 DSH 事实绑定 @deepseek-ai/dsh 0.1.5-rc.x | Payback trigger: @deepseek-ai/dsh 升级后首次派发审查之前 | Impact: 参数/工具名变化会让调用范式静默失效（第 2 轮已复核一次）
 [DEBT] ~/.dsh 的运行副本由人工同步产生，无 *.bak-*，且每次同步无落账规范 | Payback trigger: 首次用 install.ps1 覆盖 ~/.dsh 之前 | Impact: 首次自动部署没有上一版可回退；人工同步可能被遗忘
 ```
 * **第 4 笔债（installer 整树备份复制凭据）已按人类裁决偿还**（收窄 README 措辞，commit `34b6037`）；两份第 3 轮 verdict 的 Reviewer 都逐句核对了"代码 ↔ README"并确认未出现反向过度声称。**残余行为**（备份仍会复制 `sessions/`/`storages/`/凭据且不自动清理）已改为上面的第 4 笔（人工同步）与之相邻披露，不再单列——**未静默删除该项的历史**。

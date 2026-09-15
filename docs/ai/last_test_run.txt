@@ -440,7 +440,7 @@ AC6: reg=30 scope=30 → GREEN
 install.ps1 解析: parse OK
 ```
 
-**AC6 登记表零漂移**：本收口轮改了 `README.md` / `docs/ai/AUTHORITY_CONTRACT.md` / `docs/ai/DSH-LANDING-NOTES.md` / `docs/ai/TASK_BRIEF.md` / `install.ps1` / 新增 `tools/ac4-reasoning-effort-check.ps1`，全部已在 §2.1/§2.3 登记 → `missing`/`stale` 均空。
+**AC6 登记表零漂移**：本收口轮改了 `README.md` / `docs/ai/AUTHORITY_CONTRACT.md` / `docs/ai/DSH-LANDING-NOTES.md` / `docs/ai/TASK_BRIEF.md` / `install.ps1` / 新增 `tools/ac4-reasoning-effort-check.ps1`，**其中 `tools/ac4-reasoning-effort-check.ps1` 不在 AC6 的 scope 内、也不在登记表内**（第 5 轮 9A 的 B-1）→ 本句此前写"全部已登记"是**假声称**，已订正；`missing`/`stale` 均空只对 scope 内的那些文件成立。
 
 ## AA. 本轮同时修掉的第 4 轮残留（属 Suggestion 级，一并收掉）
 
