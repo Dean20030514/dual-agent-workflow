@@ -128,3 +128,105 @@ $ #          （references/** 未被当作技能 → 与 dsh-skill-filesystem �
 * **未运行 `install.ps1`**（受迁移期 guard 锁定；AGENTS.md 明令勿直接运行）。
 * **未做 `subagent` 端到端审查取证**：本轮两次 9A/9B 调用**是**真实发生的（返回正文已落账），但**未实测** `medium` 被拒的完整错误报文（仅静态证据）——若要坐实，见 9A 的 VN1。
 * 本任务**无功能测试套件**，故不存在"全量测试退出码"这类证据。
+
+---
+
+# 第 2 轮：Reviewer 的 Verification Needed 代跑（2026-09-06）
+
+收集者：Author · **绑定 `tested_sha = 7084fb7515ef36e8191f20a141bf2118cd20ff4e`**（第 2 轮审 tip）
+说明：本文件上方的 A–G 节绑定的是**第 1 轮**的 `tested_sha = a361bc19`（修补前），**保留不删**以便对照；下方为第 2 轮代跑结果，逐条对应两份 verdict 的 VN。
+
+## H. VN1（9A/9B 共同要求）：9P 的 `high` 档位实跑取证
+
+命令（真实执行：前台 `subagent`，参数逐字为该值）：
+
+```
+subagent(description: "9P effort probe", run_in_background: false,
+         provider: "deepseek-official", model: "deepseek-flash",
+         reasoning_effort: "high",
+         prompt: "档位连通性探针…只回三行，不要使用任何工具")
+```
+
+真实返回（照抄）：
+
+```
+model: deepseek-flash（据全局指令记录；我无法自证运行时配置）
+effort: 无法自证（未收到任何档位声明）
+status: OK
+```
+
+**结论**：调用**未被拒**（第 1 轮 B1 的病征是"必然被 `UNSUPPORTED_REASONING_EFFORT` 拒绝"，此处未出现）→ **9P 门在当前配置下可跑**。
+**如实标注两点**：① 这只是一次**连通性探针**，不是真实 9P 审查轮；② 子 agent **无法自证**自己的 provider/model/effort——这正是 `model_route` 只能是"自报值、非证据"的实证。
+
+## I. VN2（9A）+ AC4 判定与负向对照实跑（9B 的 VN4）
+
+判定命令（AC4 Amendment 后的形态：范围 = DSH 面）：
+
+```
+$files = (Get-ChildItem dsh -Recurse -File -Include *.md,*.txt).FullName + <portable/通用prompt-DSH-v1.txt>
+$vals  = 对每个文件扫 reasoning_effort 赋值位取值
+$vals | Where-Object { $_ -notin @('off','low','high','max') }   # 越界集必须为空
+```
+
+正向（当前 tip）真实输出：
+
+```
+取值集合: high
+越界: (空)
+```
+
+适配器侧：
+
+```
+$ Select-String -Path <@deepseek-ai/dsh-llm-deepseek>/lib/index.js -Pattern '"medium"'
+命中数 = 0
+```
+
+**负向对照（必须实际红过才算有区分力）**：把 `dsh/workflow/fanout-toolchain.md` 的 `reasoning_effort: "high"` 临时改成 `"medium"`，重跑上述判定：
+
+```
+变异后取值: medium  →  越界: medium
+判定结果: RED (有区分力)
+```
+
+随后还原，并确认工作树干净（还原后 `git status --porcelain` 无该文件条目）。→ **AC4 判定成立（可复现 + 有区分力）。**
+
+## J. VN3（9A VN2）：备用路径 CLI 面实跑
+
+```
+$ npx -y @deepseek-ai/dsh --profile headless --help
+Usage: dsh --profile headless [options] [task...]
+
+Answer one task, stream reasoning to stderr, print the final assistant message,
+and exit.
+
+Arguments:
+  task        the task text; multiple words are joined by spaces
+
+Options:
+  -h, --help  show this help
+
+Examples:
+  dsh --profile headless "run the tests"     answer one task and exit
+exit=0
+```
+
+**结论**：实测确认 headless **只有 `-h/--help` 与位置参数 `[task...]`**——无 `-o`、无 `--provider`/`--model`/推理档参数。AC3 关于"备用路径 CLI 面"的判定**成立**；同时坐实"备用路径钉不住路由"这条事实（9B 的 B2(ii)）。
+
+## K. 运行副本一致性（9A 独立复核过；此处留 Author 侧产物）
+
+```
+$ # 仓内 dsh/** vs ~/.dsh 逐文件 SHA256
+compared=23 mismatches=0
+```
+
+**时点**：第 2 轮修补后再同步，发生在第 2 轮审查窗口**开启之前**（9A 以 mtime 20:21 < commit 20:22 判定"无窗口污染"）。本轮（第 3 轮 delta）**尚未再同步**——见下方未验证项。
+
+## L. 仍未跑 / 仍未验证（不得当作通过）
+
+* **未跑完整的 headless 审查轮**（只跑了 `--help` 与一次可用性冒烟）→ 9B 的 VN5 未做。
+* **未运行 `install.ps1`**（迁移期 guard 锁定）→ AC8 仍只有静态核验。
+* **未做 `~/.dsh` 的机器态哈希基线比对**（AC8 要求的三项：`settings.yaml` / `sessions/` 计数 / 凭据存在性）。
+* **第 3 轮 delta 未再同步到 `~/.dsh`**，也未重审。
+* **`model_route` 的真实性无机械手段可证**——它是自报值。
+* **本任务无功能测试套件**，不存在"全量测试退出码"这类证据。

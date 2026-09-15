@@ -1,6 +1,6 @@
 # HANDOFF.md
 
-> **归档说明（2026-09-06 稍晚）**：本文件是**上一个任务**（母本过期 agent 引用修正 + clangd-lsp 补录）的交接记录，由 docs/ai/HANDOFF.md 改名保留（原文件名会被下一个任务的 /plan 归档动作覆盖）。它**不属于** 	ask/dsh-landing，其 Review & Test Binding 的 shas 与本任务无关。docs/ai/HANDOFF.md 现为 dsh-landing 任务的交接文件。
+> **归档说明（2026-09-06 稍晚）**：本文件是**上一个任务**（母本过期 agent 引用修正 + clangd-lsp 补录）的交接记录，由 docs/ai/HANDOFF.md 改名保留（原文件名会被下一个任务的 /plan 归档动作覆盖）。它**不属于** task/dsh-landing，其 Review & Test Binding 的 shas 与本任务无关。docs/ai/HANDOFF.md 现为 dsh-landing 任务的交接文件。
 
 
 > 本文件是仓库现状的极简交接;历史任务全部在 `docs/ai/archive/<日期-任务>/`。

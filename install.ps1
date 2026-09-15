@@ -17,8 +17,8 @@ param([switch]$IUnderstandThisReplacesLiveConfig)
 # independent-review/) are mirror-replaced — each is deleted and re-copied as a whole
 # directory, so machine-local edits inside those two bundles are NOT preserved (a
 # backup is written first). Every OTHER skill directory under ~/.dsh/skills/ is left
-# untouched, and new files elsewhere are only copied when missing. .dsh is the harness
-# home: settings.yaml, sessions/, storages/, profiles/ and credentials are never touched.
+# untouched. .dsh is the harness home: settings.yaml, sessions/, storages/, profiles/ and
+# credentials are never touched.
 if (-not $IUnderstandThisReplacesLiveConfig) {
     throw 'install.ps1 is guarded during the snapshot-first migration (MORATORIUM-LOCAL-001). Re-run with -IUnderstandThisReplacesLiveConfig after the migration gates pass.'
 }

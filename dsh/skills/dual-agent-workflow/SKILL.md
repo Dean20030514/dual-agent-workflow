@@ -31,6 +31,8 @@ whenToUse: Load when a task is or may become Critical (human asked for the heavy
 | 只读探索 | `references/phases/explore.md` | 探索输出 → 计划起草（Reuse Findings 进计划） |
 | 正式规划 + 9P + 批准门 | `references/phases/plan.md` | `IMPLEMENTATION_PLAN.md`（含 Human Approval Status）、`docs/ai/review_9P.md` |
 | 设计层闸门 | `references/phases/design-check.md` | HANDOFF 的 Quality Gates 节 |
+| 冲突·债务·硬停（横切） | `references/conflict-hard-stop.md` | 挂在 `docs/ai/`（`[DEBT]` 行、Fix-Loop Counter） |
+| 验证·守护证据·派发（横切） | `references/verification-evidence.md` | `docs/ai/last_test_run.txt` + 守护产物 |
 | 实现 + 测试产物 + 闸门 | `references/phases/implement.md` | 代码 + `last_test_run.txt` + `HANDOFF.md` |
 | 调试（横切） | `references/phases/debug.md` | 修复 + 回归用例 + 证据 |
 | 最终审查（含代跑 VN） | `references/phases/final-review.md` | Final Verdict + PR Description |

@@ -22,7 +22,7 @@ whenToUse: Load when a review round just ended, when a fix failed twice, when a 
 
 顶层字段：`## Review Verdict` / `## Blocking Issues` / `## Non-Blocking Suggestions` / `## Test Coverage Gaps` / `## Cannot Verify From Diff` / `## Verification Needed` / `## Debt Verdict`。
 
-* **`Blocking Issues` 只收 `[Product Blocking]`**，每条必须写出**具体后果**：哪个用户操作 / 哪条数据 / 哪个安全边界会出错（已造成或可达都算）。"不能排除""可能有影响"**不是后果**——写不出后果的一律进 `Verification Needed`。含：为过测试而真实弱化 validation·auth·错误处理；diff 里删/跳/弱化了覆盖本任务行为的测试且三处（commit message、HANDOFF Work Log、测试内注释）都没说明、或说明经核实不成立；某条验收点**有具体反例**表明未满足。**缺证据 ≠ 未满足**——缺证据走 Verification Needed。每条由 **Reviewer** 标 `caused_by_last_fix: yes/no/dispute`（**仅 Critical**）。
+* **`Blocking Issues` 只收 `[Product Blocking]`**，每条必须写出**具体后果**：哪个用户操作 / 哪条数据 / 哪个安全边界会出错（已造成或可达都算）。"不能排除""可能有影响"**不是后果**——写不出后果的一律进 `Verification Needed`。含：为过测试而真实弱化 validation·auth·错误处理；diff 里删/跳/弱化了覆盖本任务行为的测试且三处（commit message、HANDOFF Work Log、测试内注释）都没说明、或说明经核实不成立（**Reviewer 须写出该测试仍能检出的具体缺陷或可达路径；写不出的记 Non-Blocking Suggestion**）；某条验收点**有具体反例**表明未满足。**缺证据 ≠ 未满足**——缺证据走 Verification Needed。每条由 **Reviewer** 标 `caused_by_last_fix: yes/no/dispute`（**仅 Critical**）。
 * **证据缺口不是 blocking**：probe 冒充证据、测试没走真实路径但被测行为本身正确、守护产物字段不全、负向对照覆盖不足、"实际运行未覆盖所称路径"——写进 `Verification Needed`：点名哪条声称 / 由哪份产物支撑 / 缺什么 + **一个能证伪该声称的最小检查**（单个测试 / 单个样本 / 单条 grep；不得列全量套件、整批装置重跑、或同 tip 已有输出的命令）。
 * **账本与措辞不一致**（HANDOFF 字段、手写计数、阶段文本、SHA 写法、不涉及未核验产品/AC 行为的纯措辞过度声称）→ `Non-Blocking Suggestions` + Proposed Fix；Author 落账时改正或收窄声称，一句话表态即可。一条发现兼具"路径未实际运行"与"措辞过度"时，**拆成一条 VN + 一条 Suggestion**。
 * **`Review Verdict` 语义**：`不通过` ⇔ Blocking 非空；`有条件通过` = Blocking 为 None 且 VN 非空；`通过` = 两者皆空。Process Debt 与 Suggestion 不影响通过。**Reviewer 不得以证据充分性为由判不通过。**
@@ -44,7 +44,7 @@ whenToUse: Load when a review round just ended, when a fix failed twice, when a 
 
 ① 最后一轮实际跑过的**每一份 verdict** 的 Blocking 中**无未解决的 `[Product Blocking]`**——"已解决" = 已修复并对该修复再审通过，或 Author `不采纳`（附技术理由）**且人类裁决该项不成立**并记进 HANDOFF Work Log（日期 + 一句话）。verdict 词本身不是门。减档只跑 9A 时 9B 记 `N/A + 减档原因`。
 ② 该轮**全部 VN 已逐条处置**：Author 代跑、真实输出与退出码追加进 `last_test_run.txt`，或以技术理由「不采纳」；每条在 `/final-review` 的 Manual Check Before Commit 占一行（命令 → 退出码 → 一句话判定"产品缺陷 是/否"）。退出码非 0、装置判 NOT PROVEN 的条目**不得省略**。
-③ 当前 review-sensitive 内容 == `review_tip_sha`（内容比对）。**例外（不使审查失效）**：(a) 审后仅新增独立测试用例文件（`test_*` / `*.spec.*` / `*.test.*`）且不删不改既有断言——**不含** conftest / fixtures / 测试与 runner 配置 / setup 文件；此时 `tested_sha` 须回炉到含该 delta 的新 commit；(b) 只改 `docs/ai/` 非验收文档；(c) 验收条款修订出自人类裁决且未改生产代码；(d) `docs/ai/QUALITY_GATES.md` 审后有改动 → 不自动失效，但 `/final-review` 把该 diff 原样列进 Manual Check，由人类决定是否再审（删行 = 删闸门）。凡改了生产源码、迁移/schema、构建配置与依赖、删/改既有测试或测试基础设施、或 Author 自行改验收条款 → **须对该 delta 再审**（人类可减档只跑 9A）。
+③ 当前 review-sensitive 内容 == `review_tip_sha`（内容比对）。**例外（不使审查失效）**：(a) 审后仅新增独立测试用例文件（`test_*` / `*.spec.*` / `*.test.*`）且不删不改既有断言——**不含** conftest / fixtures / 测试与 runner 配置 / setup 文件；此时 `tested_sha` 须回炉到含该 delta 的新 commit，**且新 `last_test_run.txt` 的收集用例总数 ≥ `git show <handoff_snapshot_sha>:docs/ai/last_test_run.txt` 那次**（两份已有输出对比，不另记字段）；(b) 只改 `docs/ai/` 非验收文档；(c) 验收条款修订出自人类裁决且未改生产代码；(d) `docs/ai/QUALITY_GATES.md` 审后有改动 → 不自动失效，但 `/final-review` 把该 diff 原样列进 Manual Check，由人类决定是否再审（删行 = 删闸门）。凡改了生产源码、迁移/schema、构建配置与依赖、删/改既有测试或测试基础设施、或 Author 自行改验收条款 → **须对该 delta 再审**（人类可减档只跑 9A）。
 
 **人类因成本叫停 ≠ 质量通过**：存在未解决 Product Blocking、或有未经审查的生产改动 → 记 `stopped, NOT converged`。
 

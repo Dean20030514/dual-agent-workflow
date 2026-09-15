@@ -65,7 +65,7 @@ npx -y @deepseek-ai/dsh --profile headless (Get-Content "$HOLD\9A_prompt.txt" -R
 
 * headless **没有 `-o`**（`-o` 是原 Claude 侧 `codex exec` 的参数，DSH 无对应项）：verdict = **stdout**，raw log = **stderr**，二者都必须重定向到**仓外** holding。
 * headless 每次运行落一个持久化会话，天然是 fresh 进程；它与 `subagent` 路径在**证据强度上等价**（同一份 prompt、同一套自检），差别只是进程隔离度与可复现性。
-* **两条路径的证据面必须一致**：三行证据首行（⑤）与 `writes_performed` 在两条路径上都要落账，否则该轮作废。
+* **两条路径的证据面必须一致**：证据头（三行基底 + `model_route`）与 `writes_performed` 在两条路径上都要落账，否则该轮作废。
 
 **(c) 两条路径共同的红线**
 
@@ -138,7 +138,7 @@ HEAD ≠ `handoff_snapshot_sha`、或工作树不净 → **在审查正文前输
 2. 当前 `git rev-parse HEAD` == `handoff_snapshot_sha`，且全树 `git status --porcelain` 为空。不满足 → 先形成明确的 reviewable commit，别发审。
 3. `git status --porcelain --ignored` 无任何 verdict / raw log 残留（模式见 ③/④）。
 4. 仓外 holding 已建好（`$HOME/.dsh-review-holding/<task>`），**且与仓库工作树不同子树**。
-5. 两份 prompt 都内嵌了对应模式的证据载体整句（从 `AGENTS.md` 第二层直接复制），都写了「零写入 + `writes_performed` 字段」。
+5. 两份 prompt 都内嵌了对应模式的证据载体整句（从 `AGENTS.md` 第二层直接复制），都写了「零写入 + `writes_performed` 与 `model_route` 字段」。
 6. 调用形态已按 ③ 填好：`run_in_background: false`、`provider: "deepseek-official"`、`model: "deepseek-flash"`、`reasoning_effort: "high"`（9P 同为 `high`——DSH 无 `medium` 档）。
 7. **9B 先发**；拿到 9B 返回后才发 9A；9A 的 prompt 里**不含** 9B 的任何内容。
 8. 两份都拿到后，才统一落账（④）：两个文件写进仓外 holding，再写 `docs/ai/review_9*.md`，再一次性更新 HANDOFF。

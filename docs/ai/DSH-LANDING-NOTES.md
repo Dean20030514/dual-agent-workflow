@@ -45,7 +45,7 @@ phase 文件额外做了三处归一：加 `name: phase-<原命令名>`（**防�
 | 7 | `reviewer-prompt.md` | 全文 DSH 化：调用形态 ③ 换成 `subagent` + headless 两个模板与参数；④ 的 holding 落盘改为 Author 执行；新增 `writes_performed` 与 `model_route` 必填字段；新增 `## Author 侧：发 9A/9B 前置检查` 清单；9P 改为 `reasoning_effort: high` 并重写降档来历节；**把两处 `docs/ai/QUALITY_GATES.md` 指针改回项目副本** | 只改"怎么跑"，判据/字段/阈值不动。**首轮 B1/B3/9B-B3**：首版把 9P 写成 `medium`（适配器无此档）、把 Reviewer 的质量清单输入误改成母本路径（机械替换误伤）、缺档位自报字段 |
 | 8 | `QUALITY_GATES.md` | 组织与角色分配节：删掉 Claude 侧专家 agent 的历史叙述，改为 DSH 现实（只有 `subagent`/`subagent_fork`/`workflow`）+ 派发上限指引，**并把母本"派 sub-agent 时要求继承主对话模型不降级"整句替换为"子 agent 一律显式钉住 `provider`/`model`"** | 该节原内容是关于已卸载插件的本机事实，在 DSH 下已失效；DSH 没有"继承即不降级"这条（首轮 9A 的 S5 要求把这个替换写清） |
 | 9 | `index.md` | 角色行、命令对照表、Reviewer prompt 行、模式路由指针改为 DSH 形态 | 导航必须指向真实存在的文件 |
-| 10 | `debug.md` / `final-review.md` / `plan.md` / `implement.md` | "继承主对话模型"的判据改为"fresh 上下文"（`subagent` 天然 fresh）；`Reviewer（Codex）` → `Reviewer（DSH subagent / headless）`；加 `exit_plan_mode ≠ Critical 批准门`；`Ready for Review` 改为"可投给 DSH Reviewer 的两份 prompt"+ 调用参数（含 `writes_performed`/`model_route`） | 这几个是 DSH 特有的认知陷阱 |
+| 10 | `debug.md` / `final-review.md` / `plan.md` / `implement.md` / `design-check.md` / `define.md` / `explore.md` | "继承主对话模型"的判据改为"fresh 上下文"（`subagent` 天然 fresh）；`Reviewer（Codex）` → `Reviewer（DSH subagent / headless）`；加 `exit_plan_mode ≠ Critical 批准门`；`Ready for Review` 改为"可投给 DSH Reviewer 的两份 prompt"+ 调用参数（含 `writes_performed` 证据行；`model_route` 只出现在 `reviewer-prompt.md` 契约与 `independent-review` 手册，不在 phase 正文） | 这几个是 DSH 特有的认知陷阱 |
 | 11 | `workflow-design-notes.md` | 一行路径指针：`.claude/commands/design-check.md` → `~/.dsh/skills/.../phases/design-check.md` | 路径随命令面迁移 |
 | 12 | 新增 `fanout-toolchain.md` | DSH 工具面事实：委派三面、参数与白名单、档位取值域、**headless 钉不住路由**、派发上限、失败语义（含 `model_route` 不符的处置） | 母本没有对应物；把"事实"与"判据"分开，升级包后只需核对这一份 |
 
@@ -69,7 +69,7 @@ phase 文件额外做了三处归一：加 `name: phase-<原命令名>`（**防�
 | 22 | `docs/ai/AUTHORITY_CONTRACT.md` | **仓级修改** | 增补：DSH 部署面进入受管面、机器态例外、seed-only 例外仍只有 `~/.config.toml` 一项、尚未实跑 |
 | 23 | `docs/ai/DSH-LANDING-NOTES.md` | **新增** | 本文件 |
 
-**手册 16/17 是有意精简的执行手册，不是母本副本**：其中两条曾被首轮 9B 的 S1 指出丢了母本的反滥用条件（`conflict-hard-stop.md` 的收敛门 ③(a) 少了"新 `last_test_run.txt` 收集用例总数 ≥ 快照那次"；§1 的 Blocking 判据少了"Reviewer 须写出该测试仍能检出的具体缺陷或可达路径，写不出的记 Non-Blocking Suggestion"）——**已在本轮逐字补回**（2026-09-06 第 2 轮）。设计原则：**手册可以省略解释性文字，但不得省略任何判据、阈值或反滥用条件**；与母本冲突时以母本为准。
+**手册 16/17 是有意精简的执行手册，不是母本副本**：其中两条曾被首轮 9B 的 S1 指出丢了母本的反滥用条件（`conflict-hard-stop.md` 的收敛门 ③(a) 少了"新 `last_test_run.txt` 收集用例总数 ≥ 快照那次"；§1 的 Blocking 判据少了"Reviewer 须写出该测试仍能检出的具体缺陷或可达路径，写不出的记 Non-Blocking Suggestion"）——**已在第 3 轮逐字补回**（2026-09-06；第 2 轮我在此处误写了"已补回"，实际两份手册的 blob 在第 2 轮未变——第 2 轮 9A 的 S1 抓到了这个假声称）。设计原则：**手册可以省略解释性文字，但不得省略任何判据、阈值或反滥用条件**；与母本冲突时以母本为准。
 
 ## 3. 未偿还的债（登记，不藏）
 

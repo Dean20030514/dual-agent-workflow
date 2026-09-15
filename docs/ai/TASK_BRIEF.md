@@ -4,7 +4,8 @@
 
 ## 补写说明（如实登记）
 
-本任务由人类在对话中直接下达（"将我这套本应用于 claude code 和 codex 的工作流作用于 dsh，但是 Author 和 Reviewer 都是 deepseek/dsh"），Author **直接进入实现**并落 commit，未走 `/plan`、未产出 TASK_BRIEF、未跑 9P、未取得计划批准门——因此首轮双审是在**没有需求文件**的情况下进行的（两份 prompt 里的 Frozen Acceptance 由 Author 当场写入 prompt）。人类在首轮双审后裁决"补一份 TASK_BRIEF 含本任务 Frozen Acceptance"，本文件即该裁决的产物。
+> **Amendment 记录（2026-09-06，第 2 轮双审后）**：第 2 轮 9A 的 S7 判定 AC4/AC6 的判定方式按字面不可满足/会假红，AC1/AC8/AC9 属"散文对读"。处置：**AC4 与 AC6 已改写为可执行形态**（限定输入域 + 具体命令 + 反例实跑）；**AC1 保持原判据但判为"本轮只可抽样核验"**——它要求"17 对派生文件逐条一致"，Author 与 Reviewer 都只做了抽样（全量需逐条人工读 2600+ 行），按「验收条款必须可复现判定」这属于**证据面不足而非未满足**；它**不作为阻止合并的 AC**，改列本任务的 Known Limitation。
+> **本 Amendment 由 Author 记录，等待人类在合并前确认**（按收敛门 ③(c)，验收条款的修订只能出自人类裁决；此处如实标注"待确认"，人类若不接受请直接改回并记录日期）。本任务由人类在对话中直接下达（"将我这套本应用于 claude code 和 codex 的工作流作用于 dsh，但是 Author 和 Reviewer 都是 deepseek/dsh"），Author **直接进入实现**并落 commit，未走 `/plan`、未产出 TASK_BRIEF、未跑 9P、未取得计划批准门——因此首轮双审是在**没有需求文件**的情况下进行的（两份 prompt 里的 Frozen Acceptance 由 Author 当场写入 prompt）。人类在首轮双审后裁决"补一份 TASK_BRIEF 含本任务 Frozen Acceptance"，本文件即该裁决的产物。
 
 **这修补的是流程缺口，不是给已完成的实现补一张事后授权单**：首轮双审的 verdict（9A/9B 均"不通过"）与 Fix-Loop 计数不因本文件而改变；本文件的作用是让**第 2 轮修补**有可对照的验收基线。
 
@@ -45,9 +46,15 @@
 1. **一等公民**：仓内出现 `dsh/`，与 `claude/`、`codex/` 并列；`dsh/workflow/AGENTS.md` 是 DSH 会话的判据唯一出处，且**与 `claude/workflow/AGENTS.md` 的判据、阈值、轮次上限逐条一致**（只允许"怎么跑"不同）。
 2. **可加载**：`dsh/skills/` 下至少一个 bundle 能被 DSH 的 skill 发现面加载（判定方式：把 bundle 放进 `<dshHome>/skills/` 后，一个 fresh DSH 会话的技能目录里出现它；**不是**靠读包内 README 推断）。
 3. **两条 Reviewer 路径**：主路径 = 同会话 `subagent` 前台调用，显式 `provider`/`model`/`reasoning_effort`；备用路径 = 独立 `dsh --profile headless` 进程。**两条路径给出的命令都必须真的能跑**（判定方式：主路径产生过真实 verdict；备用路径的 CLI 面经 `--help` 或实跑确认）。
-4. **模型档可指回一手来源**：Author 与 Reviewer 的模型/档位断言必须能指回官方公告、`list_subagent_models` 的实时返回或包内 `DEFAULT_MODELS`；**不得凭记忆**。所有写进文档的 `reasoning_effort` 取值必须落在适配器取值域（`off/low/high/max`）内（判定方式：`Select-String <适配器> -Pattern '"medium"'` 零命中，且文档里的取值逐个属于该枚举）。
+4. **模型档可指回一手来源**：Author 与 Reviewer 的模型/档位断言必须能指回官方公告、`list_subagent_models` 的实时返回或包内 `DEFAULT_MODELS`；**不得凭记忆**。所有写进文档的 `reasoning_effort` 取值必须落在适配器取值域（`off/low/high/max`）内。**判定方式（Amendment 2026-09-06，第 2 轮 9A 的 S7 指出原表述会假红）**：
+   * 输入域 = **仅 DSH 侧面**：`dsh/**`、`portable/通用prompt-DSH-v1.txt`、`README.md` 的 DSH 段；**明确排除** `claude/**` 与 `portable/通用prompt-v3.8.txt`（那里的 `medium` 属 Codex 侧 `model_reasoning_effort`，合法）。
+   * 判定命令：对上述范围枚举 `reasoning_effort` 的**赋值位**，每个值都必须 ∈ `{off, low, high, max}`；且 `Select-String -Path <dsh-llm-deepseek>/lib/index.js -Pattern '"medium"'` 零命中。
+   * **反例（负向对照，必须实际跑过一次并留产物）**：把 `dsh/workflow/fanout-toolchain.md` 的 `high` 临时改成 `medium` → 上述判定必须红（退出码非 0）→ 还原并确认 `git status --porcelain` 为空。
 5. **零写入闭环**：verdict 契约含 `writes_performed` 字段；三份 prompt 都要求它；Author 侧明确"落盘由 Author 在窗口结束后做"；零写入违反 = 该轮作废。
-6. **改点可复核**：`docs/ai/DSH-LANDING-NOTES.md` 的改点登记**覆盖全部实际变更**（判定方式：`git diff --name-only <base>..<tip>` 的每一项都能在 §2 或 §2.1 找到；逐对 `git diff --no-index` 的每一条变更行都能归到某个改点）。
+6. **改点可复核**：`docs/ai/DSH-LANDING-NOTES.md` 的改点登记**覆盖全部实际变更**。**判定方式（Amendment 2026-09-06，第 2 轮 9A 的 S7 指出原表述含不可满足项）**：
+   * 判定范围 = **交付面**：`git diff --name-only <base>..<tip> -- dsh portable install.ps1 AGENTS.md README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md` 的**每一项**都能在 §2 或 §2.1 找到。
+   * **明确排除**（过程产物，不属于"改点登记"面）：`docs/ai/HANDOFF*.md`、`docs/ai/last_test_run.txt`、`docs/ai/review_9*.md`、以及仅补末尾换行的 phase 正文（已在 §1 归一化说明中覆盖）。
+   * 附加判定：逐对 `git diff --no-index --numstat` 的变更行与 §2 清单对齐（命令见 §1 第 4 步）。
 7. **说与做一致**：`install.ps1` 的注释、`README.md` 的布局表与快照状态节、`AUTHORITY_CONTRACT.md` 的增补、`DSH-LANDING-NOTES` §4 对"镜像哪些路径 / 不碰哪些机器态"的描述必须与代码一致（判定方式：逐条对读，最近的反例是首轮 9A 的 B3）。
 8. **机器态不可触碰**：`~/.dsh` 下的 `settings.yaml`、`sessions/`、`storages/`、`.credentials.yaml`、`profiles/` 不被部署动作修改或删除（判定方式：安装器解锁后在一次性 profile/临时 HOME 下实跑并比对哈希；本轮只做静态核验并如实标注未实跑）。
 9. **如实标注**：未经审查/未实跑/未验证的东西必须写成未验证（含 `[DEBT]` 三笔与验证记录节）；**不得把"未做"写成"已验证"**。
