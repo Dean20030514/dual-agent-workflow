@@ -596,3 +596,61 @@ AC4-门在该变异下: AC4: FAIL
 * 无论选哪个，`HANDOFF` 的第 6 笔债（AC4 正则只覆盖未加引号小写形态）都应按所选路线改写描述。
 
 **本轮的量化产物即为该裁决的全部依据**——不再依赖推理。
+
+## AP. 选项 1 / 2a / 2b 的代价拆解（2026-09-06 第 8 轮；为 `HANDOFF` 裁决矩阵 §二 提供实测依据）
+
+**为什么单独做这一项**：裁决矩阵此前把"加宽正则"写成**一项**，其中**驼峰键**与**散文式**捆在一起。实测后两者代价差一个数量级，故拆开——本节的产物就是拆分的依据。
+
+**① 驼峰赋值位确实是现正则的逃逸面**（**regex 级对照，不是门级实跑**——门级负向对照只在人类选定 2a 后于落地时实跑）
+
+命令（原样复制）：
+
+```powershell
+$cur  = 'reasoning_effort`?\s*[:=]\s*"?([a-z]+)"?'
+$wide = 'reasoning_?[Ee]ffort`?\s*[:=]\s*"?([A-Za-z]+)"?'
+foreach ($p in @($cur,$wide)) { foreach ($s in @('reasoningEffort: medium','reasoning_effort: medium')) { $p + '  =>  ' + ([regex]::Matches($s,$p).Count) + ' hit(s) on [' + $s + ']' } }
+```
+
+输出（原始）：
+
+```
+reasoning_effort`?\s*[:=]\s*"?([a-z]+)"?  =>  0 hit(s) on [reasoningEffort: medium]
+reasoning_?[Ee]ffort`?\s*[:=]\s*"?([A-Za-z]+)"?  =>  1 hit(s) on [reasoningEffort: medium]
+reasoning_effort`?\s*[:=]\s*"?([a-z]+)"?  =>  1 hit(s) on [reasoning_effort: medium]
+reasoning_?[Ee]ffort`?\s*[:=]\s*"?([A-Za-z]+)"?  =>  1 hit(s) on [reasoning_effort: medium]
+```
+
+**② 加宽后在全部域内文件上的增量 = 0，取值集合不变**
+
+命令（原样复制，域 = 与 AC4 门逐字相同的三组路径）：
+
+```powershell
+$files  = @(); $files += (Get-ChildItem dsh -Recurse -File -Include *.md,*.txt).FullName
+$files += (Resolve-Path 'portable\通用prompt-DSH-v1.txt').Path; $files += (Resolve-Path 'README.md').Path
+$cur='reasoning_effort`?\s*[:=]\s*"?([a-z]+)"?'; $wide='reasoning_?[Ee]ffort`?\s*[:=]\s*"?([A-Za-z]+)"?'
+$curV=@(); $wideV=@()
+foreach ($f in $files) {
+  foreach ($x in (Select-String -Path $f -Pattern $cur  -AllMatches).Matches) { $curV  += $x.Groups[1].Value }
+  foreach ($x in (Select-String -Path $f -Pattern $wide -AllMatches).Matches) { $wideV += $x.Groups[1].Value }
+}
+'current  matched values = ' + (($curV|Sort-Object -Unique) -join ', ') + '   (total hits ' + $curV.Count + ')'
+'widened  matched values = ' + (($wideV|Sort-Object -Unique) -join ', ') + '   (total hits ' + $wideV.Count + ')'
+'widened-minus-current hits = ' + ($wideV.Count - $curV.Count)
+```
+
+输出（原始）：
+
+```
+current  matched values = high   (total hits 7)
+widened  matched values = high   (total hits 7)
+widened-minus-current hits = 0
+adapter medium hits = 0
+```
+
+**③ 由此得到的代价对比（可证的）**
+
+* **驼峰赋值位（选项 2a）**：现正则对 `reasoningEffort: medium` **零命中**（① 第 1 行）→ 逃逸面真实存在；加宽后**域内新增命中 0、取值集合仍只有 `high`**（② 第 3 行）→ 不引入新判据、不改动任何现有行的判定。改动量 = `reasoning_effort` → `reasoning_?[Ee]ffort`、`[a-z]` → `[A-Za-z]`，**1 行**；另需 1 条门级负向对照。
+* **散文式（选项 2b）**：与 ① 无关——它要匹配 `` 9A/9B = `high` `` 这类**自由措辞**，代价落在"自由文本匹配"上（本任务六轮来反复出错的那类判据）。
+* **因此**把"加宽"拆成 2a（机械、1 行、0 增量）与 2b（脆、扩判据面）**有实测依据**，不是措辞偏好。
+
+**④ 如实标注的限度**：①② 均为 **Author 自跑**，且 ① 是 **regex 级**对照——它证明"逃逸面存在、加宽可堵"，**不**代替门级负向对照（`AC4: FAIL` / `exit=1` 的实跑）。后者在人类选定方向后于落地时实跑并留原始输出；**本节不声称该门已被证明有区分力**。
