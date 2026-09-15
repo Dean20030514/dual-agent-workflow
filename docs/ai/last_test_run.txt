@@ -654,3 +654,45 @@ adapter medium hits = 0
 * **因此**把"加宽"拆成 2a（机械、1 行、0 增量）与 2b（脆、扩判据面）**有实测依据**，不是措辞偏好。
 
 **④ 如实标注的限度**：①② 均为 **Author 自跑**，且 ① 是 **regex 级**对照——它证明"逃逸面存在、加宽可堵"，**不**代替门级负向对照（`AC4: FAIL` / `exit=1` 的实跑）。后者在人类选定方向后于落地时实跑并留原始输出；**本节不声称该门已被证明有区分力**。
+
+## AQ. 人类裁决选项 2a：AC4 门加宽到两种拼写的赋值位（含新的门级负向对照）
+
+**裁决**：2026-09-06 人类在 `HANDOFF` 裁决矩阵 §二的三个选项中选 **2a**（把正则加宽到两种拼写的赋值位），并裁**不再开新审查轮**；故本项产物是 Author 侧的真实实跑（`§AP ④` 已事先声明该门级负向对照将在选定后补跑，本节即补齐它）。
+
+**改动**（`git diff --numstat` = `2 1`：1 行正则 + 1 行英文注释）：
+
+```diff
+@@ -13,0 +14 @@ $vals = @()
++# Assignment sites are matched for both spellings of the key: reasoning_effort and reasoningEffort.
+@@ -15 +16 @@ foreach ($f in $files) {
+-  $m = (Select-String -Path $f -Pattern 'reasoning_effort`?\s*[:=]\s*"?([a-z]+)"?' -AllMatches).Matches
++  $m = (Select-String -Path $f -Pattern 'reasoning_?[Ee]ffort`?\s*[:=]\s*"?([A-Za-z]+)"?' -AllMatches).Matches
+```
+
+**① 正向（加宽后）**：命令 `pwsh -File tools/ac4-reasoning-effort-check.ps1`，原始输出：
+
+```
+adapter            = C:\Users\16097\AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\dsh-llm-deepseek\lib\index.js
+DSH-side values    = high
+out-of-domain      = (none)
+adapter medium hits= 0
+AC4: PASS
+```
+
+`exit=0`
+
+**② 负向对照 NC-C（本门第 3 条负向对照）：把驼峰赋值位写进域内文件**——临时向 `dsh/workflow/fanout-toolchain.md` 追加一行（`<!-- NC (temporary, reverted): reasoningEffort: medium -->`）后重跑，原始输出：
+
+```
+adapter            = C:\Users\16097\AppData\Local\npm-cache\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\dsh-llm-deepseek\lib\index.js
+DSH-side values    = high, medium
+out-of-domain      = medium
+adapter medium hits= 0
+AC4: FAIL
+```
+
+`exit=1` → **加宽后的谓词对驼峰赋值位有区分力**；而 `§AP ①` 已实测**旧谓词对同一行是零命中**。两节合起来才是"逃逸面存在 + 加宽可堵"的完整证据。
+
+**③ 还原与复核**：`git checkout -- dsh/workflow/fanout-toolchain.md` → blob 复核 `cb99d7c2a2eb6862814b4920e1583c2e4f65b308`（与改动前一致）→ 重跑正向仍 `DSH-side values = high / out-of-domain = (none) / AC4: PASS`，`exit=0`。**提交前工作树不含任何负向对照残留**（实测 `git status --porcelain` 只剩本脚本自身的改动与 scratch 条目）。
+
+**④ 仍未覆盖（已在 AC4 声称里写明，非暗账）**：**散文式取值陈述**（如 `` 9A/9B = `high` ``）不在门的域内——人类在三个选项中**未选 2b**，故该面按"AC4 只声明赋值位（两种拼写）"如实收窄，**不再声称覆盖**。

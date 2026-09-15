@@ -51,6 +51,8 @@
 > * **[U] 未验证**——如实登记为未验证，附触发时机。**[U] 不是债**，故不要求 Payback trigger；但**不得**被写成"已验证"。
 >
 > 本条元规则自身的要求：**任何 AC 若无法归入 [M]/[O]/[U] 之一，必须当场收窄声称，而不是新造一条判据。**（"针对该要求的新判据"即为被禁的第三层判据。）
+>
+> **交付边界（2026-09-06 人类裁决：现在冻结）**：任务 B 的**收口判据** = `docs/ai/DSH-LANDING-NOTES.md` → **§2.3 机读登记表** + **AC6 与 AC4-门两个 `[M]` 门** + **AC9 的 `[O]` 人工读点** + `docs/ai/HANDOFF.md` 的**唯一债台账**。**其余 AC** 保持各自的 `[O]`/`[U]` 标记：`[O]` = "做过一次并留产物"的观测（**不是收口判据**），`[U]` = 如实登记的未验证——二者**不因本冻结升级为门**。**边界之外一律归 `[U]`；不再新增判据、不新增登记表、不再加 AC**（要改判据须人类逐次裁决）。
 
 ### AC1 — 一等公民与判据一致性 → **[O] 单点观测（声称已收窄）**
 
@@ -75,9 +77,10 @@
 ### AC4-门 — 档位取值域 → **[M] 机械门（本任务两个机械门之一）**
 
 **输入域**：仅 DSH 面（`dsh/**`、`portable/通用prompt-DSH-v1.txt`、`README.md`）；**排除** `claude/**` 与 `portable/通用prompt-v3.8.txt`（那里的 `medium` 属 Codex 侧 `model_reasoning_effort`，合法）。
-**判定命令（可复制执行，脚本已入库）**：`pwsh -File tools/ac4-reasoning-effort-check.ps1` → 枚举上述范围的 `reasoning_effort` 赋值位，每个值必须 ∈ `{off, low, high, max}`；且适配器 `dsh-llm-deepseek/lib/index.js` 中 `"medium"` 零命中。任一不满足即 `exit 1`。
+**判定命令（可复制执行，脚本已入库）**：`pwsh -File tools/ac4-reasoning-effort-check.ps1` → 枚举上述范围内**两种拼写**（`reasoning_effort` / `reasoningEffort`）的赋值位，每个值必须 ∈ `{off, low, high, max}`；且适配器 `dsh-llm-deepseek/lib/index.js` 中 `"medium"` 零命中。任一不满足即 `exit 1`。
+**声称边界（2026-09-06 人类裁决：选选项 2a，不加宽到散文）**：本门覆盖的是**赋值位**（`键: 值` / `键 = 值` 形态，两种拼写）；**散文式取值陈述**（如 `` 9A/9B = `high` ``）**不在域内、本门不声称覆盖**。这是如实收窄后的声称，与谓词实际能力一致。
 **产物（真实退出码）**：正向 `DSH-side values = high / out-of-domain = (none) / adapter medium hits = 0 → AC4: PASS, exit=0`。
-**负向对照（已实跑）**：把 `dsh/workflow/fanout-toolchain.md` 的 `high` 改成 `medium` → `DSH-side values = high, medium / out-of-domain = medium → AC4: FAIL, exit=1` → 还原并确认工作树干净。→ **有区分力。**
+**负向对照（已实跑两条，均有原始输出）**：① 把 `dsh/workflow/fanout-toolchain.md` 的 `high` 改成 `medium` → `DSH-side values = high, medium / out-of-domain = medium → AC4: FAIL, exit=1`；② **第 8 轮新增（选项 2a 的配套对照）：在域内写入驼峰赋值位 `reasoningEffort: medium`** → 同一判定 → `AC4: FAIL, exit=1`（原始输出见 `last_test_run.txt` §AQ ②；加宽前的谓词对该形态是**零命中**，故②同时是"加宽有效"的证据）。两条都还原并复核 blob 后重跑正向 `AC4: PASS, exit=0`。→ **有区分力。**
 **一手来源断言**：`deepseek-flash` = DeepSeek-V4.1-Flash 及旧 id 路由状态，指回 [DeepSeek 官方公告 2026-09-10](https://api-docs.deepseek.com/zh-cn/news/news260910/)（次级来源不作采纳依据）。
 
 ### AC5 — 零写入闭环 → **[O] 单点观测**

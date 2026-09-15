@@ -11,8 +11,9 @@ $files += (Resolve-Path 'README.md').Path
 
 $allowed = @('off','low','high','max')
 $vals = @()
+# Assignment sites are matched for both spellings of the key: reasoning_effort and reasoningEffort.
 foreach ($f in $files) {
-  $m = (Select-String -Path $f -Pattern 'reasoning_effort`?\s*[:=]\s*"?([a-z]+)"?' -AllMatches).Matches
+  $m = (Select-String -Path $f -Pattern 'reasoning_?[Ee]ffort`?\s*[:=]\s*"?([A-Za-z]+)"?' -AllMatches).Matches
   foreach ($x in $m) { if ($x.Groups.Count -ge 2 -and $x.Groups[1].Value) { $vals += $x.Groups[1].Value } }
 }
 $vals = $vals | Sort-Object -Unique
