@@ -382,3 +382,79 @@ register == scope → GREEN (exit 0)
 * **AC6 三条负向对照只有摘要表**，缺命令原文级输出与退出码（9B VN-3、9A Test Coverage Gaps）。
 * **VN-B（9A 提出，Author 无法自证）**：`TASK_BRIEF:46` 与本文 §R 引用"第 3 轮 9A 已全量核验 40 行、结论无漂移"——9A 本轮**不能打开** `review_9A_r3.md` 核实这句话是否真由 9A 说过。**请人类打开 `docs/ai/review_9A_r3.md` 确认**；若没有，则该引用属"把未做的核验写成已做"，须按 AC9 处置。
 * 真实 9P 审查轮、`settings.yaml` 档位生效、AC8 机器态实跑、headless 完整审查轮、AC4 字面命令产物（§M 是更强的真实报错对照，但替代不了 AC4 自己写的"退出码非 0"）——见 §S。
+
+---
+
+# 第 5 轮（收口轮）：按人类裁决把 AC 分三级、只留两个机械门
+
+人类裁决（2026-09-06）：**按 Author 建议收口**——不再在"登记表 + 验收条款判定方式"这一层续修，改成给每条 AC 定级。
+
+## X. 收口内容
+
+**新增判据白名单（封闭）**：`[M] 机械门`（命令 + 退出码 + 已实跑的负向对照）/ `[O] 单点观测`（只声称"做过一次并留了产物"，不推广为"不存在"）/ `[U] 未验证`（如实登记 + 触发时机，不是债）。
+**只保留两个机械门**：**AC6**（改点登记）与 **AC4-门**（档位取值域）。**其余 AC 一律降为 [O] 或 [U]，并当场收窄声称。**
+
+| AC | 原形态 | 收口后 |
+|---|---|---|
+| AC1 判据一致 | "逐条一致"（散文对读） | **[O]**，只覆盖 `AGENTS.md` 那一对（两轮 9A 逐行核过 40 行） |
+| AC2 skill 可加载 | 有观测 | **[O]**（本机一次观测） |
+| AC3 两条路径 | 混合 | **[O]**（主路径 8 次真实调用 + headless `--help`）/ **[U]**（备用路径完整审查轮） |
+| AC4 档位 | 判定命令是伪码 | **[M]**，见下 §Y |
+| AC5 零写入 | 有观测 | **[O]**（8 份 verdict 全 `none`；自证字段、无机械手段） |
+| AC6 改点登记 | [M] | **[M]**，声称收窄为"**路径级**覆盖" |
+| AC7 说与做一致 | 散文 | **[O]**，只核备份/镜像语义一组 |
+| AC8 机器态 | "判定方式"要求实跑 | **[U]** + 触发时机（脚本 guard 锁定，从未运行） |
+| AC9 如实标注 | 两条坏判定 | **[O]**——**两条原判定（措辞零命中扫描 / 与 `[DEBT]` 逐条对应）如实登记为已废弃**，改为人工单点读 |
+| AC10 判据无漂移 | `--numstat`（给不出变更行） | **[O]**，改用 `-U0`，且**只覆盖与 AC1 同一对**；**停止在本文件复述指针处数** |
+| AC11 未验证清单 | 散落 | **[U] 汇总**（6 项，各附触发时机），要求与 `NOTES §5` 逐条一致 |
+
+## Y. AC4 从"伪码判定"升级为真机械门
+
+脚本入库：`tools/ac4-reasoning-effort-check.ps1`。**真实运行结果**：
+
+```
+=== 正向 ===
+adapter            = ...\_npx\1e7f6d9597241db0\node_modules\@deepseek-ai\dsh-llm-deepseek\lib\index.js
+DSH-side values    = high
+out-of-domain      = (none)
+adapter medium hits= 0
+AC4: PASS
+exit=0
+
+=== 负向对照：把 dsh/workflow/fanout-toolchain.md 的 high 改成 medium（只改一个变量）===
+DSH-side values    = high, medium
+out-of-domain      = medium
+adapter medium hits= 0
+AC4: FAIL
+exit=1
+（还原后工作树该文件干净）
+```
+
+→ **有区分力**；AC4 至此才第一次同时拥有"可复制命令 + 退出码 + 已实跑的负向对照"。
+
+## Z. 收口后两个门的复跑
+
+```
+AC4: PASS   exit=0
+AC6: reg=30 scope=30 → GREEN
+install.ps1 解析: parse OK
+```
+
+**AC6 登记表零漂移**：本收口轮改了 `README.md` / `docs/ai/AUTHORITY_CONTRACT.md` / `docs/ai/DSH-LANDING-NOTES.md` / `docs/ai/TASK_BRIEF.md` / `install.ps1` / 新增 `tools/ac4-reasoning-effort-check.ps1`，全部已在 §2.1/§2.3 登记 → `missing`/`stale` 均空。
+
+## AA. 本轮同时修掉的第 4 轮残留（属 Suggestion 级，一并收掉）
+
+* **§2.3 标题曾粘在上一句行尾**（不是真标题）→ 已分行；`docs/ 行` 与 `--check` 两处草稿残留已改。
+* **§2.2 尾注"本节编号被 AC6 直接引用"** → 改为"AC6 现在只引用 §2.3；§2.2 改编号不再改验收基线"。
+* **§2 第 10 条对 `explore.md` 的归一化描述** → 按 `--numstat` 实测改写（2 增 0 删、只有 frontmatter 两行、**无末尾换行变更**）。
+* **`README:36` / `NOTES:62` 的"5 项"** → 未单独改（它们不在本轮 AC 收口的判定面内）；**已在 AC11 与 HANDOFF 记为本轮未处理项**，留待下一次触碰该文件时顺手改。
+* **`install.ps1` 三处口径** → 已改（`:21`/`:77` "never touched" 改为"never modified or deleted + 见下方 WARNING"；`:97` 的 "added only when missing" 删掉）。注：`tools/ac4-reasoning-effort-check.ps1` 因含 PowerShell here-string，曾被写成 CRLF，已归一回 LF。
+
+## AB. 仍未跑 / 仍未验证（本清单与 `TASK_BRIEF` 的 AC11 必须逐条一致）
+
+1. 除 `AGENTS.md` 外的其余派生对是否存在判据漂移。
+2. 备用路径（headless）完整审查轮。
+3. 真实 9P 审查轮（两次都只是档位探针）。
+4. `~/.dsh/settings.yaml` 的 `reasoningEffort` 是否真被适配器读取。
+5. AC8 的机器态实跑（安装器 guard 锁定）。
+6. `install.ps1` 的其余注释逐句对读。
