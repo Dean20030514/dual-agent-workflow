@@ -8,7 +8,7 @@
 **两套落地,一套纪律(2026-09-06)**:`claude/` = Claude Code(Author)+ Codex CLI(Reviewer);`dsh/` = **DeepSeek Harness**——**Author 与 Reviewer 都是 deepseek/dsh**(Author = 当前 DSH 会话主 agent;Reviewer = `subagent` 子 agent / `dsh --profile headless` 进程,模型档 `provider: deepseek-official` + `model: deepseek-flash`)。两套判据与阈值一致,**只允许「怎么跑」不同**;DSH 会话的判据唯一出处是 `dsh/workflow/AGENTS.md`(与 `claude/workflow/AGENTS.md` 冲突时以它为准)。派生方法的改点清单与**未偿还的审查债**见 `docs/ai/DSH-LANDING-NOTES.md`。
 
 ## Build / Test / Lint Commands
-可执行面 = `install.ps1`(PS 5.1 兼容,**受迁移期 installer guard 锁定,勿直接运行**;部署 = 从 main 精确同步受管文件 + 哈希比对)。
+可执行面 = `install.ps1`(PS 5.1 兼容)。**当前状态(2026-09-15,切片 A 已 squash 合入 `main`)**:仅 `-ValidateOnly` / `-DryRun` 两条**零写入**路径可用;无参数运行 = 打印完整计划 + 前置校验 + `RESULT=REFUSED` **非零退出**;`-IUnderstandThisReplacesLiveConfig` **已移除**(传它 = 参数绑定阶段失败),故**本机不会再被误部署**。**真实写入(部署/mirror-replace/备份/插件步)属切片 B,尚未落地**;README 的"迁移期安全锁定"段落为切片 A 之前的历史说明(改准属切片 D)。
 * `tools/validate/` 为 **H5A 封存档**(2026-08-05 停牌,`stopped, NOT converged`):非门禁、勿续建、勿修;`validate.ps1` 入口从未建成;其真仓断言绑定修漂移前的仓库状态,Pester 套件对当前 main **预期失败**——封存标记,不是待修 bug。
 * 存档参考命令(仅需要时):`pwsh -Command "Invoke-Pester -Path tools/validate/tests -CI"`;依赖模块(powershell-yaml、PSScriptAnalyzer、Pester ≥5,版本见 `tools/validate/requirements.psd1`)仅跑存档测试时需要,不是仓库门禁。
 
