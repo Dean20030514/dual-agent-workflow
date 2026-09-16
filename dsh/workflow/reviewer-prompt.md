@@ -65,7 +65,7 @@ npx -y @deepseek-ai/dsh --profile headless (Get-Content "$HOLD\9A_prompt.txt" -R
 
 * headless **没有 `-o`**（`-o` 是原 Claude 侧 `codex exec` 的参数，DSH 无对应项）：verdict = **stdout**，raw log = **stderr**，二者都必须重定向到**仓外** holding。
 * headless 每次运行落一个持久化会话，天然是 fresh 进程；它与 `subagent` 路径在**证据强度上等价**（同一份 prompt、同一套自检），差别只是进程隔离度与可复现性。
-* **两条路径的证据面必须一致**：证据头（三行基底 + `model_route`）与 `writes_performed` 在两条路径上都要落账，否则该轮作废。
+* **两条路径的证据面必须一致**：证据头（三行基底 + `model_route`）与 `writes_performed` 在两条路径上都要落账。**缺项的后果是「记 Work Log + 报告人类」，不是作废**——这两个字段都是**自报值**，缺一项抓不到不诚实的 Reviewer、却会废掉一份合规的独立判断。**作废只留给经独立核验确认的违反**：④ 的启动前扫描发现残留、`observed_head_sha` 不符、`worktree_clean` 非 `yes`、`read_handoff_from` 出现 `git show tip`。（分级依据：2026-09-16 人类裁决 + `docs/ai/DSH-LANDING-NOTES.md` §7.1/§7.2 的 10 轮重放——`model_route` 的漂移暴露只能靠 Author 逐字比对实发参数，属可见性工具。）
 
 **(c) 两条路径共同的红线**
 
