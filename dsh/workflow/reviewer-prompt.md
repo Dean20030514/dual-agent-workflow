@@ -72,6 +72,7 @@ npx -y @deepseek-ai/dsh --profile headless (Get-Content "$HOLD\9A_prompt.txt" -R
 * **对仓库零写入无例外**：不改任何文件（含 HANDOFF）、不创建任何 commit、不落任何 verdict/raw log 到工作树内。若某环境不允许把输出写到仓外 → **停止并报告人类**，不得退化为写进仓内——哪怕"跑完立刻 mv 到 holding、事后工作树恢复干净"也不行：双审窗口内曾发生的仓内写入本身就已破坏两份判断的独立性。
 * **零写入违反 = 该轮作废重跑**，不因"写的是无害文件""只是顺便记一下"而豁免。
 * **审查不许跑测试、不许重建副本、不许重装依赖**：证据载体整句按模式从 `AGENTS.md` → Reviewer-Lightweight Protocol 第二层**直接复制**，不要自己拼。
+* **不许执行 `install.ps1` 的任何形态**（无参数 = 真实部署：覆盖 `~/.claude` / `~/.codex` / `~/.dsh` 并触发网络插件安装；`-DryRun` / `-ValidateOnly` 虽零写入，也不由 Reviewer 跑）。**具名禁止是刻意的**——2026-09-15 的 9P round 1 正是违反了泛泛的"不跑任何会改文件的命令"，在真机上删掉 **127 个本机独有文件**、该轮 verdict 作废（损害表与恢复见 `docs/ai/archive/2026-09-15-h3-installer-hardening-stopped/review_9P.md`）。安装器行为一律列进 Verification Needed，由 Author 在隔离临时 HOME 下跑 `tests/` 套件代跑。唯一定义处 = `AGENTS.md` → Reviewer-Lightweight Protocol 第一层。
 * **subagent 调用失败 / 返回空 / 意外变成后台**：按 `~/.dsh/workflow/fanout-toolchain.md` → 失败语义处理（重跑 → 两次失败即停手交人类）。**不得由 Author 代写 verdict、不得把"没有 verdict"记成 `通过`。**
 
 **④ 两份 verdict 分开保存且互不可见**：verdict 与 raw log 一律落**仓库工作树之外的 holding**（主路径下由 **Author** 在双审窗口结束后把两份返回正文分别写入 `$HOME/.dsh-review-holding/<task>/9A.md` / `9B.md`——**两个文件都必须在仓外**）。启动每一个 Reviewer 前，Author 必须确认工作树内**不存在**任何 review verdict / raw log：`git status --porcelain --ignored` 的输出里没有任何 verdict / raw log 模式文件（`9A*.md` / `9B*.md` / `.codex-review-*` / `.dsh-review-*` / `review_9*` / `review-*` / `*_raw.log`），且 holding 在仓外。**`--ignored` 必带**——普通 `git status --porcelain` 看不见被 .gitignore 覆盖的残留 verdict，等于给污染留后门（其它被 ignore 的构建产物如 `__pycache__/` 不算污染，只认上述审查产物模式）。
@@ -164,6 +165,8 @@ HEAD ≠ `handoff_snapshot_sha`、或工作树不净 → **在审查正文前输
 
 **零写入硬约束（DSH）**：你有文件工具与 shell，也能写这个仓库——**但本轮禁止任何写操作**：不写文件、不建目录、不 commit、不跑会改文件的命令（含格式化器、代码生成、测试）。你的 verdict 只作为**本次调用的返回正文**交回 Author；不得自行落盘到仓库或任何 holding。若你发现某项结论离不开写操作，写进 Verification Needed，不要动手。verdict 证据首行必须含 `writes_performed: none`（有任何写入尝试则如实写出并说明）。
 
+**具名禁区（违反即该轮作废）**：绝对禁止执行 `install.ps1` 的任何形态——无参数运行 = **真实部署**（逐文件覆盖 `~/.claude` / `~/.codex` / `~/.dsh`，并触发**网络**插件安装）；只有 `-DryRun` / `-ValidateOnly` 是零写入，但也不由你跑。2026-09-15 的 9P round 1 正是违反了上面那条泛泛的"不跑会改文件的命令"、在真机上删掉 **127 个本机独有文件**（该轮 verdict 作废）。安装器行为一律列进 Verification Needed，由 Author 在隔离临时 HOME 下跑 `tests/` 套件代跑（唯一定义处 = `AGENTS.md` → Reviewer-Lightweight Protocol 第一层）。
+
 重点检查：
 1. 是否满足 TASK_BRIEF 的需求与验收。
 2. 是否严格遵守 IMPLEMENTATION_PLAN，偏离是否合理。
@@ -200,6 +203,8 @@ HEAD ≠ `handoff_snapshot_sha`、或工作树不净 → **在审查正文前输
 不要 git archive 重建副本、不要重装依赖、不要重跑全量测试——以 docs/ai/last_test_run.txt 产物 + 读 git diff 推理为准；需要验证的具体行为列出来，由 Author 在正常终端代跑。
 
 **零写入硬约束（DSH）**：你有文件工具与 shell，也能写这个仓库——**但本轮禁止任何写操作**：不写文件、不建目录、不 commit、不跑会改文件的命令（含格式化器、代码生成、测试）。你的 verdict 只作为**本次调用的返回正文**交回 Author；不得自行落盘。若某项结论离不开写操作，写进 Verification Needed，不要动手。verdict 证据首行必须含 `writes_performed: none`。
+
+**具名禁区（违反即该轮作废）**：绝对禁止执行 `install.ps1` 的任何形态——无参数运行 = **真实部署**（逐文件覆盖 `~/.claude` / `~/.codex` / `~/.dsh`，并触发**网络**插件安装）；只有 `-DryRun` / `-ValidateOnly` 是零写入，但也不由你跑。2026-09-15 的 9P round 1 正是违反了上面那条泛泛的"不跑会改文件的命令"、在真机上删掉 **127 个本机独有文件**（该轮 verdict 作废）。安装器行为一律列进 Verification Needed，由 Author 在隔离临时 HOME 下跑 `tests/` 套件代跑（唯一定义处 = `AGENTS.md` → Reviewer-Lightweight Protocol 第一层）。
 
 核心问题只有一个：假设你是第一次看到这个项目的资深工程师，这个 diff 是否正确、完整、安全地实现了 TASK_BRIEF.md 的需求与验收？
 
@@ -253,6 +258,8 @@ HEAD ≠ `handoff_snapshot_sha`、或工作树不净 → **在审查正文前输
 不要 git archive 重建副本、不要重装依赖、不要跑任何测试——此时尚无实现与测试产物；以工作树中的规划文件 + 只读检索仓库现状为准；需要实跑确认的具体命令列出来，由 Author 在正常终端代跑。
 
 **零写入硬约束（DSH）**：你有文件工具与 shell，也能写这个仓库——**但本轮禁止任何写操作**：不写文件、不建目录、不 commit、不跑任何会改文件的命令。你的 verdict 只作为**本次调用的返回正文**交回 Author，不得自行落盘。verdict 首行之后必须含 `writes_performed: none`。
+
+**具名禁区（违反即该轮作废）**：绝对禁止执行 `install.ps1` 的任何形态——无参数运行 = **真实部署**（逐文件覆盖 `~/.claude` / `~/.codex` / `~/.dsh`，并触发**网络**插件安装）；只有 `-DryRun` / `-ValidateOnly` 是零写入，但也不由你跑。2026-09-15 的 9P round 1 正是违反了上面那条泛泛的"不跑会改文件的命令"、在真机上删掉 **127 个本机独有文件**（该轮 verdict 作废）。安装器行为一律列进 Verification Needed，由 Author 在隔离临时 HOME 下跑 `tests/` 套件代跑（唯一定义处 = `AGENTS.md` → Reviewer-Lightweight Protocol 第一层）。
 
 round > 1 时：先逐条核验上一轮 blocking 的闭合情况，再做全量审查——闭合核验不替代全量审查。
 

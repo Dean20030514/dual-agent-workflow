@@ -75,6 +75,7 @@
 每个 review / re-review prompt 必须携带"不重建副本 / 不重装依赖 / 不重跑全量测试；需实跑的列出来交 Author"这条语义，**具体落笔时从第二层直接复制对应模式的整句，不要自己拼**（载体半句嵌在句中，所以第一层不是可独立出现的连续字串——**不要机械检查"第一层整句是否原样出现"**；要机械检查就检查第二层那三条整句）。
 
 * **不重建副本 / 不重装依赖 / 不重跑全量测试。**
+* **不执行任何会写宿主机的命令——具名点出 `install.ps1`**（唯一定义处；各 review prompt 内嵌其简写句）：无参数运行 = **真实部署**——逐文件覆盖 `~/.claude` / `~/.codex` / `~/.dsh` 的受管面，并触发**网络**插件安装；只有 `-DryRun` / `-ValidateOnly` 是零写入。**泛泛的"不跑会改文件的命令"实测拦不住**：2026-09-15 同型事故连发两次——9P Reviewer 一次删掉 `~/.claude/` 下 **127 个本机独有文件**（该轮 verdict 作废，损害表见 `docs/ai/archive/2026-09-15-h3-installer-hardening-stopped/review_9P.md`），Author 一次（同分支 `HANDOFF` 记在案）。要验证安装器行为，一律走**隔离临时 HOME** 的常驻套件、由 **Author** 代跑：`pwsh -NoProfile -Command "$c = New-PesterConfiguration; $c.Run.Path = 'tests'; $c.Run.Exit = $true; $c.TestResult.Enabled = $false; Invoke-Pester -Configuration $c"`（`tests/TestHelpers.ps1` 只写 `$env:TEMP`，且生成的子 wrapper 内嵌互锁，拒绝指向真实 HOME 的调用）。
 * **对仓库零写入**：不改任何文件（含 HANDOFF）、不创建任何 commit；verdict 与 raw log 一律落仓库工作树之外的 holding。
 * 证据不足以下结论的，写进输出的 Verification Needed，由 Author 代跑或以技术理由「不采纳」，**Reviewer 自己不跑**。
 * scratch 清理归属：**Reviewer 不删除仓库工作树内的任何文件**；仓内遗留的 review-* / .codex-review-* scratch 由 **Author 在人类确认后清理**；Reviewer 只清理自己仓外 holding 里的临时产物。
@@ -221,6 +222,7 @@ DSH 里 Author 与 Reviewer **同机、同权限、同工作目录**（不同于
 * **重置**：某一轮无"修复引入的 `[Product Blocking]`"（该轮 0 计），streak 归 0。
 * **停止（硬门）**：streak 连续达 **2** → **立即停止编码**，只能：回退 / 重新拆任务 / 请求人类批准架构升级；**禁止"再试一轮"**（未获人类确认不得继续）。
 * **轮次上限（关闭阀，2026-08-15 新增）**：同一任务的双审达 **3 轮**仍未收敛 → **停止再审**，交人类在「带如实登记的限制交付 / 重新拆任务 / 回退」三者中裁决。**收敛不是唯一出口**——把"再审一轮"当默认出口，是四个真实任务全部停在 `stopped, NOT converged` 的直接原因（实测轮次：7 / 6 / 5 / 3）。人类可明确批准延长，但延长须逐次批准，不得默认。
+* **早期停牌探针（**仅 Critical**——不是新闸门，是轮次上限的更早触发信号）**：某一轮的 blocking **全部来自上一轮的修补**（而非新发现的产品面问题）→ 按轮次上限的出路处理（停下交人类裁决），**不要再投入下一轮**。依据 = 2026-09-06 人类裁决原文："给规则打补丁去堵规则的洞，补丁自身会长出新洞；**分辨信号 = 新一轮 blocking 是否全部来自上一轮修补**"。它只让既有出口更早触发，不新增出口、不改阈值。
 * **三者优先级（硬停 / 轮次上限 / 合并门，唯一判据）**：① **硬停优先于轮次上限**——streak 达 2 时只能走硬停的三条出路，不得改走"限制交付"。② **合并门优先于一切出口**——存在**未解决的 `[Product Blocking]`（含任何安全/隐私影响）** 时，「带限制交付」**不含合并**：可以停、可以记账、可以移交，**不得合入 main**。③ 无论走哪条出口，只要没过收敛门，一律记 `stopped, NOT converged`，**不得**标 Ready to Commit / 已收敛。「限制交付」的合法含义仅限：**零未解决 Product Blocking**，剩余 Verification Needed 已逐条处置（代跑追加或不采纳，见最后一轮独立审查门 ②）。
 
 ## 最后一轮独立审查门（唯一定义处；**仅 Critical**——Routine 无双审与收敛门）

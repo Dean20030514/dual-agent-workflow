@@ -10,6 +10,7 @@ Every task starts in **Routine** mode. The heavyweight dual-agent process is **C
 - **Routine（默认）**：Author（= 当前会话的主 agent）改 → 人类扫 diff → 人类 commit/merge。循环：先读相关代码与规则 → 用一句话说明方向（只有真会改变结果的歧义才提问）→ 做最小充分且任务内的改动 → 跑**直接证明这次改动**的测试/检查 → 给出 diff + 真实验证输出（命令 / 完整输出 / 退出码）+ 残余风险。默认**不需要** TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF / SHA 账本 / Reviewer。
 - **Critical（人类明确启用）**：`~/.dsh/workflow/` 全套（Frozen Acceptance、9P 计划审、人类批准门、SHA 绑定、9A/9B 双审、Reviewer 零写入、Fix-Loop 硬停）——机制与阈值不变，只把执行器换成 DSH（`subagent` / headless 进程）。
 - **建议而不自我升级**：任务触及 auth/permissions/secrets、资金/计费、DB 迁移或不可逆数据操作、部署/回滚/CI 核心、公共 API 或兼容性契约，或跨多个架构层时——**建议 Critical 并停下等人类确认**。任务级祈使句（"做吧" / "go ahead" / "直接做"）本身不构成模式确认。触发条件成立时，**在改文件或装依赖之前停下**、建议 Critical、等人类明确确认后才继续。**启用 Critical 不等于批准实现计划**——Critical 的批准门照旧适用。
+- **建议而不自我降级（与上一条对称）**：当交付物本身是**流程 / 规则 / 登记表 / 自指文档**（产出主要是描述本工作流自身或其账目的文本，判据层几乎不变）时——**建议 Routine 并停下等人类确认**，不得自行降级。依据（实测，两套落地同证）：该形状的审查面**不封闭**——每修一处就长出新的声称面；四个真实项目的 Critical 任务**全部**以 `stopped, NOT converged` / 硬停收场，某任务 5 轮的 finding **100% 落在改点登记表与 AC 判定方式层、判据层 0**。此病 2026-08-15 即已诊断（"证据层自指螺旋"），**早于 DSH 落地、与模型无关**。人类仍要在此形状上走 Critical 时，**前置条件 = 先冻结交付边界**（判据白名单 + 机读登记表），否则收敛门在构造上不可达。
 - **两模式恒适用**：2026-08-05 裁决的五规则三闸门（快照仓 SSOT / 真实改动人类批准 / Author 交真实测试产物 / Reviewer 零写入 / 连续 blocking 硬停）、Safety Rules、No-Hidden-Debt 红线。**任何新增流程/规则/登记表/检查项默认「不」**，除非一句话说清净收益超过其维护成本。
 
 > 三闸门按模式取用（判据唯一定义处 = `~/.dsh/workflow/AGENTS.md` → review-sensitive paths + SHA 绑定）：**审查 SHA 绑定干净工作树**仅 Critical（Routine 一律记 N/A，含人类临时要求跑一次 Reviewer 的情形——那不构成模式升级）；**实际 diff 不超批准范围**与**测试真实执行退出码可信**两模式恒适用。
@@ -95,7 +96,7 @@ Critical 路径（命令 = 本项目的 skill 正文，用到才读；**DSH 没�
 
 ## File & Config Safety
 
-* **任何**删除或覆盖文件之前先与人类确认（本工作流自身的部署例外：`install.ps1` 的 mirror-replace 语义，见 README）。
+* **任何**删除或覆盖文件之前先与人类确认。**受管部署只经由 `install.ps1`**（无参数 = 真实部署：逐文件覆盖前先落同级 `<name>.bak-<时间戳>-<4位guid>` 备份、**默认永不删除**）——它是本工作流**唯一**被允许覆盖本机受管文件的路径，因此**必须由人类明确指示才运行**：任何角色（含 Reviewer、含任何探针）都不得自行发起；要验证它的行为，走隔离临时 HOME 的 `tests/` 常驻套件（规则唯一定义处 = `workflow/AGENTS.md` → Reviewer-Lightweight Protocol 第一层）。
 * 改配置文件（`.gitignore`、CI 配置、linter 配置、`AGENTS.md` 等）：**先建议、取得确认再改**。
 * 涉及网络的命令（`curl`、`npm install`、`pip install` 等）：先告知人类。
 
