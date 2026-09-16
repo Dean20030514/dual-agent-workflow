@@ -107,5 +107,6 @@ None —— 本轮为 Routine，无 review-fix 循环，`streak = 0`。
 1. **人类**：`git push`（本仓规则：agent 绝不 push）。当前 `main` 领先 `origin/main` 一笔（本轮 squash 后的收口提交）。
 2. **可选：真机插件安装**（**网络操作，按人类指示才做**）：`pwsh -NoProfile -File .\install.ps1`（不带 `-NoPluginInstall`）。⚠️ 2026-09-15 首次实测卡在第 1 个插件（marketplace 拉取无响应）；现已有逐插件播报 + 180s 超时 kill + 失败计入 `failed=N`。本机 6 个插件**已全部安装**（`~/.claude/plugins/installed_plugins.json`），故日常建议直接用 `-NoPluginInstall`。
 3. **删除能力若仍需要**：属**新任务**，须重新立项（勿在后续改动里顺手加回）。
-4. **未合并分支 `task/h3-installer-hardening`**（人类裁决保留作只读参考，627 行 `install.ps1` + 44 用例）：**不是可交付版本**（该任务 `STOPPED, NOT CONVERGED`）；若哪天要清掉它，需先确认无遗留价值——注意它的白名单谓词是 `*.bak-*` **只看叶名**，比现行实现更弱。
+4. ~~**未合并分支 `task/h3-installer-hardening`**~~ **已处置（2026-09-15）**：它的设计（mirror-replace + 确认开关 + 整树备份）早被放弃，其文档与 main 的归档副本逐字节相同；删除前先做了两件提取——① 它**独有**的 `docs/ai/review_9P.md`（437 行，含 round 1 作废与那次 127 文件事故的损害表）已逐字落进 `docs/ai/archive/2026-09-15-h3-installer-hardening-stopped/review_9P.md`，并在同目录 README 里说明来源与用途；② 它独有的两条测试用例（**空 home 部署的逐文件完备性**、**install.ps1 纯 ASCII 守卫**）已移植进 `tests/install.Deploy.Tests.ps1`。随后分支删除。
+   > 短期可回退窗口：被删分支的提交仍在本地 reflog 里（默认 90 天）；若需要旧实现，也可从 `pre-squash-2026-09-15` 之外的历史中找回相应文件（该分支从未进入 `main`）。
 5. **历史备份堆积**：`~/.claude` 等受管面下有 157 个 `*.bak-*`（约 2.3 MB，2026-08/09 旧安装器所留）。它们在 keep-local-only 白名单里 ⇒ **永远不会被报成 `[STALE]`**，`-RemoveStale` 也不会碰；要瘦身只能人工决定。

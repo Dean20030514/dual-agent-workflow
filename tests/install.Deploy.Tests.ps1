@@ -309,3 +309,63 @@ Describe 'Deploy - a source tree that itself carries a *.bak-* directory (PROBE-
         } finally { Remove-TestCase $case }
     }
 }
+
+Describe 'Deploy - completeness into an empty home (ported from the stopped H3 branch)' {
+    It 'lands exactly the managed surface, file for file, with the source content' {
+        # No -SeedTargets: the three targets start out empty, so "what ends up there" is the
+        # deploy's own doing and any extra file is a real finding.
+        $fresh = New-TestCase -Name 'deploy-full-surface'
+        try {
+            $r = Invoke-InstallerCase -Case $fresh -Arguments @('-NoPluginInstall', '-ClaudeDir', $fresh.ClaudeDir, '-CodexDir', $fresh.CodexDir, '-DshDir', $fresh.DshDir)
+            $r.ExitCode | Should -Be 0
+            $expected = @(Get-ManagedDeploySet -RepoRoot (Get-RepoRoot)) + 'codex/config.toml'
+
+            $missing = New-Object System.Collections.Generic.List[string]
+            $mismatch = New-Object System.Collections.Generic.List[string]
+            foreach ($rel in $expected) {
+                $target = switch -Regex ($rel) {
+                    '^claude/' { Join-Path $fresh.ClaudeDir $rel.Substring(7) }
+                    '^codex/' { Join-Path $fresh.CodexDir $rel.Substring(6) }
+                    '^dsh/' { Join-Path $fresh.DshDir $rel.Substring(4) }
+                }
+                if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { $missing.Add($rel); continue }
+                $source = switch -Regex ($rel) {
+                    '^claude/' { Join-Path (Get-RepoRoot) ('claude\' + $rel.Substring(7)) }
+                    '^codex/config\.toml$' { Join-Path (Get-RepoRoot) 'codex\config.example.toml' }
+                    '^codex/' { Join-Path (Get-RepoRoot) ('codex\' + $rel.Substring(6)) }
+                    '^dsh/' { Join-Path (Get-RepoRoot) ('dsh\' + $rel.Substring(4)) }
+                }
+                if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash) { $mismatch.Add($rel) }
+            }
+            ($missing -join ', ') | Should -Be '' -Because 'a deploy must land every file the managed surface declares'
+            ($mismatch -join ', ') | Should -Be '' -Because 'every landed file must hold the source content'
+
+            $found = New-Object System.Collections.Generic.List[string]
+            foreach ($pair in @(@($fresh.ClaudeDir, 'claude'), @($fresh.CodexDir, 'codex'), @($fresh.DshDir, 'dsh'))) {
+                if (-not (Test-Path -LiteralPath $pair[0])) { continue }
+                foreach ($f in Get-ChildItem -LiteralPath $pair[0] -File -Recurse -Force) {
+                    $found.Add($pair[1] + '/' + $f.FullName.Substring($pair[0].Length + 1).Replace('\', '/'))
+                }
+            }
+            # the seed-only config.toml is the only managed file that is not mirrored from dsh/codex sources
+            (($found | Sort-Object -Unique) -join "`n") | Should -Be (($expected | Sort-Object -Unique) -join "`n") -Because 'an empty home must end up holding the managed surface and nothing else'
+        } finally { Remove-TestCase $fresh }
+    }
+}
+
+Describe 'Deploy - the shipped installer stays ASCII-only (PowerShell 5.1 reads -File with the ANSI code page)' {
+    It 'install.ps1 has no non-ASCII byte, and the probe is able to see one' {
+        $installer = Join-Path (Get-RepoRoot) 'install.ps1'
+        $raw = Get-Content -Raw -LiteralPath $installer
+        ($raw -match '[^\x00-\x7F]') | Should -BeFalse -Because 'a non-ASCII byte would come out as mojibake under Windows PowerShell 5.1'
+
+        # Negative control: the same predicate must fire on a copy with one injected byte,
+        # otherwise "no non-ASCII" would pass even if the check were broken.
+        $probeDir = New-TempDirectory -Prefix 'ascii-probe'
+        try {
+            $probe = Join-Path $probeDir 'install.ps1'
+            Set-Content -LiteralPath $probe -Value ($raw + "`n# caf" + [char]0x00E9 + "`n") -Encoding utf8NoBOM
+            ((Get-Content -Raw -LiteralPath $probe) -match '[^\x00-\x7F]') | Should -BeTrue -Because 'the probe must be able to detect a non-ASCII byte at all'
+        } finally { Remove-Item -LiteralPath $probeDir -Recurse -Force }
+    }
+}
