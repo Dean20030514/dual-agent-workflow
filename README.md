@@ -27,7 +27,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 > | `-RemoveStale` | **唯一的删除路径**：删掉本次报告的 `[STALE]` 行（目录仅在已空时删；**全程无递归删除**）。不加则什么都不删 |
 > | `-ClaudeDir` / `-CodexDir` / `-DshDir` | 覆盖三个目标根；**显式传空值 = 直接 FAIL**（不会回落真机） |
 >
-> **⚠️ 历史说明（2026-07-30 迁移锁定 → 2026-09-15 解除）**：2026-07-30 起安装器被应急锁定为"拒绝执行"，起因是旧版 **mirror-replace** 语义一次删掉本机 127 个独有文件（82 个 `archive/**` + 45 个旧 `*.bak-*`）。该删除语义**已整体移除**：默认路径里没有任何删除，`[STALE]` 只是一份报告。退出码：`0 = OK`（部署 / 试跑 / 校验完成）、`1 = FAILED`（前置校验拒绝、写入失败，或插件安装失败——失败即停在第一处并列出已完成项）。
+> **⚠️ 历史说明（2026-07-30 应急锁定 → 2026-09-15 解除）**：2026-07-30 安装器被应急锁定为"拒绝执行"（确认开关 + 无参数即 throw）。旧版 **mirror-replace** 语义**确实删过东西**：2026-09-15 一次真机探针（9P round 1 的 Reviewer 违反零写入、直接执行了安装器）删掉 **127 个本机独有文件**（82 个 `archive/**` + 45 个旧 `*.bak-*`），并留下一个含凭据副本的 `~/.dsh.bak-*`（事后已增量恢复、备份已删）。该删除语义**已整体移除**：默认路径里没有任何删除，`[STALE]` 只是一份报告。退出码：`0 = OK`（部署 / 试跑 / 校验完成）、`1 = FAILED`（前置校验拒绝、写入失败，或插件安装失败——失败即停在第一处并列出已完成项）。
 
 脚本（PowerShell 5.1 兼容）现在会：跑前置校验（`-ValidateOnly` 单跑可见）→ 打印完整计划（含 `[STALE]` / `[PRESERVE]` 行与 `keep-local-only` 说明）→ 逐文件更新受管目标，**覆盖前把该文件旧内容备份成同级 `<name>.bak-<时间戳>-<4位guid>`** → 部署全局 CLAUDE.md / settings.json / rules / workflow / commands → 部署 Codex 侧 AGENTS.md（config.toml 仅在缺失时用 example 播种）→ 部署 DSH 侧 `AGENTS.md` / `workflow/` / `dsh/skills/` 下的**每一个** skill 目录（枚举目录，不是写死的清单）→ 为 **6** 个官方插件各跑一次 `claude plugin install <name>@claude-plugins-official`（`context7` `chrome-devtools-mcp` `pyright-lsp` `typescript-lsp` `frontend-design` `clangd-lsp`）。**CLI 缺席不算失败**：会打印对应的手工命令并计入汇总的 `manual=N`；**插件安装失败**则汇总 `failed=N` 并以 `RESULT=FAILED` 退出（文件面已完成，汇总里分别报数）。
 

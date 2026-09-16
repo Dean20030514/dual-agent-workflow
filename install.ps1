@@ -14,7 +14,8 @@
 #     left on disk. Removing it takes the explicit -RemoveStale switch, which deletes
 #     exactly the rows of that same report - nothing else, never a directory that still
 #     holds something, and never with -Recurse. The old mirror-replace semantics are gone,
-#     and with them the 2026-07-30 accident class (one run deleted 127 local-only files).
+#     and with them the accident class behind the 2026-09-15 incident, when a probe run
+#     deleted 127 local-only files (82 archive/** plus 45 *.bak-*).
 #   * -NoPluginInstall skips the plugin step; each plugin is then reported as SKIPPED. A
 #     missing claude CLI is not a failure either: the exact commands are printed instead.
 #     Plugin installs are NETWORK operations and are run as their own process with a
@@ -706,7 +707,7 @@ function Remove-StaleContent {
     machine-local paths cannot appear here. Files go first, then directories deepest-first,
     and a directory is removed only when it is already empty: there is deliberately no
     recursive delete anywhere in this file (measured: Remove-Item -Recurse swallows
-    whitelisted subtrees, which is how the 2026-07-30 accident happened).
+    whitelisted subtrees, which is how the 2026-09-15 incident deleted 127 local-only files).
     #>
     param([Parameter(Mandatory)]$Plan)
     foreach ($a in $Plan) {
