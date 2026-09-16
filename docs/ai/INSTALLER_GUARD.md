@@ -13,6 +13,12 @@ install.ps1, whichever comes first | Impact: the documented legacy one-click
 install command fails by design (README discloses this); the guard must not
 become a permanent substitute for safe deployment semantics.
 
+> **状态（2026-09-15）：已偿还（Payback-on-Touch）。** 触发条件两条都已发生，且真实控制全部落地：
+> `-DryRun` / `-ValidateOnly`（切片 A）· 真实部署路径（只增/只更新、覆盖前**逐文件**备份、**无删除路径**）· plugin-step controls（逐插件安装、180s 超时 kill、CLI 缺席打印手工命令）· keep-local-only 保护（段级判定 + 子树继承）。
+> 守卫本身（确认开关 +「无参数即拒绝」）**已移除**：传 `-IUnderstandThisReplacesLiveConfig` 现在在参数绑定阶段失败。
+> 下方 "H3 inheritance requirements" 五条的对应实现：① `[CmdletBinding()]` 保留 ✓ ② 7 行拒绝矩阵由 K4–K7 用例承载 ✓ ③ 假 `claude` shim 离线测（插件步用例正是用它）✓ ④ dry-run/validate 覆盖插件步与白名单，`workflow/archive/**` 的去向由 `[PRESERVE]` 明确 ✓ ⑤ 守卫与债随真实控制同批移除 ✓。
+> 原始记录保留在下方、不追溯改写。承接账本：`docs/ai/HANDOFF.md`（空闲期形态）+ `docs/ai/archive/2026-09-15-h3c-add-update-only/`。
+
 ## Approved deviation record
 
 ```yaml

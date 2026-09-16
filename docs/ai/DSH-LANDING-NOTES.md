@@ -221,7 +221,7 @@ dsh/skills/{dual-agent-workflow,independent-review}/** → ~/.dsh/skills/ 同名
 * **未做/未验证（不得当作通过）** —— **本清单的活台账是 `docs/ai/HANDOFF.md` → Known Issues 的未验证清单**（由已归档的 `TASK_BRIEF.md` → AC11 **原样承接**，归档副本在 `docs/ai/archive/2026-09-06-dsh-landing/TASK_BRIEF.md`）；**两处必须逐条一致，改一处必须同改另一处**。注意：这条"逐条一致"说的是"未验证清单"，不是 `[DEBT]` 集合：
   1. 除 `AGENTS.md` 外的其余派生对（`reviewer-prompt.md` / `QUALITY_GATES.md` / `index.md` / `workflow-design-notes.md` / 7 个 phase）相对母本是否存在判据漂移 —— 触发：下一次改动任一该文件之前。
   2. 备用路径（headless）完整审查轮 —— 触发：首次用备用路径发审之前。
-  3. 真实 9P 审查轮（两次都只是档位探针）—— 触发：下一次启用 Critical 之前。
+  3. ~~真实 9P 审查轮（两次都只是档位探针）—— 触发：下一次启用 Critical 之前。~~ **已履行（2026-09-15）**：切片 B 规划期跑了 round 1/2/3 三轮真实 9P（verdict 全文见 `docs/ai/archive/2026-09-15-h3b-mirror-replace-superseded/review_9P.md`）；`HANDOFF.md` 承接清单同条已同改。
   4. `~/.dsh/settings.yaml` 的 `reasoningEffort` 是否真被适配器读取 —— 触发：首次依赖 settings 层钉档位之前。
-  5. AC8 的机器态实跑（临时 HOME / 一次性 profile 下跑安装器 + 三项哈希）—— 触发：`install.ps1` 解锁后首次运行。
+  5. AC8 的机器态实跑（临时 HOME / 一次性 profile 下跑安装器 + 三项哈希）—— 触发：`install.ps1` 解锁后首次运行。 **已履行（2026-09-15）**：写入路径落地后，隔离 home 的机器态实跑由 `tests/install.Deploy.Tests.ps1` 承担（机器态哈希/备份缺席断言），并另对**真实树**跑过一次 `-DryRun` + 一次真部署（零写入）；记录见 `docs/ai/REAL_DEPLOY_LOG.txt`。
   6. `install.ps1` 的其余注释逐句对读（AC7 只核了备份/镜像语义那一组）—— 触发：下次改动该文件之前。

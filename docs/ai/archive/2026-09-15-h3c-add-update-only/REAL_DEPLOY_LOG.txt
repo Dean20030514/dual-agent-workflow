@@ -1,0 +1,54 @@
+# install.ps1 - real-tree run log (2026-09-15)
+
+Author-run on the real home, plugins excluded: network operations are not performed
+without an explicit human request. Everything else ran against ~/.claude / ~/.codex / ~/.dsh.
+
+## 1) pwsh -NoProfile -File .\install.ps1 -DryRun -NoPluginInstall
+exit 0
+DIFF rows     = 0
+STALE rows    = 0
+PRESERVE rows = 151
+[SUMMARY]  RESULT=OK (dry run, nothing was written)
+[SUMMARY]  planned=11 stale=0 preserve=140
+[SUMMARY]  would-write=0 unchanged=123 (this was a dry run: nothing was written)
+
+## 2) pwsh -NoProfile -File .\install.ps1 -NoPluginInstall
+exit 0
+WRITE rows    = 0
+BACKUP rows   = 0
+REMOVED rows  = 0
+[SUMMARY]  RESULT=OK (deployed)
+[SUMMARY]  planned=11 stale=0 preserve=140
+[SUMMARY]  written=0 unchanged=123 backups=0
+[SUMMARY]  plugins: installed=0 skipped=6 manual=0 failed=0
+
+## Notes
+
+* would-write=0: every managed file already matched the repository, so the first real
+  deployment had nothing to write and produced no backups. The run still exercised the
+  whole path (pre-flight checks, plan, machine-local report, plugin step, summary).
+* The live tree is now maintained by this script: every future overwrite lands a sibling
+  <name>.bak-<stamp>-<guid4> backup first, and live-only content is never deleted unless
+  -RemoveStale is passed explicitly.
+## 3) post-fix run of the same command, executed by the human (2026-09-15)
+pwsh -NoProfile -File .\install.ps1 -NoPluginInstall
+exit 0
+[SUMMARY]  RESULT=OK (deployed)
+[SUMMARY]  planned=11 stale=0 preserve=140
+[SUMMARY]  written=0 unchanged=123 backups=0
+[SUMMARY]  plugins: installed=0 skipped=6 manual=0 failed=0
+
+## 4) Why the plugin step is not needed on this machine
+
+* ~/.claude/plugins/installed_plugins.json already lists all six enabled plugins
+  (context7, chrome-devtools-mcp, pyright-lsp, typescript-lsp, frontend-design,
+  clangd-lsp), so the plugin step has nothing to add here.
+* The 2026-09-15 stall was that step reaching for the github marketplace
+  (anthropics/claude-plugins-official): the CLI sat with no output and no CPU. That is why
+  every install now announces itself and is killed after INSTALL_PS1_PLUGIN_TIMEOUT_SEC
+  (180s by default).
+* Practical default on this machine: -NoPluginInstall. Use the bare command only on a
+  machine whose plugins are missing, and run it somewhere you can watch the output.
+* 157 *.bak-* files (2.31 MB, written 2026-08/2026-09 by older installers) live under
+  ~/.claude and friends. The keep-local-only rule preserves them, so they are never
+  reported as [STALE] and nothing prunes them automatically - pruning is a human decision.

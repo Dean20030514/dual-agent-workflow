@@ -2,7 +2,7 @@
 
 个人双 Agent 工作流 + Claude Code/Codex 全局配置的**规范事实源（canonical source）**。当前规范版本 = **`main` 当前 tip**；历史可部署版本仅限**明确标记为可部署、且指向 `main` first-parent 集成边界的 release/config tag**（此类 tag 目前尚未登记——登记约定建立前，可部署集合即 `main` 当前 tip）。其余一切 commit/tag——`main` 可达但属 topic 分支中间态的 commit、未合入的分支与 commit、以及迁移基线、评测、取证、归档等历史用途锚点——**仅作证据或候选，不代表当前可部署版本**。
 
-本机 `~/.claude/`、`~/.codex/` 与 `~/.dsh/` 中**由部署器持续镜像/覆盖的路径**（下方「布局与安装位置」表的安装目标；**`~/.codex/config.toml` 除外**——它仅在缺失时播种，创建后即属 machine-local，不受持续镜像管理）是本仓库的运行副本；其余机器态——凭据、登录态、session/日志/缓存、`settings.local.json`、`~/.dsh/settings.yaml`、私有 auto-memory 及其他明确 machine-local / keep-local-only 内容——不属于部署副本、不要求晋升。迁移期间运行副本可暂含尚未晋升的 candidate overlay；任何针对**受管部署面的可复用本机修改**均视为 candidate overlay（候选增强/应急补丁），须先经仓库可见 diff、审查与版本绑定完成晋升，方构成规范版本并部署回本机。在 H3 提供真实 `-DryRun`/`-ValidateOnly` 前，`install.ps1` 保持迁移安全锁定（见下方警告）。
+本机 `~/.claude/`、`~/.codex/` 与 `~/.dsh/` 中**由部署器持续更新/覆盖的路径**（下方「布局与安装位置」表的安装目标；**`~/.codex/config.toml` 除外**——它仅在缺失时播种，创建后即属 machine-local，不受持续部署管理）是本仓库的运行副本；其余机器态——凭据、登录态、session/日志/缓存、`settings.local.json`、`~/.dsh/settings.yaml`、私有 auto-memory 及其他明确 machine-local / keep-local-only 内容——不属于部署副本、不要求晋升。迁移期间运行副本可暂含尚未晋升的 candidate overlay；任何针对**受管部署面的可复用本机修改**均视为 candidate overlay（候选增强/应急补丁），须先经仓库可见 diff、审查与版本绑定完成晋升，方构成规范版本并部署回本机。`install.ps1` 的部署语义（2026-09-15 人类裁决）= **只增/只更新**：覆盖前逐文件备份，**默认不删除**本机独有内容（只报告为 `[STALE]`，删除须显式传 `-RemoveStale`）。
 
 > **两套落地、一套纪律（2026-09-06）**：`claude/` 是 Claude Code（Author）+ Codex CLI（Reviewer）落地；`dsh/` 是 **DeepSeek Harness** 落地——**Author 与 Reviewer 都是 deepseek/dsh**（Author = 当前 DSH 会话主 agent；Reviewer = `subagent` 子 agent 或 `dsh --profile headless` 独立进程），模型档统一 `provider: deepseek-official` + `model: deepseek-flash`（= DeepSeek-V4.1-Flash）。**两套的规则判据与阈值一致，只允许"怎么跑"不同**（命令形态、Reviewer 进程形态、推理档）；`dsh/workflow/AGENTS.md` 是 DSH 会话的判据唯一出处，冲突时以它为准。DSH 侧的关键差异：**没有 Codex 进程沙箱兜底**——Reviewer 同机同权限、技术上写得到仓库，因此零写入从"沙箱帮你挡"变成"纪律 + verdict 的 `writes_performed` 字段自证"，违反即该轮审查作废重跑。
 
@@ -14,13 +14,26 @@ cd dual-agent-workflow
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-> **📌 当前状态（2026-09-15，切片 A 已合入 `main`）**：`install.ps1` 现在是**计划 / 校验器**——`-ValidateOnly` 与 `-DryRun` 两条**零写入**路径可用；**无参数运行**会打印完整计划、跑前置校验、然后以 `RESULT=REFUSED` **非零退出**（真实写入路径属**切片 B**，尚未落地）；`-IUnderstandThisReplacesLiveConfig` **已被移除**（传它会在**参数绑定阶段**失败）。因此**下方"迁移期安全锁定"整段描述的是切片 A 之前的状态，尚未改准**——完整改准属切片 D（清单见 `docs/ai/BACKLOG_sliceB.md` §4）。
+> **📌 当前状态（2026-09-15）**：`install.ps1` 已恢复真实部署能力，默认语义为**只增/只更新**——无参数运行 = 打印完整计划 → 跑前置校验 → 逐文件更新受管目标 → 安装 6 个官方插件。**每个被覆盖的文件先备份为同级 `<name>.bak-<时间戳>-<4位guid>`**；内容已一致的文件完全不碰（同一版本再跑一次是 no-op）。它**默认永不删除**任何本机独有内容：那些文件只以 `[STALE]` 报告；要删必须显式传 `-RemoveStale`（见下表）。`-DryRun` / `-ValidateOnly` 仍是零写入路径；`-IUnderstandThisReplacesLiveConfig` 已移除（传它在**参数绑定阶段**失败）。
 >
-> **⚠️ 迁移期安全锁定（历史说明：切片 A 之前的状态）**：安装器当前处于 snapshot-first 迁移锁定状态，**上面的一键命令会被脚本直接拒绝**。它的真实语义是 **mirror-replace** 本机受管目录（`~/.claude/{rules,workflow,commands}`，含其中仅存在于本机的内容如 `workflow/archive/**`）、覆盖 `~/.codex/AGENTS.md`，并镜像 `~/.dsh/AGENTS.md` / `~/.dsh/workflow/` / `~/.dsh/skills/{dual-agent-workflow,independent-review}/`（`~/.dsh` 为 harness home）。**关于机器态，分两句说清（2026-09-06 修正：原文"从不触碰"与代码不符）**：脚本**只读写受管路径**，`settings.yaml`、`sessions/`、`storages/`、`profiles/`、凭据**不被修改或删除**；**但脚本会先把整个 `~/.dsh` 整树备份为 `~/.dsh.bak-<时间戳>`**，因此那些文件会**被复制一份**到备份目录（且不自动清理——人类确认后自行删除）。要避免复制凭据，需先修 `install.ps1`（已登记为 `[DEBT]`）；未知参数（如 `-DryRun`，尚未实现）会在参数绑定阶段直接失败。只有在明确接受上述覆盖语义时，才手动附加确认开关 `-IUnderstandThisReplacesLiveConfig`（这是破坏性确认，不是常规默认参数，故不写入上方示例）。待 H3 提供真实 `-DryRun`/`-ValidateOnly` 与 keep-local-only 保护后，此锁定与本说明一并移除。
+> **开关一览**：
+>
+> | 调用 | 行为 |
+> |---|---|
+> |（无参数）| 校验 → 打印计划 → 复制差异文件（覆盖前备份）→ `claude plugin install` 装 6 个插件 |
+> | `-DryRun` | 打印计划 + **逐文件 `[DIFF]` 预览**（`would-write=N`）+ 前置检查；不 gate，会被拒时打印 `[WARN]`；**零写入** |
+> | `-ValidateOnly` | 只跑前置检查并逐条报 `[CHECK]`；**零写入** |
+> | `-NoPluginInstall` | 跳过插件步（离线/受限环境） |
+> | `-RemoveStale` | **唯一的删除路径**：删掉本次报告的 `[STALE]` 行（目录仅在已空时删；**全程无递归删除**）。不加则什么都不删 |
+> | `-ClaudeDir` / `-CodexDir` / `-DshDir` | 覆盖三个目标根；**显式传空值 = 直接 FAIL**（不会回落真机） |
+>
+> **⚠️ 历史说明（2026-07-30 迁移锁定 → 2026-09-15 解除）**：2026-07-30 起安装器被应急锁定为"拒绝执行"，起因是旧版 **mirror-replace** 语义一次删掉本机 127 个独有文件（82 个 `archive/**` + 45 个旧 `*.bak-*`）。该删除语义**已整体移除**：默认路径里没有任何删除，`[STALE]` 只是一份报告。退出码：`0 = OK`（部署 / 试跑 / 校验完成）、`1 = FAILED`（前置校验拒绝、写入失败，或插件安装失败——失败即停在第一处并列出已完成项）。
 
-脚本（PowerShell 5.1 兼容）**将**会（切片 B 落地后）：备份现有目标为 `*.bak-<时间戳>` → 部署全局 CLAUDE.md / settings.json / rules / workflow / commands → 部署 Codex 侧 AGENTS.md（config.toml 仅在缺失时用 example 播种）→ 部署 DSH 侧 `AGENTS.md` / `workflow/` / 本工作流自有的两个 skill 目录 → 安装 **6** 个官方插件（`context7` `chrome-devtools-mcp` `pyright-lsp` `typescript-lsp` `frontend-design` `clangd-lsp`；无 claude CLI 时打印手动命令）。**切片 A 落地的部分**：计划与校验（`-DryRun` / `-ValidateOnly`）已可用，且**零写入**。
+脚本（PowerShell 5.1 兼容）现在会：跑前置校验（`-ValidateOnly` 单跑可见）→ 打印完整计划（含 `[STALE]` / `[PRESERVE]` 行与 `keep-local-only` 说明）→ 逐文件更新受管目标，**覆盖前把该文件旧内容备份成同级 `<name>.bak-<时间戳>-<4位guid>`** → 部署全局 CLAUDE.md / settings.json / rules / workflow / commands → 部署 Codex 侧 AGENTS.md（config.toml 仅在缺失时用 example 播种）→ 部署 DSH 侧 `AGENTS.md` / `workflow/` / `dsh/skills/` 下的**每一个** skill 目录（枚举目录，不是写死的清单）→ 为 **6** 个官方插件各跑一次 `claude plugin install <name>@claude-plugins-official`（`context7` `chrome-devtools-mcp` `pyright-lsp` `typescript-lsp` `frontend-design` `clangd-lsp`）。**CLI 缺席不算失败**：会打印对应的手工命令并计入汇总的 `manual=N`；**插件安装失败**则汇总 `failed=N` 并以 `RESULT=FAILED` 退出（文件面已完成，汇总里分别报数）。
 
-**刻意不部署**（换设备需自行私有迁移或重新登录）：`.credentials.json` / `~/.claude.json` / `~/.codex/auth.json` / `~/.dsh/.credentials.yaml` 等凭据与登录态（**注**：`install.ps1` 不修改它们，但整树备份会把它们复制进 `~/.dsh.bak-<时间戳>`，见上方锁定说明）；session/日志/缓存等机器状态；`settings.local.json`（本机临时授权）；**`~/.dsh/settings.yaml`**（本机用户设置：权限预设、模型白名单）；**auto-memory**（`~/.claude/projects/*/memory`，含私有项目内情，不进公开仓库——需要时整目录自行拷贝）。
+> **插件步是网络操作，可能长时间无响应**（2026-09-15 实测：第一个 `context7` 安装挂住数分钟、零输出零 CPU）。因此：每个插件安装**开始前**会先打印 `[PLUGIN] installing … (timeout 180s)`，**超过 180 秒会被 kill 并计为失败**（`TIMEOUT after 180s`，不改 180 秒这个默认值可用环境变量 `INSTALL_PS1_PLUGIN_TIMEOUT_SEC` 覆盖）。**文件面永远在插件步之前完成**——所以插件步失败/超时不会动你已经部署好的配置；只想更新文件就加 `-NoPluginInstall`。
+
+**刻意不部署**（换设备需自行私有迁移或重新登录）：`.credentials.json` / `~/.claude.json` / `~/.codex/auth.json` / `~/.dsh/.credentials.yaml` 等凭据与登录态（**注**：`install.ps1` 从不读写、也从不备份它们——备份只针对它实际覆盖的受管文件，且没有任何整树备份）；session/日志/缓存等机器状态；`settings.local.json`（本机临时授权）；**`~/.dsh/settings.yaml`**（本机用户设置：权限预设、模型白名单）；**auto-memory**（`~/.claude/projects/*/memory`，含私有项目内情，不进公开仓库——需要时整目录自行拷贝）。
 
 ## 布局与安装位置
 
@@ -35,9 +48,9 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 | `codex/config.example.toml` | `~/.codex/config.toml`（缺失时播种） | Codex 持久偏好（信任目录表等本机生成段刻意省略） |
 | `dsh/AGENTS.md` | `~/.dsh/AGENTS.md` | **DSH 每会话必载的全局指令**（跨项目策略层：Mode Routing、Author/Reviewer 角色与写权、Safety 红线、Fan-out 上限、Configuration Hierarchy；细节一律指向 `~/.dsh/workflow/` 与 `~/.dsh/skills/`，不复制判据） |
 | `dsh/workflow/` | `~/.dsh/workflow/` | DSH 侧母本：`AGENTS.md`（**判据唯一出处**——Safety Rules / Reviewer 零写入与轻量协议 / `[DEBT]` 零暗债 / Payback-on-Touch / 证据 vs 假设 / 验证三分类 / 守护有效性装置 / Fix-Loop 硬停 / review-sensitive paths + SHA 绑定 / Git Discipline）· `reviewer-prompt.md`（9P/9A/9B prompt + 输出契约 + **双审隔离协议 5 条 + DSH 调用形态**）· `fanout-toolchain.md`（**DSH 工具面事实**：委派三面、审查调用参数、派发上限、Reviewer 失败语义）· `index.md` · `QUALITY_GATES.md` · `workflow-design-notes.md` · `AB-model-diagnostic.md` · `templates/` |
-| `dsh/skills/` | `~/.dsh/skills/` | DSH 原生 skill 包（按需加载，**只有本工作流自有的两个目录被镜像**）：`dual-agent-workflow/`（路由 + phase 正文 `references/phases/*.md` + 证据/派发/冲突手册）与 `independent-review/`（开审清单、调用形态、收回后 5 项核验、异常处置） |
+| `dsh/skills/` | `~/.dsh/skills/` | DSH 原生 skill 包（按需加载；**`dsh/skills/` 下的每个目录都会被部署**——按目录枚举，新增 bundle 自动纳入，而 `~/.dsh/skills` 里不在仓库中的内容一概不动）：`dual-agent-workflow/`（路由 + phase 正文 `references/phases/*.md` + 证据/派发/冲突手册）与 `independent-review/`（开审清单、调用形态、收回后 5 项核验、异常处置） |
 | `portable/` | — | 便携单文件版。**两族并存**：Claude Code/Codex 侧 `通用prompt-v3.8.txt`（2026-09-06 按 `main` 母本整体重新生成：模式路由/Routine · Reviewer 零写入 · 双审隔离与 SHA 绑定 · 归因与 Fix-Loop 硬停 · 轮次上限 · 单轮 diff 预算 · 守护有效性装置与负向对照 · 验收可复现判定 · 修法必附 · **Blocking 仅 Product、证据缺口走 Verification Needed** · **9P 默认单跑一轮** · **diff 预算只计生产面、`docs/ai/**` 不计** · **三件套写完机械对照骨架 · 空闲期 HANDOFF 保留全骨架** · 推理档按审别取值）；**DSH 侧 `通用prompt-DSH-v1.txt`**（同一套纪律的 DSH 压缩版：Author/Reviewer 都是 deepseek/dsh、`subagent` 调用范式与零写入 `writes_performed` 字段、headless 备用路径、9P/9A/9B 精简 prompt、派发上限）。**每次整体重生即退役旧版**，同一族只保留当前版一份，历史版本查 git 历史（v3.7 见 `git show 5847c43:portable/通用prompt-v3.7.txt`，v3.6 见 `git show 8cdce08:portable/通用prompt-v3.6.txt`，v3.5 见 `git show 986a1ed:portable/通用prompt-v3.5.txt`，v3.4 见 `git show 77244d1:portable/通用prompt-v3.4.txt`，v3.3 见 `git show 4861875:portable/通用prompt-v3.3.txt`，v3.2 见 `git show 76c3138:portable/通用prompt-v3.2.txt`，v3.1 见 `git show f7dd03f^:portable/通用prompt-v3.1.txt`）。母本再变时同样**整体重新生成**，勿逐条打补丁 |
-| `install.ps1` | — | 上述一切的一键部署脚本 |
+| `install.ps1` | — | 上述一切的一键部署脚本（PowerShell 5.1 兼容；**默认只增/只更新、不删除**，覆盖前逐文件备份；`-DryRun` 逐文件预览、`-ValidateOnly` 零写入；`-RemoveStale` 是唯一的显式删除路径，全程无递归删除） |
 
 ## 核心机制（2026-08 版）
 

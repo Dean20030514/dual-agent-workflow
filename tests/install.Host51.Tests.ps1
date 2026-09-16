@@ -18,6 +18,7 @@ Describe 'Amendment ㉔ 5.1 leg - powershell.exe as the child host' {
         $case = New-TestCase -Name 'ps51' -SeedTargets -SeedConfigToml
         $script:Args = @('-ClaudeDir', $case.ClaudeDir, '-CodexDir', $case.CodexDir, '-DshDir', $case.DshDir)
         $script:Before = Get-TargetsSignature -Case $case
+        $script:StrayBefore = (Get-FileHash -LiteralPath (Join-Path $case.ClaudeDir 'workflow\stray.md')).Hash
     }
     AfterEach { Remove-TestCase $case }
 
@@ -36,21 +37,23 @@ Describe 'Amendment ㉔ 5.1 leg - powershell.exe as the child host' {
         (Get-TargetsSignature -Case $case) | Should -Be $script:Before
     }
 
-    It 'plan sample: -DryRun prints the delete surface and writes nothing under 5.1' {
+    It 'plan sample: -DryRun prints the stale surface and writes nothing under 5.1' {
         $r = Invoke-InstallerCase -Case $case -Arguments (@('-DryRun') + $script:Args) -HostExe $script:WinPs
         $r.OutputText | Should -Match 'psver=5\b'
         $r.ExitCode | Should -Be 0
-        @(Get-TaggedLines -Output $r.Output -Tag '[DELETE]').Count | Should -BeGreaterThan 0
+        @(Get-TaggedLines -Output $r.Output -Tag '[STALE]').Count | Should -BeGreaterThan 0
         $r.OutputText | Should -Match 'RESULT=OK'
         (Get-TargetsSignature -Case $case) | Should -Be $script:Before
     }
 
-    It 'refusal sample: the Deploy set exits non-zero with RESULT=REFUSED under 5.1 (K1)' {
+    It 'deploy sample: the Deploy set really writes under 5.1 and reports RESULT=OK (K1)' {
         $r = Invoke-InstallerCase -Case $case -Arguments $script:Args -HostExe $script:WinPs
         $r.OutputText | Should -Match 'psver=5\b'
-        $r.ExitCode | Should -Not -Be 0
-        $r.OutputText | Should -Match 'RESULT=REFUSED'
-        (Get-TargetsSignature -Case $case) | Should -Be $script:Before
+        $r.ExitCode | Should -Be 0
+        $r.OutputText | Should -Match 'RESULT=OK'
+        @(Get-TaggedLines -Output $r.Output -Tag '[WRITE]').Count | Should -BeGreaterThan 0
+        (Get-FileHash -LiteralPath (Join-Path $case.ClaudeDir 'CLAUDE.md')).Hash | Should -Be (Get-FileHash -LiteralPath (Join-Path (Get-RepoRoot) 'claude\CLAUDE.md')).Hash
+        (Get-FileHash -LiteralPath (Join-Path $case.ClaudeDir 'workflow\stray.md')).Hash | Should -Be $script:StrayBefore -Because 'a deploy must never delete live-only content'
     }
 
     It 'binding sample: an unknown parameter is still rejected at binding under 5.1' {

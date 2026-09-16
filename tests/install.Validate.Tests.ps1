@@ -82,15 +82,15 @@ Describe 'AC3 -ValidateOnly' {
             $targets = @('-ClaudeDir', $case.ClaudeDir, '-CodexDir', $case.CodexDir, '-DshDir', $case.DshDir)
             $v = Invoke-InstallerCase -Case $case -Arguments (@('-ValidateOnly') + $targets)
             $d = Invoke-InstallerCase -Case $case -Arguments (@('-DryRun') + $targets)
-            $mv = [regex]::Match($v.OutputText, 'planned=(\d+) delete=(\d+) preserve=(\d+)')
-            $md = [regex]::Match($d.OutputText, 'planned=(\d+) delete=(\d+) preserve=(\d+)')
+            $mv = [regex]::Match($v.OutputText, 'planned=(\d+) stale=(\d+) preserve=(\d+)')
+            $md = [regex]::Match($d.OutputText, 'planned=(\d+) stale=(\d+) preserve=(\d+)')
             $mv.Success | Should -BeTrue
             $md.Success | Should -BeTrue
             foreach ($i in 1..3) {
                 [int]$mv.Groups[$i].Value | Should -Be ([int]$md.Groups[$i].Value) -Because 'all three counters are mode independent (one Get-PlanCounters before the mode branches)'
             }
-            [int]$mv.Groups[2].Value | Should -BeGreaterThan 0 -Because 'the seeded tree has a live-only stray.md, so validate must not report a structural delete=0'
-            [int]$md.Groups[2].Value | Should -Be (@(Get-TaggedLines -Output $d.Output -Tag '[DELETE]').Count) -Because 'the counter and the printed rows come from the same delta'
+            [int]$mv.Groups[2].Value | Should -BeGreaterThan 0 -Because 'the seeded tree has a live-only stray.md, so validate must not report a structural stale=0'
+            [int]$md.Groups[2].Value | Should -Be (@(Get-TaggedLines -Output $d.Output -Tag '[STALE]').Count) -Because 'the counter and the printed rows come from the same delta'
         } finally { Remove-TestCase $case }
     }
 
