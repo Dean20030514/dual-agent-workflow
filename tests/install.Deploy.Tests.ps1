@@ -324,16 +324,20 @@ Describe 'Deploy - completeness into an empty home (ported from the stopped H3 b
             $mismatch = New-Object System.Collections.Generic.List[string]
             foreach ($rel in $expected) {
                 $target = switch -Regex ($rel) {
-                    '^claude/' { Join-Path $fresh.ClaudeDir $rel.Substring(7) }
-                    '^codex/' { Join-Path $fresh.CodexDir $rel.Substring(6) }
-                    '^dsh/' { Join-Path $fresh.DshDir $rel.Substring(4) }
+                    '^claude/' { Join-Path $fresh.ClaudeDir $rel.Substring(7); break }
+                    '^codex/' { Join-Path $fresh.CodexDir $rel.Substring(6); break }
+                    '^dsh/' { Join-Path $fresh.DshDir $rel.Substring(4); break }
                 }
                 if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { $missing.Add($rel); continue }
+                # `break` is load-bearing: switch -Regex runs EVERY matching branch and emits
+                # each value, so without it 'codex/config.toml' would also collect the generic
+                # '^codex/' path and $source would become a two-element array (its hash compare
+                # then degrades to "any differ", and the missing path spams a Get-FileHash error).
                 $source = switch -Regex ($rel) {
-                    '^claude/' { Join-Path (Get-RepoRoot) ('claude\' + $rel.Substring(7)) }
-                    '^codex/config\.toml$' { Join-Path (Get-RepoRoot) 'codex\config.example.toml' }
-                    '^codex/' { Join-Path (Get-RepoRoot) ('codex\' + $rel.Substring(6)) }
-                    '^dsh/' { Join-Path (Get-RepoRoot) ('dsh\' + $rel.Substring(4)) }
+                    '^claude/' { Join-Path (Get-RepoRoot) ('claude\' + $rel.Substring(7)); break }
+                    '^codex/config\.toml$' { Join-Path (Get-RepoRoot) 'codex\config.example.toml'; break }
+                    '^codex/' { Join-Path (Get-RepoRoot) ('codex\' + $rel.Substring(6)); break }
+                    '^dsh/' { Join-Path (Get-RepoRoot) ('dsh\' + $rel.Substring(4)); break }
                 }
                 if ((Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash -ne (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash) { $mismatch.Add($rel) }
             }
