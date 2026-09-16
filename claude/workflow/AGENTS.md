@@ -211,6 +211,7 @@ Before modifying a file/module, scan whatever debt ledger the project has: **Cri
 * **重置**：某一轮无"修复引入的 `[Product Blocking]`"（该轮 0 计），streak 归 0。
 * **停止（硬门）**：streak 连续达 **2** → **立即停止编码**，只能：回退 / 重新拆任务 / 请求人类批准架构升级；**禁止"再试一轮"**（未获人类确认不得继续）。
 * **轮次上限（关闭阀，2026-08-15 新增）**：同一任务的双审达 **3 轮**仍未收敛 → **停止再审**，交人类在「带如实登记的限制交付 / 重新拆任务 / 回退」三者中裁决。**收敛不是唯一出口**——把"再审一轮"当默认出口，是四个真实任务全部停在 `stopped, NOT converged` 的直接原因（实测轮次：7 / 6 / 5 / 3）。人类可明确批准延长，但延长须逐次批准，不得默认。
+* **Early-stop probe (Critical only — not a new gate, but an earlier trigger for the round cap)**: if a round's blocking issues come **entirely from the previous round's fixes** rather than from newly discovered product-level problems → treat it under the round-cap exit (stop and hand to the human) and **do not spend another round**. Source = the human's 2026-09-06 ruling: "patching a rule to plug a hole in the rule grows new holes; the discriminator is whether the new round's blocking all came from the previous round's patch." It only fires an existing exit earlier; it adds no exit and changes no threshold.
 * **三者优先级（硬停 / 轮次上限 / 合并门，唯一判据）**：① **硬停优先于轮次上限**——streak 达 2 时只能走硬停的三条出路，不得改走"限制交付"。② **合并门优先于一切出口**——存在**未解决的 `[Product Blocking]`（含任何安全/隐私影响）** 时，「带限制交付」**不含合并**：可以停、可以记账、可以移交，**不得合入 main**。③ 无论走哪条出口，只要没过收敛门，一律记 `stopped, NOT converged`，**不得**标 Ready to Commit / 已收敛。「限制交付」的合法含义仅限：**零未解决 Product Blocking**，剩余 Verification Needed 已逐条处置（代跑追加或不采纳，见最后一轮独立审查门 ②）。
 
 ## 最后一轮独立审查门（唯一定义处；**仅 Critical**——Routine 无双审与收敛门）
