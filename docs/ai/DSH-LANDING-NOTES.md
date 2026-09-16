@@ -225,3 +225,37 @@ dsh/skills/{dual-agent-workflow,independent-review}/** → ~/.dsh/skills/ 同名
   4. `~/.dsh/settings.yaml` 的 `reasoningEffort` 是否真被适配器读取 —— 触发：首次依赖 settings 层钉档位之前。
   5. AC8 的机器态实跑（临时 HOME / 一次性 profile 下跑安装器 + 三项哈希）—— 触发：`install.ps1` 解锁后首次运行。 **已履行（2026-09-15）**：写入路径落地后，隔离 home 的机器态实跑由 `tests/install.Deploy.Tests.ps1` 承担（机器态哈希/备份缺席断言），并另对**真实树**跑过一次 `-DryRun` + 一次真部署（零写入）；记录见 `docs/ai/REAL_DEPLOY_LOG.txt`。
   6. `install.ps1` 的其余注释逐句对读（AC7 只核了备份/镜像语义那一组）—— 触发：下次改动该文件之前。
+
+## 6. DSH 侧相对母本的**有意判据分歧**登记（2026-09-16 新增）
+
+> **为什么单独一节**：仓库契约为「两套落地，一套纪律——判据与阈值一致，只允许『怎么跑』不同」。本节登记**故意不一致**的条目，每条必须写明机制为什么只在一侧成立。**本节为空 = 两侧判据一致**；不为空时，它就是那份差额的唯一定义处。
+> **机械门**：`tools/dsh-drift-check.ps1` 把两侧 17 对派生文件的全部差异行冻结进 `tools/dsh-drift-baseline.txt`；任何新增 / 改动 / 消失的差异行都判红。**用 `-Update` 重生成基线即等于声明一条分歧**——同一个 commit 必须在本节登记它。
+
+| # | 位置（DSH 侧） | 分歧内容 | 为什么只在一侧成立 |
+|---|---|---|---|
+| **D1** | `workflow/AGENTS.md` → Reviewer-Lightweight Protocol 第一层（新 bullet）；`workflow/reviewer-prompt.md` → ③(c) 红线 + 9A / 9B / 9P 三处 prompt 的「具名禁区」；`AGENTS.md` → File & Config Safety | **具名禁止 Reviewer 执行 `install.ps1` 的任何形态**，并点明唯一安全路径（隔离临时 HOME 的 `tests/` 套件） | **机制是 DSH 特有的**：Codex 进程沙箱是零写入的物理兜底，DSH 没有（Reviewer 同机同权限）；事故也发生在 DSH 侧——2026-09-15 同型两次（9P Reviewer 删掉 `~/.claude/` 下 127 个本机独有文件、该轮 verdict 作废；Author 一次）。Claude 侧母本保留「不跑任何会改文件的命令」的泛化表述。**若将来 Codex 侧也失去沙箱兜底，本条应升为两侧共有。** |
+
+**以下两条不属于分歧**（两侧已同改，故不登记；它们的证据都是跨模型的——2026-08-15 三病诊断早于 DSH 落地）：`workflow/AGENTS.md` → Fix-Loop 的「早期停牌探针」；全局 Mode Routing 的「建议而不自我降级」。
+
+## 7. 分类契约的可复现性测量（2026-09-16；**未据此改动任何判据**）
+
+> 只作证据登记：它指出「Product / Verification Needed / Suggestion」三分类在**边界项**上不可复现，但是否收窄契约由人类决定——**本轮没有改判据**。
+
+**设计（预注册）**：7 条冻结 finding（4 条历史争议项 I1–I4 + 3 条对照 I5–I7）× **5 个互不可见的 fresh-context Reviewer**（`deepseek-official` / `deepseek-flash` / `reasoning_effort: high`，与 9A 实发参数一致）；提示词逐字节相同；禁止读仓库与归档；只输出类别名。
+**预注册判据**：对照项须 ≥4/5 一致（否则仪器本身无效，不对契约下结论）；任一争议项出现 ≥2 个类别 → 契约在该项上欠定。
+
+| 项 | 5 次判定 | 历史判定 |
+|---|---|---|
+| I1（AC6 判定方式恒红、`<base>` 未钉死、谓词无区分力） | Suggestion×4, VN×1 → **0/5 Product** | 9B=Product，9A=Suggestion |
+| I2（AC4 脚本硬绑本机 checkout 路径 vs 声称「可复制执行」） | Suggestion×4, Product×1 | 9B=Product（`dispute`） |
+| I3（AC4 门只覆盖声明域 20 处中的 7 处） | VN×4, Product×1 | 9A=Product（`dispute`） |
+| I4（AC9 判定①恒红且从未执行） | Suggestion×4, VN×1 → **0/5 Product** | 9B=Product（`dispute`） |
+| I5（`medium` 档不存在致 9P 不可执行） | **Product×5** | 两份均 Product |
+| I6（「三个 `SKILL.md`」实际两个） | **Suggestion×5** | Suggestion |
+| I7（headless 默认模型需实跑确认） | **VN×5** | VN |
+
+**结果**：对照项 **15/15 一致**（仪器有效）；**4 条争议项每一条都出现 ≥2 个类别**（每次均为 4:1 分裂）；争议项 20 次判定中仅 **2 次**给出 Product。
+
+**为什么这条重要**：dsh-landing 的 round 3 与 round 4 的**唯一** Product 项分别是 I1 与 I4——今天各得 **0/5** Product，那两轮的 streak 输入因此不可复现。round 5 触发硬停的那条（B-1）**不在本项集内**，不属本结论。
+
+**限度（与结论同读）**：本测量给的是 finding **陈述**、未给 diff，故证明的是「同一输入 → 不同桶」，**不能单独证明历史上的 Product 判定错了**；少数派票方向不一致（I2/I3 偶跳 Product、I1/I4 从不跳），说明不是一致地读松或读严，而是**边界无确定解**。**更强的复现**（把 round 3 的真实 diff `7084fb75..34b60370` 交给 5 个 Reviewer 重跑）**尚未执行**；五个历史 tip 经实测仍在本地。
