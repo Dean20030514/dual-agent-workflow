@@ -1,0 +1,451 @@
+# last_test_run.txt - task H3 (install.ps1 hardening)
+
+tested_sha: 8adc119fc453a016602fdc274e9a60c8fb003468
+task_brief_blob_sha: e2453702a0fe30c2c24f34fd8f729802e6ed85a3
+date: 2026-09-15
+driver: %TEMP%\h3-verify.ps1 (runs the frozen commands only; not evidence by itself)
+
+> 命令 + 完整输出 + 退出码。AC 与判定方式见 docs/ai/TASK_BRIEF.md（AC1-AC11 + 冻结输入域 K1-K9）。
+> 所有"真部署"样本都在临时 HOME / 临时目标目录内进行；测试辅助层在**子进程内**做机械互锁（目标落在真实 home 之下即 exit 97 且不调用安装器）。
+
+## A. 主套件（冻结形态；Run.Exit=$true 由子进程承载，故本会话进程不被 Pester 终止）
+
+$ pwsh -NoProfile -Command "$c = New-PesterConfiguration; $c.Run.Path = 'tests'; $c.Run.Exit = $true; $c.TestResult.Enabled = $false; $c.Output.Verbosity = 'Normal'; Invoke-Pester -Configuration $c"
+
+Running tests from 4 files.
+[+] C:\Users\16097\Desktop\workflow\tests\install.Deploy.Tests.ps1 23.56s
+[+] C:\Users\16097\Desktop\workflow\tests\install.DryRun.Tests.ps1 14.24s
+[+] C:\Users\16097\Desktop\workflow\tests\install.IsolatedHome.Tests.ps1 11.37s
+[+] C:\Users\16097\Desktop\workflow\tests\install.Parameters.Tests.ps1 12.27s
+Tests completed in 61.45s
+Tests Passed: 42, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+exit code: 0
+
+## B. AC1 参数面逐样本（K2/K3 通过侧 + K4/K5/K6/K7 失败侧；同形配对）
+
+$ pwsh -NoProfile -File .\install.ps1 -DryRun -ClaudeDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude -CodexDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex -DshDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh
+[PLAN]     targets claude=C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude codex=C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex dsh=C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh
+[PLAN]     copy  C:\Users\16097\Desktop\workflow\claude\CLAUDE.md -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\CLAUDE.md
+[PLAN]     copy  C:\Users\16097\Desktop\workflow\claude\settings.json -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\settings.json
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\claude\rules -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\rules (79 files)
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\claude\workflow -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\workflow (10 files)
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\claude\commands -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\commands (7 files)
+[PLAN]     copy  C:\Users\16097\Desktop\workflow\codex\AGENTS.md -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex\AGENTS.md
+[PLAN]     seed  C:\Users\16097\Desktop\workflow\codex\config.example.toml -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex\config.toml
+[PLAN]     copy  C:\Users\16097\Desktop\workflow\dsh\AGENTS.md -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\AGENTS.md
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\dsh\workflow -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\workflow (11 files)
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\dsh\skills\dual-agent-workflow -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\skills\dual-agent-workflow (10 files)
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\dsh\skills\independent-review -> C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\skills\independent-review (1 files)
+[PLAN]     plugin context7@claude-plugins-official
+[PLAN]     plugin chrome-devtools-mcp@claude-plugins-official
+[PLAN]     plugin pyright-lsp@claude-plugins-official
+[PLAN]     plugin typescript-lsp@claude-plugins-official
+[PLAN]     plugin frontend-design@claude-plugins-official
+[PLAN]     plugin clangd-lsp@claude-plugins-official
+[PLAN]     keep-local-only: archive segments and *.bak-* names
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\settings.local.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\.credentials.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\sessions (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\projects (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex\auth.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\settings.yaml (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\.credentials.yaml (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\sessions (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\storages (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\profiles (machine-local, never touched)
+
+[SUMMARY]  RESULT=OK (dry run, nothing was written)
+exit code: 0
+  [K2 pass] exit=0
+
+$ pwsh -NoProfile -File .\install.ps1 -ValidateOnly -ClaudeDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude -CodexDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex -DshDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh
+[CHECK]    targets claude=C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude codex=C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex dsh=C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh
+[CHECK]    source:C:\Users\16097\Desktop\workflow\claude\CLAUDE.md OK present
+[CHECK]    source:C:\Users\16097\Desktop\workflow\claude\settings.json OK present
+[CHECK]    source:C:\Users\16097\Desktop\workflow\claude\rules OK 79 files
+[CHECK]    source:C:\Users\16097\Desktop\workflow\claude\workflow OK 10 files
+[CHECK]    source:C:\Users\16097\Desktop\workflow\claude\commands OK 7 files
+[CHECK]    source:C:\Users\16097\Desktop\workflow\codex\AGENTS.md OK present
+[CHECK]    source:C:\Users\16097\Desktop\workflow\codex\config.example.toml OK present
+[CHECK]    source:C:\Users\16097\Desktop\workflow\dsh\AGENTS.md OK present
+[CHECK]    source:C:\Users\16097\Desktop\workflow\dsh\workflow OK 11 files
+[CHECK]    source:C:\Users\16097\Desktop\workflow\dsh\skills\dual-agent-workflow OK 10 files
+[CHECK]    source:C:\Users\16097\Desktop\workflow\dsh\skills\independent-review OK 1 files
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\CLAUDE.md OK does not exist yet (will be created)
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\settings.json OK does not exist yet (will be created)
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\rules OK does not exist yet (will be created)
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\workflow OK does not exist yet (will be created)
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\commands OK does not exist yet (will be created)
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex\AGENTS.md OK does not exist yet (will be created)
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex\config.toml OK does not exist yet (will be created)
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\AGENTS.md OK does not exist yet (will be created)
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\workflow OK does not exist yet (will be created)
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\skills\dual-agent-workflow OK does not exist yet (will be created)
+[CHECK]    target:C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\skills\independent-review OK does not exist yet (will be created)
+[CHECK]    target-roots OK usable as directories
+[CHECK]    roots OK three distinct target roots
+[CHECK]    target-inside-source-tree OK no target is inside the source tree
+[CHECK]    machine-local-untouched OK no action targets a machine-local path
+[CHECK]    plugin-cli OK found: C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\shim\claude.cmd
+
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\settings.local.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\.credentials.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\sessions (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude\projects (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex\auth.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\settings.yaml (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\.credentials.yaml (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\sessions (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\storages (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh\profiles (machine-local, never touched)
+[SUMMARY]  RESULT=OK (validate only, nothing was written)
+exit code: 0
+  [K3 pass] exit=0
+
+$ pwsh -NoProfile -File .\install.ps1 -IUnderstandThisReplacesLiveConfig
+install.ps1: 找不到与参数名称 'IUnderstandThisReplacesLiveConfig' 匹配的参数。
+exit code: 1
+  [K4a removed switch] exit=1
+
+$ pwsh -NoProfile -File .\install.ps1 -IUnderstandThisReplacesLiveConfig:$false
+install.ps1: 找不到与参数名称 'IUnderstandThisReplacesLiveConfig' 匹配的参数。
+exit code: 1
+  [K4b removed switch :$false] exit=1
+
+$ pwsh -NoProfile -File .\install.ps1 -DyrRun
+install.ps1: 找不到与参数名称 'DyrRun' 匹配的参数。
+exit code: 1
+  [K5 typo] exit=1
+
+$ pwsh -NoProfile -File .\install.ps1 DryRun -IUnderstandThisReplacesLiveConfig
+install.ps1: 找不到接受自变量 'DryRun' 的位置参数。
+exit code: 1
+  [K6 positional + legacy switch] exit=1
+
+$ pwsh -NoProfile -File .\install.ps1 DryRun -ClaudeDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude -CodexDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex -DshDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh
+install.ps1: 找不到接受自变量 'DryRun' 的位置参数。
+exit code: 1
+  [K6 clean positional] exit=1
+
+$ pwsh -NoProfile -File .\install.ps1 -DryRun -ValidateOnly -ClaudeDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.claude -CodexDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.codex -DshDir C:\Users\16097\AppData\Local\Temp\h3-v-7f21962d\home\.dsh
+install.ps1: 无法使用指定的命名参数解析参数集。发出的一个或多个参数不能一起使用，或者提供的参数数量不足。
+exit code: 1
+  [K7 both plan states] exit=1
+
+$ # 零副作用：临时 HOME 的递归哈希清单前后一致
+identical = True  (files=0)
+exit code: 0
+
+## C. AC2/AC4 的 dry-run 计划（临时预置树；白名单样本保留、stray 列为 [DELETE]）
+
+$ pwsh -NoProfile -File .\install.ps1 -DryRun -ClaudeDir <T>\.claude -CodexDir <T>\.codex -DshDir <T>\.dsh | Select-String "[DELETE]|[PRESERVE].*archive|SUMMARY"
+[DELETE]   C:\Users\16097\AppData\Local\Temp\h3-v2-23dd3167\home\.claude\workflow\stray.md
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v2-23dd3167\home\.claude\workflow\archive\old\e.md
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v2-23dd3167\home\.claude\workflow\archive\old (dir)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v2-23dd3167\home\.claude\workflow\archive (dir)
+[SUMMARY]  RESULT=OK (dry run, nothing was written)
+exit code: 0
+
+## D. AC8 Windows PowerShell 5.1 腿 + 纯 ASCII 判据（含 base 负向对照）
+
+$ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -DryRun -ClaudeDir <T>\.claude ...
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3-v3-89e6258f\.dsh\profiles (machine-local, never touched)
+
+[SUMMARY]  RESULT=OK (dry run, nothing was written)
+exit code: 0
+
+$ (Get-Content -Raw install.ps1) -match '[^\x00-\x7F]'   # 预期 False
+False
+exit code: 0
+
+$ git show e9917a1:install.ps1 > <TEMP>\base.ps1 ; (Get-Content -Raw <TEMP>\base.ps1) -match '[^\x00-\x7F]'   # 负向对照：预期 True
+True
+exit code: 0
+
+## E. AC9① 已移除开关零引用（域 = 除 docs/ai/** 外全部）+ base 负向对照
+
+$ git grep -n 'IUnderstandThisReplacesLiveConfig' -- . ':(exclude)docs/ai/**'   # 预期零命中（exit 1）
+README.md:25:> **确认开关已移除**：旧的 `-IUnderstandThisReplacesLiveConfig` 不再是参数——带上它会在**参数绑定阶段**报错（退出码 1、零写入），这是刻意的硬门。
+install.ps1:33:#   * no acknowledgement switch - the old -IUnderstandThisReplacesLiveConfig was removed by
+tests/install.Parameters.Tests.ps1:38:        $r = Invoke-InstallerCase -Case $case -Arguments @('-IUnderstandThisReplacesLiveConfig')
+tests/install.Parameters.Tests.ps1:40:        $r.OutputText | Should -Match 'IUnderstandThisReplacesLiveConfig'
+tests/install.Parameters.Tests.ps1:46:        $r = Invoke-InstallerCase -Case $case -Arguments @('-IUnderstandThisReplacesLiveConfig:$false')
+tests/install.Parameters.Tests.ps1:61:        $r = Invoke-InstallerCase -Case $case -Arguments @('DryRun', '-IUnderstandThisReplacesLiveConfig')
+exit code: 0
+
+$ git grep -n 'IUnderstandThisReplacesLiveConfig' e9917a1 -- .   # 负向对照：预期非零命中
+e9917a1:README.md:1
+e9917a1:docs/ai/INSTALLER_GUARD.md:7
+e9917a1:install.ps1:3
+exit code: 0
+
+## F. AC9② 失效声称零命中（否定过滤：允许"不再…/已移除…"这类订正叙述）
+
+$ git grep -n 'MORATORIUM-LOCAL-001' -- README.md AGENTS.md install.ps1 claude/rules/README.md docs/ai/AUTHORITY_CONTRACT.md   # 预期零命中
+exit code: 1
+
+$ Select-String -Path README.md,AGENTS.md,claude/rules/README.md,docs/ai/AUTHORITY_CONTRACT.md -Pattern '整树备份' | Where-Object { $_.Line -notmatch '不再|已移除|H3' }   # 预期无输出
+exit code: 1
+
+$ Select-String -Path README.md -Pattern '整树备份'   # 否定的区分力：同名 grep 不加过滤时命中订正叙述
+C:\Users\16097\Desktop\workflow\README.md:23:> **keep-local-only 保护（闭集，两类）**：被镜像目录里凡是**路径段含 `archive`** 的内容（本机证据归档）与 **`*.bak-*` 文件**（旧版安装器留下的回滚副本）都会被**保留**；其余"源里没有"的文件才会被删除，且 `-DryRun` 会逐条列出。**机器态**（`settings.local.json`、凭据、登录态、`sessions/`、`storages/`、`profiles/`、`~/.dsh/settings.yaml`、既有 `~/.codex/config.toml`）**永不修改、永不删除、也永不复制**——整树备份已随 H3 移除（它没有回滚价值却会复制凭据）。
+C:\Users\16097\Desktop\workflow\README.md:31:**刻意不部署**（换设备需自行私有迁移或重新登录）：`.credentials.json` / `~/.claude.json` / `~/.codex/auth.json` / `~/.dsh/.credentials.yaml` 等凭据与登录态（**注**：`install.ps1` 既不修改也不复制它们——整树备份已随 H3 移除）；session/日志/缓存等机器状态；`settings.local.json`（本机临时授权）；**`~/.dsh/settings.yaml`**（本机用户设置：权限预设、模型白名单）；**auto-memory**（`~/.claude/projects/*/memory`，含私有项目内情，不进公开仓库——需要时整目录自行拷贝）。
+exit code: 1
+
+## G. AC9③ 测试命令已登记 + 不落盘产物（含 -CI 负向对照、清理、git status）
+
+$ git grep -n 'New-PesterConfiguration' -- AGENTS.md   # 预期 ≥1 命中
+AGENTS.md:12:* **本仓的验收套件 = `tests/`(常驻 Pester)**:`pwsh -NoProfile -Command "$c = New-PesterConfiguration; $c.Run.Path = 'tests'; $c.Run.Exit = $true; $c.TestResult.Enabled = $false; Invoke-Pester -Configuration $c"`(该配置形态**不落 `testResults.xml`**,否则会在仓根留下未跟踪产物)。它是 `install.ps1` 的回归门,与下面封存的 `tools/validate/` **无关**。
+exit code: 0
+
+$ pwsh -NoProfile -Command "Invoke-Pester -Path tests\install.Parameters.Tests.ps1 -CI"   # 负向对照：-CI 会在 CWD 落 testResults.xml
+Running tests from 1 files.
+[+] C:\Users\16097\Desktop\workflow\tests\install.Parameters.Tests.ps1 12.83s
+Tests completed in 12.84s
+Tests Passed: 9, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+exit code: 0
+
+$ # -CI 之后：产物存在 → 删除 → git status 干净
+testResults.xml existed = True
+after delete, exists = False
+git status --porcelain =  M docs/ai/HANDOFF.md | ?? docs/ai/last_test_run.txt
+exit code: 0
+
+## H. AC10 台账谓词（guard 债已偿还、证据表/继承要求保留、[DEBT] 不减少）+ ~/.dsh 债负向对照
+
+$ (Select-String -Path docs/ai/INSTALLER_GUARD.md -Pattern 'Repaid').Count   # 预期 >=1
+1
+exit code: 0
+
+$ (Select-String -Path docs/ai/INSTALLER_GUARD.md -Pattern '^\|\s*[1-7]\s*\|').Count   # 预期 7
+7
+exit code: 0
+
+$ (Select-String -Path docs/ai/INSTALLER_GUARD.md -Pattern '^\d+\.\s').Count   # 预期 5
+5
+exit code: 0
+
+$ (Select-String -Path docs/ai/HANDOFF.md -Pattern '^\[DEBT\]').Count   # 预期 9（既有 8 + 新增 1，不减少）
+9
+exit code: 0
+
+$ Get-ChildItem $env:USERPROFILE\.dsh -Force -Filter "*.bak-*" | Measure-Object | Select-Object -ExpandProperty Count   # AC10 第二笔负向对照：人类执行前必须为 0
+0
+exit code: 0
+
+## I. AC11 注释↔代码双向谓词 + 两处文档逐条一致
+
+$ # (a) 注释 -> 代码：注释里每个开关字面量都必须是被声明的参数，或在注释的"刻意不做"清单里
+declared params   = DryRun, ValidateOnly, NoPluginInstall, ClaudeDir, CodexDir, DshDir
+comment switches  = -ClaudeDir, -CodexDir, -DryRun, -DshDir, -ExecutionPolicy, -File, -IUnderstandThisReplacesLiveConfig, -NoPluginInstall, -ValidateOnly
+unexplained       = 
+$ # (a) 负向对照：把注释里的 -DryRun 改成 -DryRunX（在 TEMP 副本上，不碰真文件）-> 判定必须报出未解释项
+negative control unexplained = -DryRunX
+
+$ # (b) 代码 -> 注释：每个声明的参数都必须在注释块里出现
+params missing from comments = <none>
+exit code: 0
+
+$ 两处文档的 [U] 第 5/6 项逐字一致（HANDOFF.md vs DSH-LANDING-NOTES.md §5）
+NOTES lines=2 HANDOFF lines=2 identical=True
+exit code: 0
+
+## J. 单轮 diff 预算与真实行数（生产面，排除 docs/ai/**）
+
+$ git diff --shortstat e9917a1..HEAD -- . ':(exclude)docs/ai/**'
+ 9 files changed, 1560 insertions(+), 131 deletions(-)
+exit code: 0
+
+$ Get-ChildItem install.ps1,tests\*.ps1 | ForEach-Object { $_.Name + " : " + (Get-Content $_.FullName).Count + " lines" }
+install.ps1 : 653 lines
+install.Deploy.Tests.ps1 : 220 lines
+install.DryRun.Tests.ps1 : 122 lines
+install.IsolatedHome.Tests.ps1 : 103 lines
+install.Parameters.Tests.ps1 : 92 lines
+TestHelpers.ps1 : 353 lines
+exit code: 0
+
+## K. 事故后机器态复核（只读；真实受管面未被本次任务改动）
+
+$ Get-ChildItem -Recurse -File $env:USERPROFILE\.claude\workflow | Measure-Object | Select-Object -ExpandProperty Count   # 基线 116
+116
+exit code: 0
+
+$ Get-ChildItem -Recurse -File $env:USERPROFILE\.claude\workflow\archive | Measure-Object | Select-Object -ExpandProperty Count   # 基线 82
+82
+exit code: 0
+
+$ git status --porcelain -- install.ps1 tests README.md AGENTS.md claude/rules/README.md docs/ai/AUTHORITY_CONTRACT.md docs/ai/INSTALLER_GUARD.md docs/ai/DSH-LANDING-NOTES.md docs/ai/TASK_BRIEF.md   # 预期空
+exit code: 0
+
+## 结论
+* 主套件 exit code = 0（0 = 全通过；非 0 即失败数）
+* 全部 AC 的判定命令与输出见上；失败或未跑的项目必须在此显式说明——本轮无未跑项（AC10 第二笔的人类真部署除外，它按 AC10 记为**未完成**）。
+* AC10 第二笔（`~/.dsh` 首次自动部署）尚未发生：见 §H 的最后一条（负向对照仍为 0），故本任务不得标"已收敛 / Ready to Commit"。
+
+================================================================================
+# ROUND 2 evidence - review-fix after dual-review round 1 (tested_sha: 23ea5bf06ee024c203ba4cffbe015866f073f4c5)
+# 处置：9A/9B 的 2+2 条 [Product Blocking] 与 S1-S6 / 覆盖缺口。人类 2026-09-15 裁决了三处验收文本修订（AC9① / 零写入域 / AC9② 的历史块）。
+================================================================================
+
+## A2. 主套件（冻结形态；子进程承载 Run.Exit）
+
+$ pwsh -NoProfile -Command "$c = New-PesterConfiguration; $c.Run.Path = 'tests'; $c.Run.Exit = $true; $c.TestResult.Enabled = $false; $c.Output.Verbosity = 'Normal'; Invoke-Pester -Configuration $c"
+
+Running tests from 4 files.
+[+] C:\Users\16097\Desktop\workflow\tests\install.Deploy.Tests.ps1 26.28s
+[+] C:\Users\16097\Desktop\workflow\tests\install.DryRun.Tests.ps1 14.35s
+[+] C:\Users\16097\Desktop\workflow\tests\install.IsolatedHome.Tests.ps1 11.59s
+[+] C:\Users\16097\Desktop\workflow\tests\install.Parameters.Tests.ps1 12.16s
+Tests completed in 64.4s
+Tests Passed: 43, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+exit code: 0
+
+## E2. AC9①（人类裁决后的形态）：否定过滤 + 排除 tests/** ；含 base 负向对照
+
+$ git grep -n 'IUnderstandThisReplacesLiveConfig' -- . ':(exclude)docs/ai/**' ':(exclude)tests/**' | Where-Object { $_.Line -notmatch '已移除|不再是参数|removed|no longer' }   # 预期无输出
+README.md:25:> **确认开关已移除**：旧的 `-IUnderstandThisReplacesLiveConfig` 不再是参数——带上它会在**参数绑定阶段**报错（退出码 1、零写入），这是刻意的硬门。
+install.ps1:35:#   * no acknowledgement switch - the old -IUnderstandThisReplacesLiveConfig was removed by
+exit code: 0
+
+$ git grep -n 'IUnderstandThisReplacesLiveConfig' -- . ':(exclude)docs/ai/**' ':(exclude)tests/**'   # 命中行（应均为「已移除/不再是参数」的订正叙述）
+README.md:25:> **确认开关已移除**：旧的 `-IUnderstandThisReplacesLiveConfig` 不再是参数——带上它会在**参数绑定阶段**报错（退出码 1、零写入），这是刻意的硬门。
+install.ps1:35:#   * no acknowledgement switch - the old -IUnderstandThisReplacesLiveConfig was removed by
+exit code: 0
+
+$ git grep -c 'IUnderstandThisReplacesLiveConfig' e9917a1 -- .   # 负向对照：base 上的现在时用法（旧 guard 代码）
+e9917a1:README.md:17:> **⚠️ 迁移期安全锁定（临时）**：安装器当前处于 snapshot-first 迁移锁定状态，**上面的一键命令会被脚本直接拒绝**。它的真实语义是 **mirror-replace** 本机受管目录（`~/.claude/{rules,workflow,commands}`，含其中仅存在于本机的内容如 `workflow/archive/**`）、覆盖 `~/.codex/AGENTS.md`，并镜像 `~/.dsh/AGENTS.md` / `~/.dsh/workflow/` / `~/.dsh/skills/{dual-agent-workflow,independent-review}/`（`~/.dsh` 为 harness home）。**关于机器态，分两句说清（2026-09-06 修正：原文"从不触碰"与代码不符）**：脚本**只读写受管路径**，`settings.yaml`、`sessions/`、`storages/`、`profiles/`、凭据**不被修改或删除**；**但脚本会先把整个 `~/.dsh` 整树备份为 `~/.dsh.bak-<时间戳>`**，因此那些文件会**被复制一份**到备份目录（且不自动清理——人类确认后自行删除）。要避免复制凭据，需先修 `install.ps1`（已登记为 `[DEBT]`）；未知参数（如 `-DryRun`，尚未实现）会在参数绑定阶段直接失败。只有在明确接受上述覆盖语义时，才手动附加确认开关 `-IUnderstandThisReplacesLiveConfig`（这是破坏性确认，不是常规默认参数，故不写入上方示例）。待 H3 提供真实 `-DryRun`/`-ValidateOnly` 与 keep-local-only 保护后，此锁定与本说明一并移除。
+e9917a1:install.ps1:6:param([switch]$IUnderstandThisReplacesLiveConfig)
+e9917a1:install.ps1:22:if (-not $IUnderstandThisReplacesLiveConfig) {
+e9917a1:install.ps1:23:    throw 'install.ps1 is guarded during the snapshot-first migration (MORATORIUM-LOCAL-001). Re-run with -IUnderstandThisReplacesLiveConfig after the migration gates pass.'
+exit code: 0
+
+## D2. AC8：完整 5.1 stdout（不截断）+ 纯 ASCII 判据与 base 负向对照
+
+$ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install.ps1 -DryRun -ClaudeDir <T>\.claude -CodexDir <T>\.codex -DshDir <T>\.dsh   # 完整 stdout
+[PLAN]     targets claude=C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude codex=C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.codex dsh=C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.dsh
+[PLAN]     copy  C:\Users\16097\Desktop\workflow\claude\CLAUDE.md -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude\CLAUDE.md
+[PLAN]     copy  C:\Users\16097\Desktop\workflow\claude\settings.json -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude\settings.json
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\claude\rules -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude\rules (79 files)
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\claude\workflow -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude\workflow (10 files)
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\claude\commands -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude\commands (7 files)
+[PLAN]     copy  C:\Users\16097\Desktop\workflow\codex\AGENTS.md -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.codex\AGENTS.md
+[PLAN]     seed  C:\Users\16097\Desktop\workflow\codex\config.example.toml -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.codex\config.toml
+[PLAN]     copy  C:\Users\16097\Desktop\workflow\dsh\AGENTS.md -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.dsh\AGENTS.md
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\dsh\workflow -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.dsh\workflow (11 files)
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\dsh\skills\dual-agent-workflow -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.dsh\skills\dual-agent-workflow (10 files)
+[PLAN]     mirror C:\Users\16097\Desktop\workflow\dsh\skills\independent-review -> C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.dsh\skills\independent-review (1 files)
+[PLAN]     plugin context7@claude-plugins-official
+[PLAN]     plugin chrome-devtools-mcp@claude-plugins-official
+[PLAN]     plugin pyright-lsp@claude-plugins-official
+[PLAN]     plugin typescript-lsp@claude-plugins-official
+[PLAN]     plugin frontend-design@claude-plugins-official
+[PLAN]     plugin clangd-lsp@claude-plugins-official
+[PLAN]     keep-local-only: archive segments and *.bak-* names
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude\settings.local.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude\.credentials.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude\sessions (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.claude\projects (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.codex\auth.json (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.dsh\settings.yaml (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.dsh\.credentials.yaml (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.dsh\sessions (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.dsh\storages (machine-local, never touched)
+[PRESERVE] C:\Users\16097\AppData\Local\Temp\h3r2-8337625b\.dsh\profiles (machine-local, never touched)
+
+[SUMMARY]  RESULT=OK (dry run, nothing was written)
+exit code: 0
+
+$ (Get-Content -Raw install.ps1) -match ''[^\x00-\x7F]''   # 预期 False
+False
+exit code: 0
+
+$ git show e9917a1:install.ps1 → 同一判据   # 负向对照：预期 True
+True
+exit code: 0
+
+## I2. AC11 双向谓词（完整输出）+ 宿主参数归类
+
+declared params              = DryRun, ValidateOnly, NoPluginInstall, ClaudeDir, CodexDir, DshDir
+header-block switch literals = -DryRun, -ExecutionPolicy, -File, -NoPluginInstall, -ValidateOnly
+header-block unclassified    =    (空 = (a) 判定通过)
+params missing from header   = ClaudeDir, CodexDir, DshDir   (空 = (b) 判定通过)
+host parameters in the usage line are classified as: -File / -ExecutionPolicy (PowerShell host, not this script)
+exit code: 0
+
+## VN1. 零写入域（人类裁决后）：三个目标根 + 排除宿主 AppData 的临时 HOME
+
+$ pwsh -NoProfile -File .\install.ps1 -DyrRun   # K5 样本（临时 HOME 内跑，绑定失败）
+install.ps1: 找不到与参数名称 'DyrRun' 匹配的参数。
+exit code: 1
+
+temp HOME signature (excluding AppData) identical = True   (True = AC1 的收窄域成立)
+exit code: 0
+
+## VN2. Hidden 属性条目（-Force 修复的证明）
+
+$ pwsh -NoProfile -File .\install.ps1 -DryRun -ClaudeDir <T>\.claude ... | Select-String '\.local\.md'
+[DELETE]   C:\Users\16097\AppData\Local\Temp\h3vn2-a4a2fd93\home\.claude\workflow\.local.md
+exit code: 0
+
+hidden file listed as [DELETE] in the plan = True   (0 = 已列出)
+
+## VN3. machine-local-untouched 的负向对照（包含关系）
+
+$ pwsh -NoProfile -File .\install.ps1 -ValidateOnly -ClaudeDir <tempHome>\.claude\projects -CodexDir <tempHome>\.codex -DshDir <tempHome>\.dsh   # 目标落在机器态面之内 → 预期 FAIL
+[CHECK]    machine-local-untouched OK no action targets a machine-local path
+[SUMMARY]  RESULT=OK (validate only, nothing was written)
+exit code: 0
+
+$ pwsh -NoProfile -File .\install.ps1 -ValidateOnly -ClaudeDir <T>\other -CodexDir <T>\other\ -DshDir <T>\dsh   # 9A B2：尾分隔符变体必须被判冲突
+[CHECK]    target-roots OK usable as directories
+[CHECK]    roots FAIL -ClaudeDir and -CodexDir point at the same directory: C:\Users\16097\AppData\Local\Temp\h3vn3b-6306d1b5\other
+[SUMMARY]  RESULT=FAILED (validate only, nothing was written)
+exit code: 1
+
+## VN7. AC9③ 冻结命令逐字执行
+
+$ pwsh -NoProfile -Command "<AGENTS.md 登记的那条逐字命令>"
+
+Running tests from 4 files.
+[+] C:\Users\16097\Desktop\workflow\tests\install.Deploy.Tests.ps1 26.31s
+[+] C:\Users\16097\Desktop\workflow\tests\install.DryRun.Tests.ps1 14.31s
+[+] C:\Users\16097\Desktop\workflow\tests\install.IsolatedHome.Tests.ps1 11.67s
+[+] C:\Users\16097\Desktop\workflow\tests\install.Parameters.Tests.ps1 12.28s
+Tests completed in 64.59s
+Tests Passed: 43, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+exit code: 0
+
+仓根出现 testResults.xml = False
+
+## J2. diff 预算（生产面）
+
+$ git diff --shortstat e9917a1..HEAD -- . ':(exclude)docs/ai/**'
+ 9 files changed, 1560 insertions(+), 131 deletions(-)
+exit code: 0
+
+## 结论（round 2）
+* 主套件 exit code = 0（0 = 全通过）
+* 5.1 腿 exit code = 0
+* 两条 [Product Blocking] 的处置：① AC9① —— 人类裁决后谓词改为否定过滤并排除 tests/**，上方 E2 给出新判定与其 base 负向对照（**原形态的假绿已订正**）；② AC6 的机器态清单 —— 真部署路径现在打印 [TARGETS] 与 [PRESERVE] 行，并由 AC6 用例断言（见 A2 的套件结果）。
+* 9A 的 B2（roots 尾分隔符）已修并由 VN3 的第二条命令给出真实输出。
+* AC10 第二笔（`~/.dsh` 首次自动部署）**仍未发生** → 本任务不得标"已收敛 / Ready to Commit"（Debt Verdict = Unpaid）。
+* 未跑项：无（除上述由人类执行的一项）。
+
+## A3. 套件复跑（加入 AC3 case 7 = machine-local 包含关系的负向对照之后）
+
+$ pwsh -NoProfile -Command "<AC9③ 冻结形态>"
+Tests completed in 65.33s
+Tests Passed: 44, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+exit code: 0   （0 = 全通过）
+
+## I3. 订正：AC11(b) 的注释域应含 `# Targets` 块（上一节的驱动把域取到 `# Targets` 之前，属驱动取域错误，非缺陷）
+
+params missing from the FULL comment block =    (空 = (b) 判定通过)
+exit code: 0
+
+## VN3a 订正：该检查的锚点是**生效的** `$env:USERPROFILE`
+VN3 的第一条命令跑在父进程（USERPROFILE = 真实 home）下，而机器态清单锚定的是 `$env:USERPROFILE`，故临时 HOME 下的目标不在其域内 → 报 OK 是**正确行为**，不是漏检。真正的负向对照见 §A3 的 AC3 case 7（在隔离 HOME 下跑，生效 USERPROFILE = 临时 HOME，断言 `machine-local-untouched FAIL`）与 VN3 第二条（roots 尾分隔符 → FAIL，9A 的 B2 已修）。

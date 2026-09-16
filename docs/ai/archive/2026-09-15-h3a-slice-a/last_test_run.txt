@@ -1,0 +1,85 @@
+# last_test_run.txt - slice A（install.ps1 参数面 + 两条零写入路径）
+# 轮次：round 4 修复（子树继承）+ 第二次窄修复例外
+
+tested_sha: 8efeead5a5217df7b5011aa789898a405d343ee3
+installer_sha256: 5A67C53CBDDB4B3C770E18EB69DAB9105F3D62B783C984BDE5741E5601A86A16
+date: 2026-09-15
+> **本文件的最新一节是 §G（round 5 处置）**：§A 的冻结形态输出是 45 条那一版，加不变式用例后为 **46 条**；§G 给出 46/46 的实测、VN-1 的实跑输出与 PB-1 的 `disputed` 结论。契约与代码均未因此改代（installer 仍是 `5A67C53C…`）。
+> 命令 + 完整输出 + 退出码。AC 与判定见 `docs/ai/TASK_BRIEF.md`（AC1-AC3 + K1-K9 + Amendment ㉓-㉜）。
+> round 1-4 的 verdict 逐字见 `docs/ai/review_9A.md` / `review_9B.md`；本文件只承载**当前树**的实跑产物。
+
+## A. 主套件（AC9③ 冻结形态；子进程承载 Run.Exit）
+
+$ pwsh -NoProfile -Command "$c = New-PesterConfiguration; $c.Run.Path = 'tests'; $c.Run.Exit = $true; $c.TestResult.Enabled = $false; Invoke-Pester -Configuration $c"
+INSTALLER_SHA256=5A67C53CBDDB4B3C770E18EB69DAB9105F3D62B783C984BDE5741E5601A86A16
+
+Running tests from 4 files.
+[+] C:\Users\16097\Desktop\workflow\tests\install.Host51.Tests.ps1 5s
+[+] C:\Users\16097\Desktop\workflow\tests\install.Parameters.Tests.ps1 19.38s
+[+] C:\Users\16097\Desktop\workflow\tests\install.Plan.Tests.ps1 11.74s
+[+] C:\Users\16097\Desktop\workflow\tests\install.Validate.Tests.ps1 21.56s
+Tests completed in 57.71s
+Tests Passed: 45, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0
+exit code: 0
+
+* 26（round 1）→ 37 → 39 → 43 → 44（守卫回归）→ **45**（子树继承样本）。
+* `install.ps1` 静态：`AST_ERRORS=0`、`NON_ASCII=0`、601 行。
+
+## B. round 3 BL-1（`caused_by_last_fix: yes` → streak = 2；人类批准窄修复例外）
+
+`Get-MirrorDelta` 对"目标存在为**文件**"的输入枚举出该文件本身，`Substring(Target.Length + 1)` 抛异常（Author 实测 cmdlet 语义：`count=1`、`FullName.Length == Target.Length`）；`Get-PlanCounters` 在模式分支前无条件遍历 → `-ValidateOnly` 先崩、丢掉点名 `[CHECK] … FAIL` 与 `[SUMMARY]`。
+修复 `2bb5a26`：`:214` 守卫改「存在**且**是容器」，使既有 `Test-Plan:392-393` 形状检查重新可达并驱动 `RESULT=FAILED`；回归用例 12 覆盖 validate + deploy 两形态。
+
+## C. round 4 B1（`caused_by_last_fix: no`；人类裁决「白名单 = 子树继承」+ 第二次窄修复例外）
+
+白名单只命中**目录叶名**（`*.bak-*`）时，目录报 `[PRESERVE] … (dir)` 而其内 live-only 文件仍报 `[DELETE]` → 同一份计划不是分区；切片 B 照 `[DELETE]` 执行会删掉计划声明保留的内容（真机事故里那 45 个旧 `*.bak-*` 条目同族）。
+修复 `09df8d7`：`Get-MirrorDelta` 在目录分类定型后，把落在已保留目录之下的 live-only 文件移入保留集。新增样本：`*.bak-*` **目录**内含文件 → 必须出现 `[PRESERVE] … (dir)`，且**没有任何** `[DELETE]` 行指向该目录路径。
+
+## D. 负向对照（Amendment ㉛；写盘 / 跑 Pester / 还原分处不同命令）
+
+* **probe D（计数同源）**：`toDelete` 接回常量 `0` → 恰好两条计数谓词红（`delete=0 while [DELETE] rows are on screen`、`validate must not report a structural delete=0`）。
+* **probe E（子树继承）**：移除继承通道 → 恰好样本 `a preserved DIRECTORY keeps its subtree` 红，`Expected 0, because the whitelist is subtree-inheriting … but got 1`。（第一次变异因正则漏掉 `if` 块收尾 `}` 导致变异体 AST 报错 → 先还原再重做，得合法变异体 `AST_ERRORS=0`；还原后 `RESTORED_SHA=5A67C53C…` == 定版。）
+* round 2 的三条对照（退出码 / 计数器 / 5.1 腿）产物在 commit `1434102` 的历史版本里；对应断言在本轮 45 条内继续执行。
+
+## E. ㉔ 逐用例 5.1 宿主与退出码（**在 `5A67C53C…` 上重取**）
+
+```
+CASE=ValidateOnly  EXIT=0  [psver=5 host=C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe]  RESULT=OK (validate only, nothing was written) | planned=11 delete=1 preserve=5
+CASE=DryRun        EXIT=0  [psver=5 host=…\powershell.exe]  RESULT=OK (dry run, nothing was written) | planned=11 delete=1 preserve=5
+CASE=Deploy        EXIT=1  [psver=5 host=…\powershell.exe]  RESULT=REFUSED (deployment execution is implemented in slice B; nothing was written) | planned=11 delete=1 preserve=5
+CASE=UnknownParam  EXIT=1  [psver=5 host=…\powershell.exe]  （绑定失败，无 summary）
+```
+
+* 四条 `host=` 均为 `powershell.exe` 全路径；validate 与 dry run 的三计数逐字相同。
+
+## F. 结论与仍未办
+
+* 主套件 exit code = 0（`Tests Passed: 45, Failed: 0, Skipped: 0, Inconclusive: 0, NotRun: 0`），绑定 installer sha256 `5A67C53C…`、`tested_sha = 09df8d7`。
+* **Fix-Loop streak = 2（硬停阈值）**：round 3 计一次（`yes`），round 4 的 Blocking 判 `no` 不递增；两次窄修复均由人类**逐次批准**。**round 5 若再现 `caused_by_last_fix: yes` 的 Product Blocking，只能回退或重新拆任务。**
+* 仍未办（review round 3/4 点名，未声称已办）：① 9A NB-1/9B NB-5 机器态谓词锚（`$env:USERPROFILE`）与报告锚（生效根）不同源；② 9A NB-3 A3 只到动作粒度，`New-MirrorAction` 的每文件清单未与 `[PLAN] mirror … (N files)` 交叉核对；③ 9B NB-2 source 侧同型崩溃入口（`New-MirrorAction:158-164`，今日不可达，源恒为仓内常量）；④ 9B NB-3 头注释 L15 未写"OK ≠ 计划能过校验"；⑤ 9B NB-4 `-ClaudeDir ''` 静默回落真实 home（切片 B 的部署地雷）；⑥ 死代码五处 → 已登记 `[DEBT]`；⑦ 覆盖缺口：case 10/11 的 HOME 零写入签名、case 6b 的 `.claude\projects.bak-*` 第二样本、`planned` 行级交叉核对、DryRun 语义的机械钉住、`seed -> dst` 分支、机器态 `[PRESERVE]` 家族正面断言。
+* 未跑项：真部署（mirror-replace / 备份 / 插件步）**按切片边界不在本任务**（切片 B/C）。
+* **未偿还**：`~/.dsh` 首次真部署债仍 **Unpaid** —— 本切片不得声称 converged。
+
+## G. round 5 处置（9B 通过 / 9A 两条 Blocking：一条 `disputed`、一条已改准）
+
+**G-1 `disputed`：9A round 5 PB-1「嵌套形态仍不分区」经实跑推翻。** 9A 自己声明"只做了代码路径推演…未实跑安装器"。按人类"先取证再改"的条件，VN-1 实跑（临时 HOME + 互锁 wrapper）如下：
+
+```
+预置：<ClaudeDir>\workflow\legacy\old.bak-20260101-000000\note.md   （legacy 为 live-only 目录）
+$ … -DryRun -ClaudeDir <T>\.claude -CodexDir <T>\.codex -DshDir <T>\.dsh
+EXIT=0
+  [PRESERVE] …\workflow\legacy\old.bak-20260101-000000\note.md
+  [PRESERVE] …\workflow\legacy\old.bak-20260101-000000 (dir)
+  [PRESERVE] …\workflow\legacy (dir)
+  [SUMMARY]  RESULT=OK (dry run, nothing was written) | [SUMMARY]  planned=11 delete=1 preserve=8
+```
+
+* **没有** `[DELETE] …\legacy (dir)` 行：既有 `holdsPreserved` 检查（`install.ps1:236-239`，同时看 `preserveFiles` 与 `preserveDirs`）配合"父先于子"的枚举顺序（9B 实测 `PARENT_BEFORE_CHILD=True`）已把该 live-only 父目录拉进保留集 → **计划对该输入是分区**。9A 预测的 `[DELETE] legacy (dir)` 与 `[PRESERVE] old.bak-… (dir)` 并存**未出现**。
+* 处置：**不按 Blocking 改生产逻辑**（反例不可复现，动语义反而要再开一轮审查）；改为把 9A 的推演形态与 9B 的 TCG-1 一起**落成机械断言**（AC2 断言 ⑥ 的关系型不变式 + 嵌套样本），使这一类"推演出来的不分区"从此可判。
+
+**G-2 PB-2 已按人类授权改准**（commit `9b3e623`，仅文档）：`TASK_BRIEF.md` 的白名单闭集句改为**子树继承**（自身或任一祖先段/叶名命中即命中；命中目录之下一切内容须 `[PRESERVE]`；其任何祖先目录不得出现 `[DELETE]`），AC2 判定方式新增 ⑥ 关系型断言，㉙ 同步一句。
+
+**G-3 新增断言与实测**（commit `8efeead`）：`tests/install.Plan.Tests.ps1` 新增"分区不变式"用例——对每一条 `[DELETE]` 行与每一条非机器态 `[PRESERVE]` 行，断言保留路径**绝不位于**被删路径之下；样本即 9A 的嵌套形态。
+实测：`TOTAL=46 PASSED=46 FAILED=0`；`installer sha256` 未变（`5A67C53C…`，本轮只动测试与文档）。
+
+**G-4 仍未办（未声称已办）**：9B 的 NB-1（枚举顺序前提未在 `install.ps1` 注释声明——本轮只加了断言，未动生产注释以保持 installer 哈希稳定）、NB-2（`:220/:226` 的 `-contains` 大小写敏感 vs 其余 `OrdinalIgnoreCase`）、9A 的 NB 清单（配对样本 argv、头注释"OK ≠ 过校验"、`-ClaudeDir ''`、机器态锚不同源、`(N files)` 交叉核对、账目旧轮残留、`[DEBT]` 笔数陈述）与大部分覆盖缺口（case 10/11 的 HOME 零写入签名、case 6b 第二样本、`seed -> dst`、机器态 `[PRESERVE]` 正面断言、DryRun 语义钉住）。死代码债的 trigger 已在本轮被触发（改了 `tests/`），按 9A 要求需在下一轮清偿或重新登记。
