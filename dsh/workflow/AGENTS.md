@@ -188,6 +188,7 @@ DSH 里 Author 与 Reviewer **同机、同权限、同工作目录**（不同于
 * **能自动化的一律自动化**；不能可靠自动化的**产品 / 安全 / 合规**性质**仍可作 AC 并阻止合并**，但必须写成**明确的人类判定步骤**：给出判定人、固定的判定输入（具体文件/界面/数据的确定指向）、逐条判据、以及"什么情况判不通过"的反例。
 * **反例必须实际触发失败，不接受纸面反例**（**适用于守护类 AC（「机制 X 拒绝 Y」）与人类判定 AC**；命令 + 退出码形态的 AC 以套件自身的失败用例为对照，不另留反例产物）：AC 落地时须留下产物，证明**把该反例喂给这套判定方法时，判定确实判不通过**（自动化的记退出码，人工的记判定人 + 判定结论 + 时间）。只写出反例而从未让它跑一次 = 无区分力，等同空守护测试。**判定人之间有分歧 → 交人类裁决，不得由 Author 择一采信。**
 * **不合格的是"无判据的散文对读"**：判定方式写成「Reviewer 逐条核对 / 对照两表核 / 核清单完整性」而不给判据与反例的，**不是验收条款**——降级为 Non-Blocking Suggestion 或移交清单条目，**不得阻止收敛**。这类性质通常可以改写成有区分力的形式（清单条目数 == 源表条目数、某扫描命令零命中、某路径必被真实生产入口覆盖）。
+  > **与 Blocking 的优先级（2026-09-16 人类裁决）**：本条的降级**只适用于「没有具体反例」的情形**。若同一条 AC **同时**满足「判定方式有瑕疵」**与**「存在具体反例表明其未满足」（判据见上文 Reviewer verdict 分类语义 → Blocking Issues），**以后者为准 → 记 `[Product Blocking]`**。理由：判定方式的瑕疵是「这条 AC 判不出来」，而具体反例是「这条 AC 判出来了、而且是红的」——后者是**已经发生的未满足**，不被前者吸收。来历：2026-09-16 的 5 次 9A 重放里，同一条 AC 被 3 次判 Product、1 次据本条判 Suggestion、1 次静默放过 → **同一 tip 上 verdict 3:2 分裂**（`docs/ai/DSH-LANDING-NOTES.md` §7.1）。
 * **声称不得超出判定实际覆盖的范围**——Reviewer 指出后（纯措辞的归 Non-Blocking Suggestion；所称路径实际未运行的归 Verification Needed，判法见 Reviewer verdict 分类语义），Author 落账时把声称收窄到已覆盖范围（声称在 HANDOFF / last_test_run 的直接改；写在 TASK_BRIEF 验收条款里的只能经人类裁决 Amendment 修订，见最后一轮独立审查门 ③）或撤回并报告风险；Routine 由人类指出。**不构成 blocking。**
 
 > **来历（2026-08-15 实测）**：某任务 AC1/AC2（退出码类）四轮零缺陷；AC5/AC9/AC13（"Reviewer 对照…逐条核"、判定对象是散文清单的完整性）逐轮产出新 blocking，第 4 轮又挑出 7 条遗漏。**散文完整性永远可以再被挑出一条——拿它当 blocking 依据，等于在构造上把收敛做成不可能。**
@@ -201,6 +202,7 @@ DSH 里 Author 与 Reviewer **同机、同权限、同工作目录**（不同于
 * **Review Verdict 语义**：`不通过` ⇔ Blocking Issues 非空；`有条件通过` = Blocking Issues 为 None 且 Verification Needed 非空；`通过` = 两者皆空。Process Debt、Suggestion 不影响通过。**Reviewer 不得以证据充分性为由判不通过。**
 * **Debt Verdict** 取值 **`Clean / Noted / Deferred / Unpaid`**：**Clean**=无债；**Noted**=**未触发** Payback-on-Touch 的普通存量债（行数债等，不阻止合并，**不得与用户数据错误等价**）；**Deferred**=触发 Payback-on-Touch 但**已获人类批准延期**（不阻止）——**Critical** 凭批准的 plan，**Routine** 凭对话内人类明确批准（见 Payback-on-Touch）；**Unpaid**=触发 Payback-on-Touch 且未偿还、无批准延期——不进 Blocking Issues、不触发再审，但 `/final-review` 第 11 条据此不得判「可以提交」，由人类在合并前决定偿还或批准延期。（取值来历：`[Verification Blocking]` 删除后，Payback-on-Touch 的 "must not be committed" 只剩此取值能如实记录——Noted 定义为未触发；成本一个枚举值，不触发再审。）
 * **不得把 Author 的自我总结 / "已修复" 叙述当作证据。但 HANDOFF / TASK_BRIEF 中注明日期、标「人类裁决 / Amendment / 批准」的条目一律按人类决定对待**：Reviewer 不核实其发生过程、不因由 Author 转录而降为自述、不要求其出现在人类 commit 中；人类裁决修订过的验收条款以修订后为准；异议只进 Assumption / Requirement-Level Concerns，不得据此立 blocking。（每条裁决由 `/final-review` 在 Manual Check Before Commit 逐条列给人类确认。）
+* **适用例外必须落笔**：Reviewer 依据任何例外条款（如「最后一轮独立审查门」③ 的人类裁决修订、过程产物排除、范围外判定）**放过一条它已经检出的缺陷时，必须把该项与所依据的例外写进 verdict**（Non-Blocking Suggestions 或一条单列说明行），**不得静默略过**。**落笔不等于必须判 blocking**——判据不变，只是不留无痕处置。理由（2026-09-16 实测）：静默放过产出的是「看起来干净、实际对它自己已发现的缺陷零记录」的 verdict，比归类分歧更难被发现；5 次重放里唯一给出「有条件通过」的那一轮正是如此（`docs/ai/DSH-LANDING-NOTES.md` §7.1）。
 * **分类优先级（历史条款，保留一句）**：为过测试而真实弱化认证 / 绕过 validation 属 **Product**（它改变了真实的安全行为）；「认证测试没走真实路径、但认证本身正确」是证据缺口，走 Verification Needed。
 
 ## review-sensitive paths + SHA 绑定（唯一定义处；**仅 Critical**——Routine 无 SHA 账本，见 Mode Scope）

@@ -290,3 +290,32 @@ dsh/skills/{dual-agent-workflow,independent-review}/** → ~/.dsh/skills/ 同名
 
 **方法论教训（建议进协议）**：本次**第一版重放已作废**——我把 `handoff_snapshot` 错取为 tip 的**后裔** `40c61bb`，而该 commit 的 HANDOFF 逐字含两份历史 verdict 与 Author 的倾向，**等于把答案发给了盲审**。抓住它的是评审员自己（跑 `git merge-base --is-ancestor` 判定"快照是 tip 的后裔、按定义不可能是审前交接"）。
 **根因是我主动豁免了「审前快照自检」**（理由是"重放必然偏差"），而 `observed_head_sha == handoff_snapshot_sha` 正是唯一能拦住这个错误的检查。**结论：⑤ 不是仪式，它是输入完整性检查**——重放/复现场景尤其不能豁免。
+
+### 7.2 补测 9B 角色：10 轮合并分布（2026-09-16；**判据未据此改动**）
+
+**设计**：与 §7.1 同输入、同钉死 sha、同配置，只把角色换成 **9B 盲审**（额外排除 `IMPLEMENTATION_PLAN.md`）。**关键事实：当轮 tip 上不存在 `IMPLEMENTATION_PLAN.md`**（本任务无批准门）→ 该排除项是空操作 → **9A 与 9B 的有效输入完全相同**。
+
+**结果（5/5 有效，仓内零写入）**
+
+| 轮 | Review Verdict | Blocking |
+|---|---|---|
+| 1 | 有条件通过 | None（AC6 未进 blocking） |
+| 2 | 有条件通过 | None |
+| 3 | **不通过** | 1 Product：**§2 登记表未覆盖本轮自身的内容改动**（另一条，非 AC6） |
+| 4 | **不通过** | 1 Product：AC6（`TASK_BRIEF` 零命中），`caused_by_last_fix: yes` |
+| 5 | **不通过** | 1 Product：AC6，`caused_by_last_fix: no` |
+
+**合并 10 轮（§7.1 的 5 轮 9A + 本节 5 轮 9B）**
+
+| 维度 | 分布 |
+|---|---|
+| Review Verdict | **不通过 6 / 有条件通过 4** |
+| AC6 归类 | `[Product Blocking]` **5** · Non-Blocking Suggestion 1 · 静默放过 1 · 未提及 3（其中 1 轮把 blocking 给了**另一条**登记缺陷） |
+| 账本/措辞类 finding | 10/10 复现（`install.ps1` 残留断言、债笔数 3 vs 4、README L54 与账本冲突、NOTES 状态停在旧轮） |
+
+**结论（对 §7.1 的再修正）**
+
+1. **角色不是变量**：历史 round 3 的分裂（9A=Suggestion / 9B=Product）**不能归因于角色或输入差异**——两个角色在重放里都各自产出过两种读数（9A：Product×3 / 非 Product×2；9B：Product×2 / 非 Product×3），且两者的有效输入相同。⇒ 分歧是**同一模型、同一输入下的逐轮抽样噪声**。
+2. **verdict 是 6:4 的抽样**：合并后合并门/streak 的输入仍不是确定值。§7.1 的"3:2"在扩容到 10 轮后**收敛到约 60:40**。
+3. **不稳定面有两层**（§7.1 已定位第二层）：① 归类（Product vs 降级）；② **finding 集本身**——5 轮 9B 里有 1 轮把 blocking 给了另一条真缺陷（登记表未覆盖本轮自身改动），其余轮次未报该条。所以"同一输入是否产出同一条 finding"也不可复现。
+4. **顺带取回一条当轮真缺陷（此前无人报过）**：9B 轮 3 指出当轮 `install.ps1` 的 `Backup-IfExists`（**`-Recurse`**）被施加于 skill bundle **目录** → 产生 `~/.dsh/skills/<bundle>.bak-<stamp>/`，而 `dsh-skill-filesystem` 只把扫描根**直接**的 `<name>/SKILL.md` 视为 skill（嵌套 `**/SKILL.md` 故意不发现）→ 该备份目录**符合发现模式**，会作为第三个（陈旧的）skill 出现。**我复核：机制在当轮 tip 上成立**（tip 的 `install.ps1:33-36/103`），**当前 HEAD 已顺带消除**（新 `Backup-FileIfExists` 要求 `-PathType Leaf`，备份落在 bundle 内、不匹配发现模式），本机实测 `~/.dsh/skills` 下 0 个 `*.bak-*`。⇒ 登记为**已被重写消除的历史缺陷**，不新开债。
