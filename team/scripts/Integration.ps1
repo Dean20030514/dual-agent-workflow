@@ -97,6 +97,7 @@ function Resume-TeamRun($State, $Plan, $Manifest, [string]$Directory) {
     $null = Test-TeamPlan $Plan $Manifest
     if (-not $Manifest.team.enabled) { Stop-TeamError 20 'Team disabled' }
     if (Test-Path -LiteralPath (Join-Path $Directory 'cancel.request.json')) { Stop-TeamError 80 'Cancelled run cannot resume' }
+    Assert-TeamActionApproval $State $Plan $Directory
     if ($Plan.classification.level -eq 'critical') {
         if (-not (Test-TeamReviewAccepted $Directory '9P' $State.plan_hash $State.run_base_sha)) {
             $base = $State.run_base_sha

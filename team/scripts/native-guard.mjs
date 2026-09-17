@@ -1,6 +1,6 @@
 // Cordis adapter over the native Agent registry, pinned by the capability spike.
 // It does not perform inference or replace the DSH agent/runtime.
-import { writeFileSync, renameSync } from 'node:fs';
+import { writeFileSync, renameSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 export const name = 'team-native-guard';
@@ -20,6 +20,11 @@ export function installGuard(registry, config) {
     // Reserve before the first await, including simultaneous spawn requests.
     if (records.length >= config.maxAgents) throw new Error('TEAM_AGENT_BUDGET');
     const depth = options.agentOptions?.subagentDepth ?? 0;
+    if (depth > 0 && config.budgetControl) {
+      // A missing or unreadable control fails admission; existing agents keep running.
+      const budget = JSON.parse(readFileSync(config.budgetControl, 'utf8'));
+      if (budget.stop_new_children !== false) throw new Error('TEAM_COST_SOFT_LIMIT');
+    }
     if (depth > config.maxDepth || depth < 0 || !Number.isInteger(depth)) throw new Error('TEAM_AGENT_DEPTH');
     if (records.length > 0 && (!options.parentAgent || depth === 0)) throw new Error('TEAM_UNRELATED_AGENT');
     if (canonical(options.meta?.cwd ?? '') !== canonical(config.cwd)) throw new Error('TEAM_AGENT_CWD');

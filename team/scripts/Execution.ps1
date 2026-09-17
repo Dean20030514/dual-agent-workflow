@@ -40,7 +40,7 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory) {
     $State.agents_reserved += $reservation
     $patchPath = Join-Path $item.directory 'worker.patch.yaml'
     New-DshPatch $patchPath @{maxAgents=$reservation;maxDepth=$(if ($allowChildren) {2} else {0});cwd=$item.worktree;
-        provider=$Manifest.models.worker.provider;model=$Manifest.models.worker.runtime_model;receipt=(Join-Path $item.directory 'agents.json')}
+        provider=$Manifest.models.worker.provider;model=$Manifest.models.worker.runtime_model;receipt=(Join-Path $item.directory 'agents.json');budgetControl=(Join-Path $Directory 'budget-control.json')}
     $item.status = 'RUNNING'; $State.status = 'RUNNING'
     # Persist intent before launch; an interrupted launch is reconciled, never relaunched blindly.
     Save-TeamState $State $Directory
@@ -107,16 +107,19 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
 }
 
 function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
+    Assert-TeamActionApproval $State $Plan $Directory
     $handles = @{}
     try {
         $State.status = 'RUNNING'; Save-TeamState $State $Directory
         do {
+            Sync-TeamCost $State $Manifest $Directory
             if (Test-Path -LiteralPath (Join-Path $Directory 'cancel.request.json')) {
                 foreach ($key in @($handles.Keys)) { $null = Close-TeamProcess $handles[$key] -Terminate; $handles.Remove($key) }
                 Stop-TeamOwnedProcesses $State $Directory
                 return @{status='CANCELLED';run_id=$State.run_id}
             }
             foreach ($taskId in $State.order) {
+                Sync-TeamCost $State $Manifest $Directory
                 $task = @($Plan.tasks | Where-Object { $_.id -eq $taskId })[0]
                 $item = $State.tasks[$taskId]
                 if ($item.status -ne 'READY') { continue }
@@ -125,7 +128,7 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
                 $slots = if ($task.subagents.allowed -and $State.known_cost -lt $Manifest.budget.soft_limit) {3} else {1}
                 if (($State.agents_reserved + $slots) -gt $Manifest.budget.max_parallel_agents_total) { continue }
                 if ($State.known_cost -ge $Manifest.budget.hard_limit) {
-                    $State.status = 'PAUSED'; Add-TeamEvent $Directory 'cost_hard_limit_reached'; break
+                    $State.status = 'PAUSED'; break
                 }
                 if ($State.known_cost -ge $Manifest.budget.soft_limit) {
                     if ($task['optional']) { Add-TeamEvent $Directory 'optional_dispatch_skipped' @{ task_id = $taskId }; continue }
@@ -165,6 +168,7 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
             }
             if ($handles.Count) { Start-Sleep -Milliseconds 250 }
         } while ($handles.Count)
+        Sync-TeamCost $State $Manifest $Directory
         if ($State.status -eq 'RUNNING') { $State.status = 'PAUSED' }
         Save-TeamState $State $Directory
         return @{ status = $State.status; run_id = $State.run_id; next = 'Inspect evidence; accept task with a SHA-bound Lead decision, then integrate/resume.' }

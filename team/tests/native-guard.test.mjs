@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { installGuard } from '../scripts/native-guard.mjs';
@@ -43,4 +43,16 @@ test('L1 creation cap forbids delegation before native creation', async () => {
   const f = fixture(1, 0); await f.registry.create(f.options('root'));
   await assert.rejects(f.registry.create(f.options('child', 1)), /TEAM_AGENT_BUDGET/);
   assert.equal(f.count(), 1);
+});
+
+test('live cost control blocks further children without stopping an existing family', async () => {
+  const f = fixture(4);
+  f.config.budgetControl = join(f.config.cwd, 'budget-control.json');
+  writeFileSync(f.config.budgetControl, JSON.stringify({stop_new_children: false}));
+  await f.registry.create(f.options('root'));
+  await f.registry.create(f.options('before-limit', 1));
+  writeFileSync(f.config.budgetControl, JSON.stringify({stop_new_children: true}));
+  await assert.rejects(f.registry.create(f.options('after-limit', 1)), /TEAM_COST_SOFT_LIMIT/);
+  assert.equal(f.count(), 2);
+  assert.equal(JSON.parse(readFileSync(f.config.receipt)).agents.length, 2);
 });

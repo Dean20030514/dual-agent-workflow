@@ -15,6 +15,14 @@ if ($task.role.id -eq 'integration') {
     git merge --no-ff --no-edit $sourceCommit 2>$null | Out-Null
 }
 if ($task.objective[0] -eq 'SLEEP') { Start-Sleep -Seconds 30 }
+if ($task.objective[0] -eq 'WAIT_FOR_COST') {
+    $deadline = [DateTime]::UtcNow.AddSeconds(20)
+    do {
+        Start-Sleep -Milliseconds 100
+        $control = Get-Content -LiteralPath $guard.budgetControl -Raw | ConvertFrom-Json
+    } while (-not $control.stop_new_children -and [DateTime]::UtcNow -lt $deadline)
+    if (-not $control.stop_new_children) { exit 8 }
+}
 if ($task.objective[0] -eq 'CRASH') { exit 9 }
 $path = $task.write_scope[0]
 if ($task.objective[0] -eq 'SCOPE') { $path = 'forbidden.txt' }

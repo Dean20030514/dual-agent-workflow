@@ -4,6 +4,7 @@ BeforeAll {
     . (Join-Path $script:TeamPath 'scripts/Contracts.ps1')
     . (Join-Path $script:TeamPath 'scripts/Preflight.ps1')
     . (Join-Path $script:TeamPath 'scripts/State.ps1')
+    . (Join-Path $script:TeamPath 'scripts/Controls.ps1')
     . (Join-Path $script:TeamPath 'scripts/Execution.ps1')
     . (Join-Path $script:TeamPath 'scripts/Integration.ps1')
     function New-Plan {

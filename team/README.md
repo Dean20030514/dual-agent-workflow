@@ -6,6 +6,7 @@ Codex Lead → `scripts/team.ps1` → DSH native Workers → Git 范围审计 �
 `69cee29bb2affb98c92d3075d8c0eaa7fa63223f18ca430f488f1efbdab3c6c4`。
 先读 [QUICKSTART](QUICKSTART.md)，能力证据与限制见 [spike/OPEN_GAPS.md](spike/OPEN_GAPS.md)。
 本轮已执行的测试与真实 Harness 链路见 [验收记录](spike/ACCEPTANCE.md)。
+整份 v5 的逐章完成度与剩余缺口见 [范围核对](spike/SPEC_COVERAGE.md)；目前尚未全部完成。
 
 依赖：PowerShell ≥ 7.4、Git、DSH native CLI、Codex native CLI、powershell-yaml ≥ 0.4.12。
 YAML 模块由用户在本任务中明确批准；运行器不会安装依赖、修改全局配置或调用部署器。
@@ -30,6 +31,13 @@ V1 保守预留整个 Worker 家族的并发槽位，空闲子 Agent 不提前�
 
 状态、事件、Result Packet 都是普通本地文件，不是对恶意同权限进程的防篡改设施。
 实际权限边界见 [security](policies/security.md)。不会以模型自报代替 Git、外部测试或 native 创建记录。
+
+`report-cost -Amount <增量金额> -Evidence <账单文件>` 可在 Worker 运行时提交。
+同一证据哈希只接收一次；QUEUED 表示凭证已持久保存、等待 coordinator 消费，
+RECORDED 表示 state 已更新。软上限阻止 optional Worker 和新增原生子 Agent；
+硬上限暂停后续派发；已运行 Worker 继续完成。`unknown_usage=true` 仍表示账单不完整。
+restricted_action 的 approve 只对记录中的 plan hash 有效；modify-plan 必须实际修改计划，
+新增权限不会沿用旧审批。升级过期后保持暂停，等待明确决定。
 
 测试：
 

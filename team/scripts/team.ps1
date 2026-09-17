@@ -10,7 +10,7 @@ param(
     [string[]]$ChangedPaths = @(), [string[]]$GlueScope = @(), [datetime]$Since = [datetime]::MinValue,
     [switch]$Json, [switch]$Follow, [switch]$AllowUnverifiedRuntime, [switch]$RepairLock
 )
-foreach ($module in @('Core','Contracts','Preflight','State','Execution','Integration','Recovery','Review','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
+foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','Integration','Recovery','Review','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
 $lock = $null; $runData = $null; $exitCode = 0
 try {
     $Repo = [IO.Path]::GetFullPath($Repo).TrimEnd([IO.Path]::DirectorySeparatorChar)
@@ -53,14 +53,7 @@ try {
             $lock = Lock-TeamRepo $Repo $document.run.id
             $runData = New-TeamRun $document $config $Repo $order $doctor.runtime_status
             $null = Test-DshRoute $config $Repo (Join-Path $runData.directory 'worker.patch.yaml')
-            $risky = @($document.tasks | Where-Object { $_.permissions.production -or $_.permissions.secrets -or $_.permissions.network })
-            if (@($document['risk_flags'] | Where-Object { $_ -match '^(destructive|production_delete)$' }).Count) {
-                Stop-TeamError 60 'Destructive production action requires owner intervention; no worker dispatched'
-            }
-            if ($risky.Count -or $document['risk_flags']) {
-                New-TeamEscalation $runData.state $runData.directory 'restricted_action' 'Plan requests restricted permissions or risk flags. Revise scope or resolve with the owner.'
-                Stop-TeamError 70 'Restricted action requires escalation'
-            }
+            Assert-TeamActionApproval $runData.state $document $runData.directory
             if ($document.classification.level -eq 'critical') {
                 $base = $runData.state.run_base_sha
                 $null = Invoke-TeamReview $runData.state $document $config $runData.directory '9P' $Repo $base $base
@@ -83,7 +76,7 @@ try {
                     @{ status='STOP_REQUESTED'; run_id=$Run } | ConvertTo-Json -Compress
                     exit 0
                 }
-            } elseif ($Command -in @('resume','resolve','cleanup','accept','integrate','replan','rollback','report-cost','record-route','repair-integration','resolve-review')) { $lock = Lock-TeamRepo $Repo $Run -Resume }
+            } elseif ($Command -in @('resume','resolve','cleanup','accept','integrate','replan','rollback','record-route','repair-integration','resolve-review')) { $lock = Lock-TeamRepo $Repo $Run -Resume }
             switch ($Command) {
                 'status' { $output = $state }
                 'cost' { $output = @{ schema_version = 1; run_id = $Run; known_cost = $state.known_cost; unknown_usage = $state.unknown_usage; agents_created = $state.agents_created; active_workers = @($state.tasks.Values | Where-Object { $_.status -eq 'RUNNING' }).Count } }
@@ -115,6 +108,9 @@ try {
                     $path = Get-TeamChild $directory "escalations/$Escalation.yaml"
                     $record = Read-TeamData $path
                     if ($record.status -ne 'pending') { Stop-TeamError 70 'Escalation already resolved' }
+                    if ($Decision -eq 'approve' -and $record['plan_hash'] -cne $state.plan_hash) {
+                        Stop-TeamError 70 'Escalation belongs to an earlier plan; resolve as modify-plan and request approval for the current revision'
+                    }
                     $record.status = $Decision; $record['reason'] = $Reason
                     Write-TeamData $path $record
                     $state.status = if ($Decision -eq 'reject') { 'CANCELLED' } else { 'PAUSED' }
@@ -130,15 +126,16 @@ try {
                 'repair-integration' { $output = New-TeamIntegrationRepair $state $document $config $directory $GlueScope $Reason }
                 'resolve-review' { $output = Resolve-TeamReview $state $document $directory $Stage $Task (Read-TeamData $Disposition) }
                 'report-cost' {
-                    if ($Amount -lt 0 -or -not $Evidence) { Stop-TeamError 10 'Cost report requires nonnegative amount and evidence file' }
-                    $hash = Get-TeamHash $Evidence
-                    $path = Join-Path $directory "cost-receipts/$hash.json"
-                    if (Test-Path -LiteralPath $path) { Stop-TeamError 10 'Cost evidence already recorded' }
-                    Write-TeamData $path @{amount=$Amount;evidence_hash=$hash;recorded_at=[DateTime]::UtcNow.ToString('o')}
-                    $state.known_cost += $Amount
-                    if ($state.known_cost -ge $config.budget.soft_limit) { Add-TeamEvent $directory 'cost_soft_limit_reached' @{ cost=$state.known_cost } }
-                    if ($state.known_cost -ge $config.budget.hard_limit) { $state.status='PAUSED'; Add-TeamEvent $directory 'cost_hard_limit_reached' }
-                    Save-TeamState $state $directory; $output=@{known_cost=$state.known_cost;unknown_usage=$state.unknown_usage}
+                    $hash = Submit-TeamCost $directory $Amount $Evidence
+                    try { $lock = Lock-TeamRepo $Repo $Run -Resume }
+                    catch {
+                        if ($_.Exception.Data['TeamExitCode'] -ne 20) { throw }
+                        @{status='QUEUED';evidence_hash=$hash;next='Coordinator consumes the receipt before its next dispatch.'} | ConvertTo-Json -Compress
+                        exit 0
+                    }
+                    $runData = Read-TeamRun $Repo $Run; $state = $runData.state
+                    Sync-TeamCost $state $config $directory
+                    $output=@{status='RECORDED';known_cost=$state.known_cost;unknown_usage=$state.unknown_usage;evidence_hash=$hash}
                 }
                 'resume' {
                     $doctor = Test-TeamDoctor $config $Repo -AllowUnverifiedRuntime:$AllowUnverifiedRuntime
@@ -156,11 +153,12 @@ try {
     $output | ConvertTo-Json -Depth 100 -Compress:$Json
 } catch {
     $exitCode = if ($_.Exception.Data.Contains('TeamExitCode')) { [int]$_.Exception.Data['TeamExitCode'] } else { 90 }
-    if ($runData) {
+    if ($runData -and $lock) {
         if ($exitCode -eq 60) {
             $runData.state['hard_stop']=$true
             New-TeamEscalation $runData.state $runData.directory 'hard_stop' $_.Exception.Message
-        } elseif ($exitCode -eq 70 -and $runData.state.status -ne 'ESCALATED') {
+        } elseif ($exitCode -eq 70 -and $runData.state.status -ne 'ESCALATED' -and
+            -not @(Get-ChildItem -LiteralPath (Join-Path $runData.directory 'escalations') -Filter '*.yaml' -ErrorAction SilentlyContinue | ForEach-Object { Read-TeamData $_.FullName } | Where-Object { $_.status -in @('pending','modify-plan') }).Count) {
             New-TeamEscalation $runData.state $runData.directory 'capacity_or_budget' $_.Exception.Message
         }
         if ($exitCode -in @(30,31,40,50,60,80,81,82,90) -and $Command -in @('run','resume','integrate','replan','rollback')) {

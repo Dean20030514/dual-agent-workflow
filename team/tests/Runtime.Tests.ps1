@@ -48,6 +48,79 @@ BeforeAll {
 AfterAll { $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'consumes live <Limit> cost receipts without killing running work or duplicating charges' -ForEach @(
+        @{Limit='soft';Amount=10}, @{Limit='hard';Amount=20}
+    ) {
+        $f=New-RuntimeFixture 2
+        $f.plan.tasks[0].objective=@('WAIT_FOR_COST'); $f.plan.tasks[1]['optional']=$true
+        Write-TeamData $f.path $f.plan
+        $manifest=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml'); $manifest.budget.max_active_workers=1
+        $manifestPath=Join-Path $TestDrive "cost-$Limit.json"; Write-TeamData $manifestPath $manifest
+        $handle=New-TeamProcess 'pwsh' @('-NoProfile','-File',(Join-Path $script:TeamPath 'scripts/team.ps1'),'run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$manifestPath,'-Json') $f.repo (Join-Path $TestDrive "cost-$Limit-out") (Join-Path $TestDrive "cost-$Limit-err")
+        try {
+            $deadline=[datetime]::UtcNow.AddSeconds(15)
+            do {
+                Start-Sleep -Milliseconds 100
+                $statePath=Join-Path $f.repo 'team/runtime/FIXTURE/state.json'
+                $started=(Test-Path $statePath) -and (State $f).tasks.T1.pid -gt 0
+            } while (-not $started -and [datetime]::UtcNow -lt $deadline)
+            $started | Should -BeTrue
+            $evidence=Join-Path $TestDrive "bill-$Limit.txt"; Set-Content $evidence "test billing $Limit"
+            $r=Invoke-Cli @('report-cost','-Repo',$f.repo,'-Run','FIXTURE','-Amount',"$Amount",'-Evidence',$evidence,'-Json')
+            $r.code | Should -Be 0 -Because $r.raw; $r.data.status | Should -Be 'QUEUED'
+            $r=Invoke-Cli @('report-cost','-Repo',$f.repo,'-Run','FIXTURE','-Amount',"$Amount",'-Evidence',$evidence,'-Json')
+            $r.code | Should -Be 10 -Because $r.raw
+            Wait-TeamProcess $handle 25 | Should -Be 0
+            $handle=$null
+            $s=State $f; $s.status | Should -Be 'PAUSED'; $s.known_cost | Should -Be $Amount
+            $s.tasks.T1.status | Should -Be 'REVIEW'; $s.tasks.T1.attempts | Should -Be 1
+            $s.tasks.T2.status | Should -Be 'READY'; $s.tasks.T2.attempts | Should -Be 0
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+            (State $f).known_cost | Should -Be $Amount
+            $events=Get-Content (Join-Path $f.repo 'team/runtime/FIXTURE/events.jsonl') | ForEach-Object { ConvertFrom-Json $_ }
+            @($events | Where-Object event -eq "cost_${Limit}_limit_reached").Count | Should -Be 1
+        } finally { if ($handle) { $null=Close-TeamProcess $handle -Terminate } }
+    }
+    It 'requires new owner approval when a replan expands restricted permissions' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].permissions.network=$true; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 70
+        (State $f).tasks.T1.attempts | Should -Be 0
+        $r=Invoke-Cli @('escalations','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $id=@($r.data)[0].id
+        $r=Invoke-Cli @('resolve','-Repo',$f.repo,'-Run','FIXTURE','-Escalation',$id,'-Decision','approve','-Reason','Fixture owner permits this network scope','-Json'); $r.code | Should -Be 0
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $f.plan.run.revision=2; $f.plan.tasks[0].permissions.secrets=$true; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Fixture adds secret permission','-Json'); $r.code | Should -Be 0
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 70 -Because $r.raw
+        (State $f).tasks.T1.attempts | Should -Be 1
+        $r=Invoke-Cli @('escalations','-Repo',$f.repo,'-Run','FIXTURE','-Json')
+        @($r.data | Where-Object status -eq 'pending').Count | Should -Be 1
+        @($r.data | Where-Object status -eq 'approve')[0].plan_hash | Should -Not -Be (State $f).plan_hash
+    }
+    It 'does not treat modify-plan as approval and keeps expired escalation paused' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].permissions.network=$true; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 70
+        $dir=Join-Path $f.repo 'team/runtime/FIXTURE'
+        $recordFile=@(Get-ChildItem (Join-Path $dir 'escalations') -Filter '*.yaml')[0].FullName
+        $record=Read-TeamData $recordFile; $record.expires_at=[DateTime]::UtcNow.AddHours(-1).ToString('o'); Write-TeamData $recordFile $record
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 70
+        (State $f).status | Should -Be 'PAUSED'; (State $f).tasks.T1.attempts | Should -Be 0
+        @(Get-ChildItem (Join-Path $dir 'escalations') -Filter '*.yaml').Count | Should -Be 1
+        $r=Invoke-Cli @('resolve','-Repo',$f.repo,'-Run','FIXTURE','-Escalation',$record.id,'-Decision','modify-plan','-Reason','Remove network access','-Json'); $r.code | Should -Be 0
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 70
+        (State $f).tasks.T1.attempts | Should -Be 0
+        $f.plan.run.revision=2; $f.plan.tasks[0].permissions.network=$false; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Remove restricted permission','-Json'); $r.code | Should -Be 0
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        (State $f).tasks.T1.status | Should -Be 'REVIEW'
+    }
+    It 'hard-stops a destructive action introduced by replan before another worker starts' {
+        $f=New-RuntimeFixture
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0
+        $f.plan.run.revision=2; $f.plan['risk_flags']=@('production_delete'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Synthetic destructive flag','-Json'); $r.code | Should -Be 0
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 60 -Because $r.raw
+        (State $f).hard_stop | Should -BeTrue; (State $f).tasks.T1.attempts | Should -Be 1
+    }
     It 'runs a concurrent DAG, preserves main, integrates dependencies and cleans only merged worktrees' {
         $f = New-RuntimeFixture 3
         $f.plan.tasks[2].dependencies=@('T1','T2'); Write-TeamData $f.path $f.plan

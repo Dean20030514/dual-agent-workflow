@@ -24,3 +24,13 @@
 
 当前变更尚未 commit 或部署；以上是本地工作树与隔离 fixture 的验收，不等于已部署到任意用户项目。
 运行边界（权限声明、未知金额、版本与 fork 的验证级别）见 OPEN_GAPS.md。
+# 第二批：执行中的预算与计划审批
+
+2026-09-17：`team/tests` 实际运行 **45 passed / 0 failed**，exit 0；
+`node --test team/tests/native-guard.test.mjs` **5 passed / 0 failed**，exit 0。
+新增证明：运行中的 coordinator 可接收 soft/hard 费用凭证；原 Worker 完成，
+optional 后继未启动；重复账单被拒绝、resume 不重复计费；已运行 native 家族
+在软限制后不能创建新 child。费用未知部分仍保持 unknown_usage，不伪装完整计量。
+权限测试证明：修改计划权限不会继承旧审批，modify-plan 不等于 approve，
+过期升级保持 PAUSED，replan 引入 production_delete 在派发前硬停。
+上述为真实 PowerShell 进程/Git 加替身模型 CLI；不是新的真实模型行为验收。

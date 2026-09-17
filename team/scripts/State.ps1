@@ -41,7 +41,7 @@ function New-TeamEscalation($State, [string]$Directory, [string]$Type, [string]$
     Write-TeamData (Join-Path $Directory "escalations/$id.yaml") @{
         schema_version = 1; id = $id; run_id = $State.run_id; status = 'pending'; type = $Type
         summary = $Summary; options = @('approve','reject','modify-plan'); default_if_unresolved = 'pause'
-        context = $Context
+        context = $Context; plan_hash = $State.plan_hash
         created_at = [DateTime]::UtcNow.ToString('o'); expires_at = [DateTime]::UtcNow.AddHours(24).ToString('o')
     }
     $State.status = 'ESCALATED'
