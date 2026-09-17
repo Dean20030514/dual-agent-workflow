@@ -36,7 +36,20 @@ function Read-TeamWorkerOutput([string]$Path) {
     Stop-TeamError 10 'Worker stdout does not end with one valid JSON Result Packet'
 }
 
+function Read-TeamPlanInput([string]$Path) {
+    try { Read-TeamData $Path }
+    catch { $_.Exception.Data['TeamEvent']='plan_invalid'; throw }
+}
+
 function Test-TeamPlan($Plan, $Manifest) {
+    try { Test-TeamPlanContent $Plan $Manifest }
+    catch {
+        if ($_.Exception.Data['TeamExitCode'] -eq 10) { $_.Exception.Data['TeamEvent']='plan_invalid' }
+        throw
+    }
+}
+
+function Test-TeamPlanContent($Plan, $Manifest) {
     Test-TeamSchema $Manifest 'manifest'
     Test-TeamSchema $Plan 'team-plan'
     $limits = $Manifest.budget
@@ -97,11 +110,11 @@ function Get-TeamAffected($Plan, [string]$FailedTask, [string[]]$ChangedPaths) {
     return @($affected | Sort-Object)
 }
 
-function Read-WorkerResult($TaskState, $Task, [string]$RunId) {
+function Read-WorkerResult($TaskState, $Task, [string]$RunId, [switch]$AllowIncomplete) {
     $result = Read-TeamData (Join-Path $TaskState.directory 'result.yaml')
     Test-TeamSchema $result 'result'
     if ($result.run_id -cne $RunId -or $result.task_id -cne $Task.id) { Stop-TeamError 10 'Result identity mismatch' }
-    if ($result.status -ne 'completed' -or -not $result.verification.passed) { Stop-TeamError 30 'Worker did not complete its self-check' }
+    if (-not $AllowIncomplete -and ($result.status -ne 'completed' -or -not $result.verification.passed)) { Stop-TeamError 30 'Worker did not complete its self-check' }
     $head = Invoke-TeamGit $TaskState.worktree @('rev-parse', 'HEAD')
     $branch = Invoke-TeamGit $TaskState.worktree @('branch', '--show-current')
     if ($result.git.commit -cne $head -or $branch -cne $TaskState.branch -or $result.git.branch -cne $branch) {

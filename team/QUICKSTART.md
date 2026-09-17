@@ -83,5 +83,9 @@ watch 每两秒读取新增事件，支持 `-Since`、`-Task`；PAUSED/ESCALATED
 50 处理独立审查；80 先恢复 Git/PID 一致性；82 更新合法 plan revision 或撤销越界改动。
 禁止把 schema 失败静默降成 L0，或把无 verdict 当通过。
 
+Worker 的 escalated Result 返回 70，保留证据并等待升级决定；决定后须显式 replan，
+不能直接 accept。不同 attempt 两次验证失败的命令和输出完全相同时也会升级，
+此时保留原始 exit 40。`team.enabled=false` 拒绝继续执行和验收，仍可查询及 stop 已有任务。
+
 最小验收：result.status=completed、Worker 分支与 worktree 存在、main SHA 不变、
 外部验证 exit=0、Lead 验收绑定 commit、集成回归 exit=0、run.status=COMPLETED。

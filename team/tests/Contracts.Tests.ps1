@@ -138,6 +138,27 @@ Describe 'Persistence, process and repository guards' {
         Assert-Code { Invoke-TeamVerification @($command) $TestDrive $TestDrive 'negative' } 40
         (Read-TeamData (Join-Path $TestDrive 'negative-evidence.json')).exit_code | Should -Be 9
     }
+    It 'counts repeated failure evidence once per attempt and resets on a different failure' {
+        $directory=Join-Path $TestDrive 'verification-failures'
+        [IO.Directory]::CreateDirectory($directory) | Out-Null
+        $state=@{tasks=@{T1=@{directory=$directory;attempts=1}}}
+        $failure=@{id='check';executable='pwsh';args=@('-Command','exit 9');exit_code=9;stdout_sha256=('a'*64);stderr_sha256=('b'*64)}
+        Write-TeamData (Join-Path $directory 'verification-evidence.json') @($failure)
+        Mock New-TeamEscalation {}
+        Record-TeamVerificationFailure $state $directory 'T1'
+        Record-TeamVerificationFailure $state $directory 'T1'
+        $state.verification_failures.T1.count | Should -Be 1
+        $state.tasks.T1.attempts=2
+        Record-TeamVerificationFailure $state $directory 'T1'
+        Record-TeamVerificationFailure $state $directory 'T1'
+        $state.verification_failures.T1.count | Should -Be 2
+        Should -Invoke New-TeamEscalation -Exactly -Times 1
+        $state.tasks.T1.attempts=3; $failure.exit_code=8
+        Write-TeamData (Join-Path $directory 'verification-evidence.json') @($failure)
+        Record-TeamVerificationFailure $state $directory 'T1'
+        $state.verification_failures.T1.count | Should -Be 1
+        @(Get-Content (Join-Path $directory 'events.jsonl')).Count | Should -Be 3
+    }
     It 'terminates its own child on timeout' {
         $handle = New-TeamProcess 'pwsh' @('-NoProfile','-Command','Start-Sleep -Seconds 30') $TestDrive (Join-Path $TestDrive 'slow-out') (Join-Path $TestDrive 'slow-err')
         Assert-Code { Wait-TeamProcess $handle 1 } 31
@@ -174,6 +195,17 @@ Describe 'Git-backed result audit' {
     }
     It 'accepts a result bound to real clean Git changes' {
         (Read-WorkerResult $script:Item $script:TaskData 'R1').commit | Should -Be $script:Head
+    }
+    It 'audits native child usage before honoring a worker escalation' {
+        $script:ResultData.status='escalated'; $script:ResultData.verification.passed=$false
+        Write-TeamData (Join-Path $script:ResultDir 'result.yaml') $script:ResultData
+        Write-TeamData (Join-Path $script:ResultDir 'exit.json') @{exit_code=0}
+        Write-TeamData (Join-Path $script:ResultDir 'agents.json') @{agents=@(@{depth=0;state='created'},@{depth=1;state='created'})}
+        $script:Item['agent_limit']=3; $script:Item['reserved']=0
+        $script:TaskData.subagents.allowed=$true
+        $state=@{tasks=@{T1=$script:Item};run_id='R1'}
+        Assert-Code { Complete-TeamWorker $state $script:TaskData $script:ResultDir } 82
+        Test-Path (Join-Path $script:ResultDir 'escalations') | Should -BeFalse
     }
     It 'extracts one terminal Result Packet from plain stdout while rejecting ambiguous or invalid output' {
         $path=Join-Path $script:ResultDir 'worker.stdout'

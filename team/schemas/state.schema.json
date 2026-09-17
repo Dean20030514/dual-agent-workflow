@@ -45,7 +45,7 @@
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "status": {"enum": ["CREATED", "BLOCKED", "READY", "RUNNING", "SELF_CHECK", "RESULT_READY", "VERIFYING", "REVIEW", "ACCEPTED", "REWORK", "FAILED", "FAILED_SCOPE", "MERGED", "CLEANED", "REPAIRING", "DISCARDED"]},
+          "status": {"enum": ["CREATED", "BLOCKED", "READY", "RUNNING", "SELF_CHECK", "RESULT_READY", "VERIFYING", "REVIEW", "ACCEPTED", "REWORK", "FAILED", "FAILED_SCOPE", "MERGED", "CLEANED", "REPAIRING", "DISCARDED", "ESCALATED"]},
           "attempts": {"type": "integer", "minimum": 0},
           "pid": {"type": "integer", "minimum": 0},
           "process_start": {"type": "string"},

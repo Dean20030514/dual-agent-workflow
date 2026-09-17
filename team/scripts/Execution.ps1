@@ -97,16 +97,26 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
         $State.agents_created += $native.agents.Count; $State.agents_reserved -= $item.reserved; $item.reserved = 0
         Save-TeamState $State $Directory
     }
-    $audit = Read-WorkerResult $item $Task $State.run_id
-    if ($State.Contains('repairs') -and $State.repairs.Contains($Task.id)) {
-        $null = Invoke-TeamGit $item.worktree @('merge-base','--is-ancestor',$State.repairs[$Task.id].source_commit,$audit.commit)
-    }
+    $audit = Read-WorkerResult $item $Task $State.run_id -AllowIncomplete
     if ($audit.result.subagents_used.Count -ne @($native.agents | Where-Object { $_.depth -gt 0 -and $_.state -eq 'created' }).Count) {
         Stop-TeamError 82 'Native child count differs from Result Packet'
+    }
+    if ($audit.result.status -eq 'escalated') {
+        $item.commit=$audit.commit; $item.status='ESCALATED'
+        New-TeamEscalation $State $Directory 'worker_request' ($audit.result.summary -join ' ') @{
+            task_id=$Task.id;attempt=$item.attempts;commit=$audit.commit;risks=$audit.result.risks
+            result_hash=(Get-TeamHash (Join-Path $item.directory 'result.yaml'))
+        }
+        Stop-TeamError 70 'Worker requested an owner decision; no verification or acceptance performed'
+    }
+    if ($audit.result.status -ne 'completed' -or -not $audit.result.verification.passed) { Stop-TeamError 30 'Worker did not complete its self-check' }
+    if ($State.Contains('repairs') -and $State.repairs.Contains($Task.id)) {
+        $null = Invoke-TeamGit $item.worktree @('merge-base','--is-ancestor',$State.repairs[$Task.id].source_commit,$audit.commit)
     }
     $item.commit = $audit.commit; $item.status = 'VERIFYING'
     Save-TeamState $State $Directory
     $null = Invoke-TeamVerification $Task.verification $item.worktree $item.directory 'verification'
+    if ($State['verification_failures']) { $State.verification_failures.Remove($Task.id) }
     # Verification may generate files, but must not change tracked source or HEAD.
     if ((Invoke-TeamGit $item.worktree @('rev-parse','HEAD')) -cne $item.commit -or
         (Invoke-TeamGit $item.worktree @('diff','HEAD','--name-only'))) { Stop-TeamError 82 'Verification modified source' }
@@ -127,8 +137,11 @@ function Complete-TeamWorkerSafely($State, $Task, [string]$Directory, $Plan, $Ma
             $State.agents_created += $item.reserved; $State.agents_reserved -= $item.reserved; $item.reserved=0
         }
         $item.status = if ($_.Exception.Data['TeamExitCode'] -eq 82) { 'FAILED_SCOPE' }
+            elseif ($item.status -eq 'ESCALATED') { 'ESCALATED' }
             elseif ($_.Exception.Data['TeamExitCode'] -eq 70 -and $State.status -eq 'ESCALATED') { 'REVIEW' }
             else { 'FAILED' }
+        if ($_.Exception.Data['TeamExitCode'] -eq 82) { Add-TeamEvent $Directory 'scope_violation' @{task_id=$Task.id;message=$_.Exception.Message} }
+        if ($_.Exception.Data['TeamExitCode'] -eq 40) { Record-TeamVerificationFailure $State $Directory $Task.id }
         Save-TeamState $State $Directory
         throw
     }

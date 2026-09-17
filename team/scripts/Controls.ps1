@@ -1,4 +1,27 @@
 # The coordinator alone writes state. Concurrent cost reporters append immutable receipts.
+function Record-TeamVerificationFailure($State, [string]$Directory, [string]$TaskId) {
+    $item=$State.tasks[$TaskId]
+    $path=Join-Path $item.directory 'verification-evidence.json'
+    if (-not (Test-Path -LiteralPath $path)) { return }
+    $failed=@(Read-TeamData $path | Where-Object { $_.exit_code -ne 0 })
+    if (-not $failed.Count) { return }
+    $entry=$failed[-1]
+    $signature=@($entry.id,$entry.executable,($entry.args | ConvertTo-Json -Compress),$entry.exit_code,$entry.stdout_sha256,$entry.stderr_sha256) -join "`n"
+    $fingerprint=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($signature))).ToLowerInvariant()
+    if (-not $State['verification_failures']) { $State['verification_failures']=@{} }
+    $previous=$State.verification_failures[$TaskId]
+    $count=1
+    if ($previous -and $previous.fingerprint -ceq $fingerprint) {
+        if ($previous.attempt -eq $item.attempts) { return }
+        $count=[int]$previous.count
+        $count++
+    }
+    $State.verification_failures[$TaskId]=@{fingerprint=$fingerprint;count=$count;attempt=$item.attempts}
+    Add-TeamEvent $Directory 'verification_failed' @{task_id=$TaskId;command=$entry.id;fingerprint=$fingerprint;consecutive_attempts=$count}
+    if ($count -ge 2) {
+        New-TeamEscalation $State $Directory 'repeated_verification_failure' 'Two worker attempts failed the same verification command with identical output; inspect the preserved evidence before another attempt.' @{task_id=$TaskId;fingerprint=$fingerprint;attempt=$item.attempts}
+    }
+}
 function Submit-TeamCost([string]$Directory, [double]$Amount, [string]$Evidence) {
     if ($Amount -lt 0 -or -not [double]::IsFinite($Amount) -or -not $Evidence) {
         Stop-TeamError 10 'Cost report requires a finite nonnegative amount and evidence file'

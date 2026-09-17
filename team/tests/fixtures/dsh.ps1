@@ -32,7 +32,7 @@ if ($task.objective[0] -eq 'WAIT_FOR_RELEASE') {
     if (-not (Test-Path -LiteralPath $release)) { exit 8 }
 }
 $path = $task.write_scope[0]
-if ($task.objective[0] -eq 'SCOPE') { $path = 'forbidden.txt' }
+if ($task.objective[0] -in @('SCOPE','ESCALATE_SCOPE')) { $path = 'forbidden.txt' }
 $parent = Split-Path $path -Parent
 if ($parent) { New-Item -ItemType Directory -Force $parent | Out-Null }
 Set-Content -LiteralPath $path -Value $task.task_id -Encoding utf8NoBOM
@@ -43,4 +43,6 @@ if ($LASTEXITCODE) { exit $LASTEXITCODE }
 $commit = git rev-parse HEAD
 $branch = git branch --show-current
 @{schema_version=1;agents=@(@{id='fixture-agent';depth=0;state='created';provider='deepseek-official';model='deepseek-flash';cwd=(Get-Location).Path})} | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $guard.receipt -Encoding utf8NoBOM
-@{schema_version=1;run_id=$task.run_id;task_id=$task.task_id;status='completed';summary=@('synthetic fixture');changed_files=@($path);verification=@{passed=$true};subagents_used=@();risks=@();git=@{branch=$branch;commit=$commit}} | ConvertTo-Json -Depth 20
+if ($task.objective[0] -eq 'MALFORMED') { Write-Output 'no result'; exit 0 }
+$escalated=$task.objective[0] -in @('ESCALATE','ESCALATE_SCOPE')
+@{schema_version=1;run_id=$task.run_id;task_id=$task.task_id;status=$(if ($escalated) {'escalated'} else {'completed'});summary=@('synthetic fixture');changed_files=@($path);verification=@{passed=(-not $escalated)};subagents_used=@();risks=@();git=@{branch=$branch;commit=$commit}} | ConvertTo-Json -Depth 20

@@ -17,7 +17,7 @@ try {
     if (-not $Manifest) { $Manifest = Join-Path $script:TeamRoot 'manifest.yaml' }
     $config = Read-TeamData $Manifest
     Test-TeamSchema $config 'manifest'
-    if ($Command -in @('run','resume','repair-integration') -and -not $config.team.enabled) { Stop-TeamError 20 'Team disabled; use normal Codex mode' }
+    if ($Command -in @('run','resume','accept','integrate','replan','repair-integration','resolve-review','rollback','cleanup') -and -not $config.team.enabled) { Stop-TeamError 20 'Team disabled; use normal Codex mode' }
     switch ($Command) {
         'doctor' {
             if ($RepairLock) {
@@ -37,14 +37,14 @@ try {
             $output = if ($config.team.enabled) { Get-TeamRoute $TaskText } else { @{ recommended_mode = 'L0'; confidence = 1.0; reasons = @('team disabled'); source = 'configuration' } }
         }
         'validate' {
-            $order = Test-TeamPlan (Read-TeamData $Plan) $config
+            $order = Test-TeamPlan (Read-TeamPlanInput $Plan) $config
             $output = @{ valid = $true; order = @($order) }
         }
         'affected' { $output = @{ affected = @(Get-TeamAffected (Read-TeamData $Plan) $Task $ChangedPaths) } }
         'record-route' { $output = Record-TeamRoute $config $Repo $TaskText $ExpectedMode }
         'run' {
             if (-not $config.team.enabled) { Stop-TeamError 20 'Team disabled; use normal Codex mode' }
-            $document = Read-TeamData $Plan
+            $document = Read-TeamPlanInput $Plan
             $order = Test-TeamPlan $document $config
             Assert-TeamRunRoot $Repo
             $doctor = Test-TeamDoctor $config $Repo -AllowUnverifiedRuntime:$AllowUnverifiedRuntime
@@ -129,7 +129,7 @@ try {
                 }
                 'accept' { Accept-TeamTask $state $document $directory $Task $Commit $Reason; $output = @{ status = 'ACCEPTED'; task_id = $Task } }
                 'integrate' { $output = Invoke-TeamIntegration $state $document $directory $config }
-                'replan' { $output = Invoke-TeamReplan $state $document (Read-TeamData $Plan) $config $directory $Task $Reason }
+                'replan' { $output = Invoke-TeamReplan $state $document (Read-TeamPlanInput $Plan) $config $directory $Task $Reason }
                 'rollback' { $output = Undo-TeamIntegration $state $directory $Task $Reason }
                 'repair-integration' { $output = New-TeamIntegrationRepair $state $document $config $directory $GlueScope $Reason }
                 'resolve-review' { $output = Resolve-TeamReview $state $document $directory $Stage $Task (Read-TeamData $Disposition) }
@@ -175,7 +175,12 @@ try {
         }
         Add-TeamEvent $runData.directory 'command_failed' @{ command = $Command; exit_code = $exitCode; message = $_.Exception.Message }
     }
-    @{ success = $false; exit_code = $exitCode; error = $_.Exception.Message } | ConvertTo-Json -Compress
+    $errorOutput=@{ success = $false; exit_code = $exitCode; error = $_.Exception.Message }
+    if ($exitCode -eq 10 -and $_.Exception.Data['TeamEvent'] -eq 'plan_invalid') {
+        $errorOutput['event']='plan_invalid'
+        if ($runData -and $lock) { Add-TeamEvent $runData.directory 'plan_invalid' @{command=$Command;message=$_.Exception.Message} }
+    }
+    $errorOutput | ConvertTo-Json -Compress
 } finally {
     if ($lock) {
         if ($runData -and $runData.state.status -in @('COMPLETED','CANCELLED')) { Unlock-TeamRepo $Repo $runData.state.run_id }

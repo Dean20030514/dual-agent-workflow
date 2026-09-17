@@ -62,3 +62,12 @@ repair commit `fbdc520a4b2cc342ff96850e6f0c54cac8c6bbcc` 包含 frontend 源提�
 `4eb370051ff1d77577976f15b160e1009632768d4b0f2bddb42500fc8fc62a5f`。
 适配器修正后对该原文回放成功，并通过显式 replan 重跑受影响任务；失败 attempt-1 全部保留，累计计入 5 个 Agent。
 测试仓库 main 仍为 `61cfe04a9153189eede41c974d0062508dcde908`，调用者工作树干净；未部署业务系统。
+
+真实升级 `ESCALATE-NATIVE-007`（临时仓库 `team-escalation-live-3cbc450344`）：
+缺少业务开关取值，明确禁止 Worker 猜测；DSH 返回 `status=escalated`、空 changed_files、self-check=false。
+base/Worker HEAD/main 均为 `e4fcfaa6ddcf9b71622523f517b51a383179420b`，没有实现提交。
+原生 session `session-cd9f4be9-00fb-4f87-a6cd-b041c985bdd3`，deepseek-official/deepseek-flash，depth 0。
+Result SHA-256 `6546ab24d1267e431bdd2a17192c40eac5a152eca25ad01ff0a7a477a7b16df0`。
+控制器 exit 70，run/task 均 ESCALATED，生成 `ESC-59825732a9` 并绑定结果哈希，未生成外部验证证据。
+main 未改变、调用者工作树干净；验收断言完成后以明确的测试结束理由 resolve reject，最终 CANCELLED，证据保留。
+这是实际原生 Worker 的缺失决定升级验收，不是业务实现完成或人工业务决策验证。

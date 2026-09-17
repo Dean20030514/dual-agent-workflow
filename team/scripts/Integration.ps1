@@ -116,7 +116,7 @@ function Resume-TeamRun($State, $Plan, $Manifest, [string]$Directory) {
         }
         Complete-TeamWorkerSafely $State $task $Directory $Plan $Manifest
     }
-    if (@($State.tasks.Values | Where-Object { $_.status -in @('FAILED','FAILED_SCOPE','REWORK') }).Count) {
+    if (@($State.tasks.Values | Where-Object { $_.status -in @('FAILED','FAILED_SCOPE','REWORK','ESCALATED') }).Count) {
         Stop-TeamError 80 'Failed tasks require an explicit replan; no blind worker retry'
     }
     $pending = @(Get-ChildItem -LiteralPath (Join-Path $Directory 'escalations') -Filter '*.yaml' -ErrorAction SilentlyContinue |

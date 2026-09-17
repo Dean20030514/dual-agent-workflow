@@ -71,3 +71,19 @@ fork 子会话 isSeeded=false（首次回合没有已完成前缀），不宣称
 真实 add/add 冲突返回 81；Lead Decision Log 保留双方字段，受限 Integration Worker 从已接受 checkpoint 启动，
 修复后 Git 范围/源提交祖先/外部验证/最终双字段回归均通过，run=COMPLETED、main 未改变。
 这证明的是角色协议与集成执行链路；JSON fixture 不是实际前后端应用的业务验收。
+
+# 第六批：失败升级与禁用开关
+
+Team 完整回归 **60 passed / 0 failed**，exit 0（299.86 秒）。随后将 native child 数量核对
+移到 escalated 分支之前，新增隐藏子 Agent 反例；合同测试重新执行 **36 passed / 0 failed**，exit 0。
+受影响的升级 CLI 场景再次执行 **3 passed / 0 failed**，exit 0；未将分次测试合称为一次 61 项完整回归。
+跨 attempt 验证失败、Worker 升级→拒绝验收→决定→重规划、越界升级、无效计划事件、
+错误 Result 不误报 plan_invalid、disabled 执行阻断/stop 可用均有隔离 CLI 用例。
+重复失败计数按命令、参数、退出码和输出哈希；同 attempt 幂等、不同失败重置。
+派生漂移门 17 对/292 行通过，exit 0；git diff --check 通过。
+
+真实 `ESCALATE-NATIVE-007` 已返回升级结果：实际 DSH Worker 未改文件、未提交、self-check=false，
+控制器保存 worker_request 和结果哈希，run/task=ESCALATED、exit 70，未运行外部验证。
+验收断言完成后明确取消该临时测试 run，最终 CANCELLED；原始证据保留，main 未变。
+具体 base、session、Result 哈希见 VERIFIED_VERSIONS。
+重复验证失败升级是替身 Worker + 真实 Git/外部进程测试，未宣称做过真实模型重复失败试验。

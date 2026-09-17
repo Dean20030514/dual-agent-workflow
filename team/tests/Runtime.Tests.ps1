@@ -228,6 +228,7 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $f=New-RuntimeFixture; $f.plan.tasks[0].dependencies=@('T1'); Write-TeamData $f.path $f.plan
         $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
         $r.code | Should -Be 10
+        $r.data.event | Should -Be 'plan_invalid'
         Test-Path (Join-Path $f.repo '.worktrees') | Should -BeFalse
         Test-Path (Join-Path $f.repo 'team/runtime') | Should -BeFalse
     }
@@ -237,6 +238,55 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $r.code | Should -Be 82 -Because $r.raw
         (State $f).tasks.T1.status | Should -Be 'FAILED_SCOPE'
         Test-Path (State $f).tasks.T1.worktree | Should -BeTrue
+        $events=Get-Content (Join-Path $f.repo 'team/runtime/FIXTURE/events.jsonl') | ForEach-Object { ConvertFrom-Json $_ }
+        @($events | Where-Object event -eq 'scope_violation').Count | Should -Be 1
+    }
+    It 'keeps an escalated worker out of acceptance until an owner decision and explicit replan' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('ESCALATE'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 70 -Because $r.raw
+        $s=State $f; $s.status | Should -Be 'ESCALATED'; $s.tasks.T1.status | Should -Be 'ESCALATED'
+        $originalResult=Join-Path $s.tasks.T1.directory 'result.yaml'; $originalHash=Get-TeamHash $originalResult
+        Test-Path (Join-Path $s.tasks.T1.directory 'verification-evidence.json') | Should -BeFalse
+        $r=Invoke-Cli @('accept','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Commit',$s.tasks.T1.commit,'-Reason','Must not accept an escalated result','-Json')
+        $r.code | Should -Not -Be 0
+        $r=Invoke-Cli @('escalations','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $record=@($r.data)[0]
+        $record.type | Should -Be 'worker_request'; $record.context.result_hash | Should -Be $originalHash
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 70
+        (State $f).tasks.T1.attempts | Should -Be 1
+        $r=Invoke-Cli @('resolve','-Repo',$f.repo,'-Run','FIXTURE','-Escalation',$record.id,'-Decision','modify-plan','-Reason','Owner supplies missing contract','-Json'); $r.code | Should -Be 0
+        $f.plan.run.revision=2; $f.plan.tasks[0].objective=@('WRITE'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Apply owner contract','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        (State $f).tasks.T1.status | Should -Be 'REVIEW'; (State $f).tasks.T1.attempts | Should -Be 2
+        (Get-TeamHash $originalResult) | Should -Be $originalHash
+    }
+    It 'still audits the Git scope of an escalated worker' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('ESCALATE_SCOPE'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 82 -Because $r.raw
+        (State $f).tasks.T1.status | Should -Be 'FAILED_SCOPE'
+        $r=Invoke-Cli @('escalations','-Repo',$f.repo,'-Run','FIXTURE','-Json')
+        @($r.data | Where-Object type -eq 'worker_request').Count | Should -Be 0
+    }
+    It 'does not label malformed worker output as an invalid plan' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('MALFORMED'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 10 -Because $r.raw
+        $r.data.ContainsKey('event') | Should -BeFalse
+        (State $f).tasks.T1.status | Should -Be 'FAILED'
+    }
+    It 'escalates the second identical verification failure and preserves both attempts' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].verification[0].args=@('-NoProfile','-Command','Write-Output "repeatable failure"; exit 9'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 40 -Because $r.raw
+        $s=State $f; $s.status | Should -Be 'PAUSED'; $s.verification_failures.T1.count | Should -Be 1
+        $firstEvidence=Join-Path $s.tasks.T1.directory 'verification-evidence.json'
+        $f.plan.run.revision=2; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','One explicit retry','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 40 -Because $r.raw
+        $s=State $f; $s.status | Should -Be 'ESCALATED'; $s.verification_failures.T1.count | Should -Be 2
+        Test-Path $firstEvidence | Should -BeTrue
+        Test-Path (Join-Path $s.tasks.T1.directory 'verification-evidence.json') | Should -BeTrue
+        $r=Invoke-Cli @('escalations','-Repo',$f.repo,'-Run','FIXTURE','-Json'); @($r.data)[0].type | Should -Be 'repeated_verification_failure'
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 70 -Because $r.raw
+        (State $f).tasks.T1.attempts | Should -Be 2
     }
     It 'wires 9P before workers, 9A before acceptance and 9B before completion' {
         $f=New-RuntimeFixture; $f.plan.classification.level='critical'; $f.plan.review.require_9p=$true; $f.plan.review.require_fresh_9b=$true
@@ -333,6 +383,12 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$path,'-Json'); $r.code | Should -Be 0
         (State $f).status | Should -Be 'PAUSED'
         (State $f).tasks.T1.attempts | Should -Be 0
+        $manifest.team.enabled=$false; Write-TeamData $path $manifest
+        foreach ($command in @('resume','accept','integrate','replan','repair-integration','resolve-review','rollback','cleanup')) {
+            $r=Invoke-Cli @($command,'-Repo',$f.repo,'-Run','FIXTURE','-Manifest',$path,'-Json'); $r.code | Should -Be 20 -Because "$command : $($r.raw)"
+        }
+        $r=Invoke-Cli @('stop','-Repo',$f.repo,'-Run','FIXTURE','-Manifest',$path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        (State $f).status | Should -Be 'CANCELLED'
     }
     It 'rolls back a merge whose targeted regression failed, preserving main' {
         $f=New-RuntimeFixture
