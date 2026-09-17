@@ -112,6 +112,14 @@ Describe 'Persistence, process and repository guards' {
         $handle = New-TeamProcess 'pwsh' @('-NoProfile','-Command','Start-Sleep -Seconds 30') $TestDrive (Join-Path $TestDrive 'slow-out') (Join-Path $TestDrive 'slow-err')
         Assert-Code { Wait-TeamProcess $handle 1 } 31
     }
+    It 'binds a live PID to its exact start time after a JSON timestamp round trip' {
+        $process=Get-Process -Id $PID
+        $path=Join-Path $TestDrive 'process-receipt.json'
+        Write-TeamData $path @{pid=$PID;start=$process.StartTime.ToUniversalTime().ToString('o')}
+        $record=Read-TeamData $path
+        (Get-TeamOwnedProcess $record.pid $record.start).Id | Should -Be $PID
+        Get-TeamOwnedProcess $record.pid (([datetime]$record.start).AddSeconds(-1)) | Should -BeNullOrEmpty
+    }
 }
 
 Describe 'Git-backed result audit' {

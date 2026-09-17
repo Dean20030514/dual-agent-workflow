@@ -48,6 +48,80 @@ BeforeAll {
 AfterAll { $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'recovers after an actual coordinator process crash without duplicating its orphan worker' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('WAIT_FOR_RELEASE'); Write-TeamData $f.path $f.plan
+        $handle=New-TeamProcess 'pwsh' @('-NoProfile','-File',(Join-Path $script:TeamPath 'scripts/team.ps1'),'run','-Repo',$f.repo,'-Plan',$f.path,'-Json') $f.repo (Join-Path $TestDrive 'crash-out') (Join-Path $TestDrive 'crash-err')
+        try {
+            $deadline=[datetime]::UtcNow.AddSeconds(15)
+            do {
+                Start-Sleep -Milliseconds 100
+                $statePath=Join-Path $f.repo 'team/runtime/FIXTURE/state.json'
+                $started=$false
+                if (Test-Path $statePath) {
+                    $s=State $f
+                    $started=$s.tasks.T1.pid -gt 0 -and (Test-Path (Join-Path $s.tasks.T1.directory 'native-process.json'))
+                }
+            } while (-not $started -and [datetime]::UtcNow -lt $deadline)
+            $started | Should -BeTrue
+            # Terminate only the test coordinator, deliberately preserving its worker process tree.
+            $handle.process.Kill(); $handle.process.WaitForExit()
+            (State $f).tasks.T1.status | Should -Be 'RUNNING'
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 80 -Because $r.raw
+            (State $f).tasks.T1.attempts | Should -Be 1
+            (State $f).tasks.T1.status | Should -Be 'RUNNING' -Because $r.raw
+            Set-Content (Join-Path $s.tasks.T1.directory 'release.test') 'continue'
+            $deadline=[datetime]::UtcNow.AddSeconds(15)
+            do { Start-Sleep -Milliseconds 100 } while (-not (Test-Path (Join-Path $s.tasks.T1.directory 'exit.json')) -and [datetime]::UtcNow -lt $deadline)
+            Test-Path (Join-Path $s.tasks.T1.directory 'exit.json') | Should -BeTrue
+            $original=Get-Process -Id $s.tasks.T1.pid -ErrorAction SilentlyContinue
+            if ($original) { $original.WaitForExit(5000) | Should -BeTrue }
+            # Orphans can inherit redirected pipe handles; drain them only after the worker exits.
+            $null=Close-TeamProcess $handle; $handle=$null
+            (State $f).tasks.T1.status | Should -Be 'RUNNING' -Because ((Get-Content (Join-Path $f.repo 'team/runtime/FIXTURE/events.jsonl')) -join "`n")
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+            $s=State $f; $s.tasks.T1.status | Should -Be 'REVIEW'; $s.tasks.T1.attempts | Should -Be 1
+            $s.agents_created | Should -Be 1; $s.agents_reserved | Should -Be 0
+        } finally {
+            if ($handle) { $null=Close-TeamProcess $handle -Terminate }
+            if (Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/state.json')) {
+                $null=Invoke-Cli @('stop','-Repo',$f.repo,'-Run','FIXTURE','-Json')
+            }
+        }
+    }
+    It 'rejects another run started through a linked worktree of the same repository' {
+        $f=New-RuntimeFixture
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0
+        $linked=Join-Path $TestDrive 'linked-run-root'
+        $null=Invoke-TeamGit $f.repo @('worktree','add','-b','fixture-linked',$linked,$f.base)
+        $f.plan.run.id='SECOND'; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$linked,'-Plan',$f.path,'-Json'); $r.code | Should -Be 20 -Because $r.raw
+        Test-Path (Join-Path $linked 'team/runtime') | Should -BeFalse
+        (State $f).run_id | Should -Be 'FIXTURE'
+    }
+    It 'refuses to recover when event history is truncated or task state is malformed' {
+        $f=New-RuntimeFixture
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0
+        $dir=Join-Path $f.repo 'team/runtime/FIXTURE'
+        $eventsPath=Join-Path $dir 'events.jsonl'; $events=[IO.File]::ReadAllText($eventsPath)
+        [IO.File]::AppendAllText($eventsPath,'{"event":')
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 80 -Because $r.raw
+        (State $f).tasks.T1.attempts | Should -Be 1
+        [IO.File]::WriteAllText($eventsPath,$events)
+        $statePath=Join-Path $dir 'state.json'; $s=State $f; $s.tasks.T1.Remove('branch')
+        Write-TeamData $statePath $s
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 80 -Because $r.raw
+        @((Get-ChildItem (Join-Path $dir 'tasks/T1') -Directory)).Count | Should -Be 1
+    }
+    It 'blocks dependent dispatch if integration HEAD moved outside its accepted checkpoint' {
+        $f=New-RuntimeFixture 2; $f.plan.tasks[1].dependencies=@('T1'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0
+        $s=State $f
+        $null=Invoke-TeamGit $s.integration_worktree @('commit','--allow-empty','-qm','test: unexpected integration change')
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 80 -Because $r.raw
+        (State $f).tasks.T2.attempts | Should -Be 0
+    }
     It 'consumes live <Limit> cost receipts without killing running work or duplicating charges' -ForEach @(
         @{Limit='soft';Amount=10}, @{Limit='hard';Amount=20}
     ) {

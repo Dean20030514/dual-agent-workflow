@@ -32,6 +32,18 @@ function Write-TeamData([string]$Path, $Value) {
 
 function Get-TeamHash([string]$Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
 
+function Get-TeamOwnedProcess([int]$ProcessId, $StartedAt) {
+    if ($ProcessId -le 0 -or -not $StartedAt) { return $null }
+    $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    if (-not $process) { return $null }
+    # ConvertFrom-Json may deserialize ISO timestamps as DateTime on newer PowerShell.
+    # Compare UTC ticks, not a formatted string against a culture-converted DateTime.
+    try {
+        if ($process.StartTime.ToUniversalTime().Ticks -eq ([datetime]$StartedAt).ToUniversalTime().Ticks) { return $process }
+    } catch { return $null }
+    return $null
+}
+
 function Assert-TeamId([string]$Value) {
     if ($Value -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$') { Stop-TeamError 10 "Unsafe identifier: $Value" }
 }

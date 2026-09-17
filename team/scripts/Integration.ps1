@@ -97,6 +97,7 @@ function Resume-TeamRun($State, $Plan, $Manifest, [string]$Directory) {
     $null = Test-TeamPlan $Plan $Manifest
     if (-not $Manifest.team.enabled) { Stop-TeamError 20 'Team disabled' }
     if (Test-Path -LiteralPath (Join-Path $Directory 'cancel.request.json')) { Stop-TeamError 80 'Cancelled run cannot resume' }
+    Assert-TeamRecovery $State $Plan $Directory
     Assert-TeamActionApproval $State $Plan $Directory
     if ($Plan.classification.level -eq 'critical') {
         if (-not (Test-TeamReviewAccepted $Directory '9P' $State.plan_hash $State.run_base_sha)) {
@@ -108,12 +109,12 @@ function Resume-TeamRun($State, $Plan, $Manifest, [string]$Directory) {
         $item = $State.tasks[$task.id]
         if ($item.status -notin @('RUNNING','VERIFYING')) { continue }
         if ($item.pid) {
-            $process = Get-Process -Id $item.pid -ErrorAction SilentlyContinue
-            if ($process -and $process.StartTime.ToUniversalTime().ToString('o') -ceq $item.process_start) {
+            $process = Get-TeamOwnedProcess $item.pid $item.process_start
+            if ($process) {
                 Stop-TeamError 80 'Original worker is still active; use status and resume after it exits'
             }
         }
-        Complete-TeamWorker $State $task $Directory $Plan $Manifest
+        Complete-TeamWorkerSafely $State $task $Directory $Plan $Manifest
     }
     if (@($State.tasks.Values | Where-Object { $_.status -in @('FAILED','FAILED_SCOPE','REWORK') }).Count) {
         Stop-TeamError 80 'Failed tasks require an explicit replan; no blind worker retry'

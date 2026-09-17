@@ -1,4 +1,4 @@
-# 本轮验收记录（2026-09-17，未提交工作树）
+# 验收记录（2026-09-17）
 
 | 验证 | 实际结果 |
 |---|---|
@@ -22,7 +22,8 @@
 - `NATIVE-SMOKE-003`：DSH Worker + 一个 native fresh 子 Agent，实际创建记录与 Result 对齐，严格 SQL 内容检查及集成回归通过；COMPLETED。
 - 三条链路都在独立临时仓库，main 未修改；具体 base/Worker/integration SHA 见 VERIFIED_VERSIONS.md。
 
-当前变更尚未 commit 或部署；以上是本地工作树与隔离 fixture 的验收，不等于已部署到任意用户项目。
+首批代码已提交为 `a9a8a4a`，第二批预算/审批修正已提交为 `9181dd3`；均未部署到用户项目。
+以上是本地实现与隔离 fixture 的验收，不等于任意项目的业务验收。
 运行边界（权限声明、未知金额、版本与 fork 的验证级别）见 OPEN_GAPS.md。
 # 第二批：执行中的预算与计划审批
 
@@ -34,3 +35,15 @@ optional 后继未启动；重复账单被拒绝、resume 不重复计费；已�
 权限测试证明：修改计划权限不会继承旧审批，modify-plan 不等于 approve，
 过期升级保持 PAUSED，replan 引入 production_delete 在派发前硬停。
 上述为真实 PowerShell 进程/Git 加替身模型 CLI；不是新的真实模型行为验收。
+
+# 第三批：崩溃恢复与仓库锁
+
+`team/tests` 完整回归 **50 passed / 0 failed**，exit 0；native guard **5 passed**，exit 0。
+实际终止 coordinator（保留替身 Worker 进程）后，第一次 resume 因原进程仍存活返回 80；
+Worker 完成后第二次 resume 到 REVIEW，attempts=1、agents_created=1，无重复派发。
+故障注入发现并修复 JSON 时间戳被 PowerShell 读成 DateTime 后的 PID 身份比较错误，
+现比较 UTC ticks；单独验证错误启动时间不能匹配同一存活 PID。
+事件截断、任务状态字段缺失、集成 HEAD 偏移均被拒绝恢复；linked worktree 另建 run 返回 20。
+事件读取异常时显式释放 reader，错误出口保留 80，不再被文件句柄冲突覆盖。
+旧真实 `CRITICAL-SMOKE-002` 状态被新 schema 正常读取，仍为 COMPLETED（只读兼容检查，未重跑模型）。
+派生漂移检查仍为 17 对/292 行、exit 0；全部集成和故障注入均局限于临时仓库。

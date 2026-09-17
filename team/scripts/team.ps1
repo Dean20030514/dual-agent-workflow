@@ -46,6 +46,7 @@ try {
             if (-not $config.team.enabled) { Stop-TeamError 20 'Team disabled; use normal Codex mode' }
             $document = Read-TeamData $Plan
             $order = Test-TeamPlan $document $config
+            Assert-TeamRunRoot $Repo
             $doctor = Test-TeamDoctor $config $Repo -AllowUnverifiedRuntime:$AllowUnverifiedRuntime
             if (-not $doctor.success) { Stop-TeamError 20 ($doctor.problems -join '; ') }
             $null = Invoke-TeamGit $Repo @('rev-parse','--show-toplevel')
@@ -77,6 +78,13 @@ try {
                     exit 0
                 }
             } elseif ($Command -in @('resume','resolve','cleanup','accept','integrate','replan','rollback','record-route','repair-integration','resolve-review')) { $lock = Lock-TeamRepo $Repo $Run -Resume }
+            if ($lock) {
+                # Refresh after acquiring the coordinator lock, never mutate a pre-lock snapshot.
+                $runData = Read-TeamRun $Repo $Run; $state = $runData.state
+                $document = Read-TeamData (Join-Path $directory 'plan.yaml')
+                if ($Command -in @('resume','accept','integrate','replan','rollback','repair-integration','resolve-review') -and
+                    (Get-TeamHash (Join-Path $directory 'plan.yaml')) -cne $state.plan_hash) { Stop-TeamError 80 'Plan changed outside revision protocol' }
+            }
             switch ($Command) {
                 'status' { $output = $state }
                 'cost' { $output = @{ schema_version = 1; run_id = $Run; known_cost = $state.known_cost; unknown_usage = $state.unknown_usage; agents_created = $state.agents_created; active_workers = @($state.tasks.Values | Where-Object { $_.status -eq 'RUNNING' }).Count } }

@@ -39,6 +39,12 @@ RECORDED 表示 state 已更新。软上限阻止 optional Worker 和新增原�
 restricted_action 的 approve 只对记录中的 plan hash 有效；modify-plan 必须实际修改计划，
 新增权限不会沿用旧审批。升级过期后保持暂停，等待明确决定。
 
+run 的 `-Repo` 必须是主仓库根目录；linked worktree 不能独立拥有另一个 run 锁。
+resume 会检查事件记录、计划/状态图、所有已创建 worktree 的分支与 base、
+集成 checkpoint，以及 adapter/native 的 PID 和启动时间。原 Worker 尚存活时返回 80，
+等它写出 durable exit receipt 后再恢复；不会盲目创建第二个 Worker。
+事件截断、状态损坏或集成 HEAD 偏移会保留证据并拒绝派发，须先协调或 rollback。
+
 测试：
 
 ```powershell

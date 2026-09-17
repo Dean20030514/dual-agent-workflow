@@ -1,3 +1,80 @@
+function Assert-TeamRunRoot([string]$Repo) {
+    $root = Invoke-TeamGit $Repo @('rev-parse','--show-toplevel')
+    $gitDir = Invoke-TeamGit $Repo @('rev-parse','--absolute-git-dir')
+    $common = Invoke-TeamGit $Repo @('rev-parse','--path-format=absolute','--git-common-dir')
+    if ([IO.Path]::GetFullPath($root).TrimEnd('\','/') -ine [IO.Path]::GetFullPath($Repo).TrimEnd('\','/') -or
+        [IO.Path]::GetFullPath($gitDir) -ine [IO.Path]::GetFullPath($common)) {
+        Stop-TeamError 20 'Start Team runs from the primary repository root; linked worktrees cannot own a separate run lock'
+    }
+}
+
+function Assert-TeamRecovery($State, $Plan, [string]$Directory) {
+    Assert-TeamRunRoot $State.repo
+    if ($State.revision -ne $Plan.run.revision -or $State.run_id -cne $Plan.run.id -or
+        @(Compare-Object @($State.tasks.Keys | Sort-Object) @($Plan.tasks.id | Sort-Object)).Count -or
+        (@($State.order) -join '|') -cne (@(Test-TeamPlan $Plan (Read-TeamData (Join-Path $Directory 'manifest.yaml'))) -join '|')) {
+        Stop-TeamError 80 'State task graph differs from the frozen plan'
+    }
+    foreach ($sha in @($State.run_base_sha,$State.last_good_integration_sha)) {
+        $null = Invoke-TeamGit $State.repo @('cat-file','-e',"${sha}^{commit}")
+    }
+    $eventPath = Join-Path $Directory 'events.jsonl'
+    if (-not (Test-Path -LiteralPath $eventPath)) { Stop-TeamError 80 'Recovery requires the event history' }
+    $created = $false
+    $reader = [IO.File]::OpenText($eventPath)
+    try {
+        while ($null -ne ($line = $reader.ReadLine())) {
+            try { $entry = ConvertFrom-Json $line -AsHashtable -ErrorAction Stop }
+            catch { Stop-TeamError 80 'Event history contains an incomplete or invalid record; preserve it for reconciliation' }
+            if (-not $entry['event'] -or -not $entry['timestamp'] -or -not $entry.ContainsKey('details')) { Stop-TeamError 80 'Invalid event record' }
+            if ($entry.event -eq 'run_created' -and $entry.details.base_sha -ceq $State.run_base_sha) { $created=$true }
+        }
+    } finally { $reader.Dispose() }
+    if (-not $created) { Stop-TeamError 80 'Event history does not establish the frozen run base' }
+    if ($State.integration_worktree) {
+        $expected = Get-TeamChild $State.repo ".worktrees/$($State.run_id)-integration"
+        if ($State.integration_worktree -cne $expected -or
+            (Invoke-TeamGit $expected @('branch','--show-current')) -cne $State.integration_branch -or
+            (Invoke-TeamGit $expected @('rev-parse','HEAD')) -cne $State.last_good_integration_sha -or
+            (Invoke-TeamGit $expected @('status','--porcelain','--untracked-files=all'))) {
+            Stop-TeamError 80 'Integration snapshot differs from the accepted checkpoint; rollback or reconcile before resume'
+        }
+    }
+    $reserved = 0
+    foreach ($id in $State.order) {
+        $item = $State.tasks[$id]
+        $reserved += [int]$item['reserved']
+        if ($item.attempts -eq 0) {
+            if ($item.worktree -or $item.directory -or $item.pid -or $item.status -ne 'READY') { Stop-TeamError 80 'Unstarted task has execution state' }
+            continue
+        }
+        $taskDirectory = Get-TeamChild $Directory "tasks/$id/attempt-$($item.attempts)"
+        if ($item.directory -cne $taskDirectory) { Stop-TeamError 80 'Task attempt directory mismatch' }
+        $packet = Read-TeamData (Join-Path $taskDirectory 'task.yaml')
+        Test-TeamSchema $packet 'task'
+        $expected = Get-TeamChild $State.repo ".worktrees/$($State.run_id)-$id-$($packet.role.id)-a$($item.attempts)"
+        if ($item.worktree -cne $expected -or $packet.base_sha -cne $item.base_sha -or $packet.task_id -cne $id -or $packet.run_id -cne $State.run_id) {
+            Stop-TeamError 80 'Task worktree or packet identity mismatch'
+        }
+        if ($item.status -eq 'CLEANED') { continue }
+        if ((Invoke-TeamGit $expected @('branch','--show-current')) -cne $item.branch) { Stop-TeamError 80 'Task is no longer on its assigned branch' }
+        $null = Invoke-TeamGit $expected @('merge-base','--is-ancestor',$item.base_sha,'HEAD')
+        if ($item.status -in @('RUNNING','VERIFYING')) {
+            $processes = @(@{pid=$item.pid;start=$item.process_start})
+            $nativePath = Join-Path $item.directory 'native-process.json'
+            if (Test-Path -LiteralPath $nativePath) { $processes += Read-TeamData $nativePath }
+            foreach ($record in $processes) {
+                if (-not $record.pid) { continue }
+                $process = Get-TeamOwnedProcess $record.pid $record.start
+                if ($process) {
+                    Stop-TeamError 80 'Original worker or native process is still active; wait for its durable receipt before resume'
+                }
+            }
+        }
+    }
+    if ($reserved -ne $State.agents_reserved) { Stop-TeamError 80 'Agent reservation ledger differs from task state' }
+}
+
 function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Directory, [string]$FailedTask, [string]$Reason) {
     $order = @(Test-TeamPlan $NewPlan $Manifest)
     if ($State.replans -ge $Manifest.budget.max_replans) { Stop-TeamError 60 'Replan limit reached; hard-stop' }
@@ -65,8 +142,8 @@ function Stop-TeamOwnedProcesses($State, [string]$Directory) {
         if (Test-Path -LiteralPath $nativePath) { $records += Read-TeamData $nativePath }
         foreach ($record in $records) {
             if (-not $record.pid) { continue }
-            $process = Get-Process -Id $record.pid -ErrorAction SilentlyContinue
-            if ($process -and $process.StartTime.ToUniversalTime().ToString('o') -ceq $record.start) {
+            $process = Get-TeamOwnedProcess $record.pid $record.start
+            if ($process) {
                 $process.Kill($true); $process.WaitForExit()
             }
         }

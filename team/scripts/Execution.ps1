@@ -106,6 +106,22 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
     Add-TeamEvent $Directory 'lead_review_required' @{ task_id = $Task.id; commit = $item.commit }
 }
 
+function Complete-TeamWorkerSafely($State, $Task, [string]$Directory, $Plan, $Manifest) {
+    try { Complete-TeamWorker $State $Task $Directory $Plan $Manifest }
+    catch {
+        $item = $State.tasks[$Task.id]
+        if ($item.reserved) {
+            # Unknown usage consumes the reservation, including a worker orphaned by a coordinator crash.
+            $State.agents_created += $item.reserved; $State.agents_reserved -= $item.reserved; $item.reserved=0
+        }
+        $item.status = if ($_.Exception.Data['TeamExitCode'] -eq 82) { 'FAILED_SCOPE' }
+            elseif ($_.Exception.Data['TeamExitCode'] -eq 70 -and $State.status -eq 'ESCALATED') { 'REVIEW' }
+            else { 'FAILED' }
+        Save-TeamState $State $Directory
+        throw
+    }
+}
+
 function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
     Assert-TeamActionApproval $State $Plan $Directory
     $handles = @{}
@@ -153,17 +169,7 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
                 if ($handle.process.HasExited) {
                     $null = Close-TeamProcess $handle; $handles.Remove($taskId)
                     $task = @($Plan.tasks | Where-Object { $_.id -eq $taskId })[0]
-                    try { Complete-TeamWorker $State $task $Directory $Plan $Manifest }
-                    catch {
-                        if ($item.reserved) {
-                            # Unknown usage consumes the entire reservation; never undercount a failed launch.
-                            $State.agents_created += $item.reserved; $State.agents_reserved -= $item.reserved; $item.reserved=0
-                        }
-                        $item.status = if ($_.Exception.Data['TeamExitCode'] -eq 82) { 'FAILED_SCOPE' }
-                            elseif ($_.Exception.Data['TeamExitCode'] -eq 70 -and $State.status -eq 'ESCALATED') { 'REVIEW' }
-                            else { 'FAILED' }
-                        Save-TeamState $State $Directory; throw
-                    }
+                    Complete-TeamWorkerSafely $State $task $Directory $Plan $Manifest
                 }
             }
             if ($handles.Count) { Start-Sleep -Milliseconds 250 }

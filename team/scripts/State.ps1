@@ -52,8 +52,10 @@ function New-TeamEscalation($State, [string]$Directory, [string]$Type, [string]$
 function Read-TeamRun([string]$Repo, [string]$RunId) {
     Assert-TeamId $RunId
     $directory = Get-TeamChild $Repo "team/runtime/$RunId"
-    $state = Read-TeamData (Join-Path $directory 'state.json')
-    Test-TeamSchema $state 'state'
+    try {
+        $state = Read-TeamData (Join-Path $directory 'state.json')
+        Test-TeamSchema $state 'state'
+    } catch { Stop-TeamError 80 "Invalid persisted run state: $($_.Exception.Message)" }
     if ($state.run_id -cne $RunId -or $state.repo -cne $Repo) { Stop-TeamError 80 'Run identity mismatch' }
     return @{ directory = $directory; state = $state }
 }

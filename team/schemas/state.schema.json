@@ -25,15 +25,49 @@
         "ESCALATED"
       ]
     },
+    "revision": {"type": "integer", "minimum": 1},
+    "repo": {"type": "string", "minLength": 1},
+    "run_base_sha": {"$ref": "#/definitions/sha"},
+    "integration_base_sha": {"$ref": "#/definitions/sha"},
+    "last_good_integration_sha": {"$ref": "#/definitions/sha"},
+    "integration_branch": {"type": "string", "minLength": 1},
+    "integration_worktree": {"type": "string"},
+    "plan_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "order": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+    "agents_created": {"type": "integer", "minimum": 0},
+    "agents_reserved": {"type": "integer", "minimum": 0},
+    "known_cost": {"type": "number", "minimum": 0},
+    "unknown_usage": {"type": "boolean"},
+    "replans": {"type": "integer", "minimum": 0},
     "tasks": {
-      "type": "object"
+      "type": "object", "minProperties": 1,
+      "propertyNames": {"pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$"},
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "status": {"enum": ["CREATED", "BLOCKED", "READY", "RUNNING", "SELF_CHECK", "RESULT_READY", "VERIFYING", "REVIEW", "ACCEPTED", "REWORK", "FAILED", "FAILED_SCOPE", "MERGED", "CLEANED", "REPAIRING", "DISCARDED"]},
+          "attempts": {"type": "integer", "minimum": 0},
+          "pid": {"type": "integer", "minimum": 0},
+          "process_start": {"type": "string"},
+          "commit": {"type": "string", "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})?$"},
+          "directory": {"type": "string"}, "worktree": {"type": "string"}, "branch": {"type": "string"},
+          "base_sha": {"type": "string", "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})?$"},
+          "reserved": {"type": "integer", "minimum": 0},
+          "agent_limit": {"type": "integer", "minimum": 1}
+        },
+        "required": ["status", "attempts", "pid", "process_start", "commit", "directory", "worktree", "branch", "base_sha"],
+        "additionalProperties": true
+      }
     }
   },
   "required": [
     "schema_version",
     "run_id",
     "status",
-    "tasks"
+    "tasks", "revision", "repo", "run_base_sha", "integration_base_sha", "last_good_integration_sha",
+    "integration_branch", "integration_worktree", "plan_hash", "order", "agents_created", "agents_reserved",
+    "known_cost", "unknown_usage", "replans"
   ],
+  "definitions": {"sha": {"type": "string", "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"}},
   "additionalProperties": true
 }

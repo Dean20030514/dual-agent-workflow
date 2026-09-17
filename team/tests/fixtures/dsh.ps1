@@ -24,6 +24,12 @@ if ($task.objective[0] -eq 'WAIT_FOR_COST') {
     if (-not $control.stop_new_children) { exit 8 }
 }
 if ($task.objective[0] -eq 'CRASH') { exit 9 }
+if ($task.objective[0] -eq 'WAIT_FOR_RELEASE') {
+    $release = Join-Path (Split-Path $guard.receipt -Parent) 'release.test'
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    while (-not (Test-Path -LiteralPath $release) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+    if (-not (Test-Path -LiteralPath $release)) { exit 8 }
+}
 $path = $task.write_scope[0]
 if ($task.objective[0] -eq 'SCOPE') { $path = 'forbidden.txt' }
 $parent = Split-Path $path -Parent
