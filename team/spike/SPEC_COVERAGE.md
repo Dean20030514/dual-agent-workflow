@@ -10,7 +10,7 @@
 | 0–4 架构、自治、Ground Truth、角色 | 原生 Codex/DSH、PS 控制面、Git/外部验证、SHA 验收 | 图中的 DSH Local Review 尚无独立执行阶段 |
 | 5 逻辑别名、版本 pin、override | manifest、Preflight；真实 doctor 与错误版本 fixture | 当前只认证精确版本，未宣称更宽区间 |
 | 6 复用质量规则 | EXISTING_INTEGRATION_MAP、review-mapping | Review 的计数/硬停仍需逐条对齐母本规则，不能仅凭 gate 接线宣称完整复用 |
-| 7–9 能力 Spike、降级矩阵 | 8 份 Spike 文档；L1、fresh child、Critical 真实验收 | 原生 fork 的真实验收、能力矩阵与 L3 准入对应关系仍需补齐 |
+| 7–9 能力 Spike、降级矩阵 | 8 份 Spike 文档；L1/L2、fresh child、fork 入口、Critical 真实验收 | fork 非空上下文继承、能力矩阵与 L3 准入对应关系仍需补齐 |
 | 10–13 L0–L3、纯本地 route、misroute | Core/Preflight、4 固定路由 fixture、连续 3 次降级 | route 尚未结合仓库 metadata；降级状态对 Lead 的通知及重新验证入口需复核 |
 | 14–16 计划与分阶段上下文发现 | Lead policy 明确顺序和最多 2 次修复 | 无效计划 exit 10 已有；`plan_invalid` 命名事件尚缺 |
 | 17 Team Plan、DAG | team-plan schema、Contracts、真实 Git 的 DAG fixture | 无 |
@@ -35,7 +35,7 @@
 | 52–53 单 run、锁 | coordinator 排他文件句柄、持久 run 锁、terminal stale repair；禁止 linked worktree 另建 run | 当前只允许主仓库根目录作为控制根，linked worktree 内调用必须显式指向主根目录 |
 | 54–57 Lead、AGENTS、既有规则映射 | root/codex AGENTS hook、Lead policy、Case B/map | 未部署本机全局副本；项目契约优先 |
 | 58–59 QUICKSTART/首条链路 | QUICKSTART，真实 SQL-SMOKE-001 | Quickstart 尚需完整决策矩阵/内联 Result 示例 |
-| 60–69 Phase 0–8 | 单 Worker/worktree/验证/子 Agent/Critical 有真实证据，多 Worker/恢复为 fixture；doctor.route 含 input/output/exit axes | Phase 5/7 实际运行证据待补 |
+| 60–69 Phase 0–8 | 单/双 Worker、worktree、验证、fresh/fork 子 Agent、Critical 有真实证据；coordinator crash 为真实进程+替身模型；doctor.route 含 input/output/exit axes | 真实多 Worker 的依赖串接、真实模型 crash/replan 组合仍待验 |
 | 70 A–T 验收矩阵 | 见下方明细 | 未完成项不得用相邻测试替代 |
 | 72 资源约束 | 4/6/10、timeout/idle/log、worktree 12 | 验证/审查日志大小限制、worktree cap 的所有创建路径需补齐 |
 | 73–74 Claude 定位、Windows | 核心无 Claude；PowerShell 7，安装器保持 5.1 | 无 |

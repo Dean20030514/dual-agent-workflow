@@ -47,3 +47,12 @@ Worker 完成后第二次 resume 到 REVIEW，attempts=1、agents_created=1，�
 事件读取异常时显式释放 reader，错误出口保留 80，不再被文件句柄冲突覆盖。
 旧真实 `CRITICAL-SMOKE-002` 状态被新 schema 正常读取，仍为 COMPLETED（只读兼容检查，未重跑模型）。
 派生漂移检查仍为 17 对/292 行、exit 0；全部集成和故障注入均局限于临时仓库。
+
+# 第四批：真实并行 Worker 与 fork 入口
+
+`L2-NATIVE-004`：真实双 DSH Worker 并行启动，分别提交独立 SQL 文件；Git scope、外部验证、
+逐 merge targeted 回归、双命令 final 回归均 exit 0；COMPLETED，main 不变、调用者工作树干净。
+`FORK-NATIVE-005`：真实 native `subagent_fork` 唯一调用的工具事件已核对，parent/child 创建记录
+与 Result 相符；父 Worker 的 SQL 提交、外部验证和集成回归 exit 0，COMPLETED。
+fork 子会话 isSeeded=false（首次回合没有已完成前缀），不宣称非空上下文继承已验收。
+两个新 run 的 SHA、实际 session 和日志哈希见 VERIFIED_VERSIONS；真实 run 不替代业务数据库测试。
