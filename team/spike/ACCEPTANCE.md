@@ -87,3 +87,19 @@ Team 完整回归 **60 passed / 0 failed**，exit 0（299.86 秒）。随后将 
 验收断言完成后明确取消该临时测试 run，最终 CANCELLED；原始证据保留，main 未变。
 具体 base、session、Result 哈希见 VERIFIED_VERSIONS。
 重复验证失败升级是替身 Worker + 真实 Git/外部进程测试，未宣称做过真实模型重复失败试验。
+
+# 第七批：Critical 审查轮次与逐问题归因
+
+Team 完整回归 **73 passed / 0 failed**，exit 0（347.67 秒）。随后把旧 review_loops 的拒绝点
+前移到 Reviewer 启动之前，审查测试重新执行 **9 passed / 0 failed**，exit 0。
+CLI 场景验证了 9P 不占轮、9A/9B 同轮聚合、mixed yes/no 连续两轮硬停、
+全部修复引入问题在 replan 前 early-stop、明确批准额外一轮、逐项争议裁决且仍禁止验收产品缺陷。
+聚合测试补充同问题去重、归因不一致、无 yes 时重置、三轮上限、同快照失败 verdict 复用、
+硬停优先且不能用轮次延长解除；每次原始 verdict 与人工裁决分别保留。
+漂移门 17 对/292 行、git diff --check 均 exit 0。
+
+真实 `REVIEW-NATIVE-008` 使用两次 fresh Codex 审查：已知负数计算缺陷被逐问题报告并返回 50，
+显式 replan 修复后，201 个整数的实际外部检查通过，第二次审查 pass、无 blocking/VN。
+Reviewer 输入包含相关前次问题和精确修复 diff；两个独立 verdict 历史保留，round 2/streak 0。
+这是 Reviewer adapter 和结构化归因/上下文协议的真实验收，没有运行 DSH、9P 或 9B，
+不将它标为新的完整 Critical 交付；详细 SHA 与证据边界见 VERIFIED_VERSIONS。

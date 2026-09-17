@@ -10,7 +10,7 @@ param(
     [string[]]$ChangedPaths = @(), [string[]]$GlueScope = @(), [datetime]$Since = [datetime]::MinValue,
     [switch]$Json, [switch]$Follow, [switch]$AllowUnverifiedRuntime, [switch]$RepairLock
 )
-foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','Integration','Recovery','Review','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
+foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','Integration','Recovery','ReviewRounds','Review','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
 $lock = $null; $runData = $null; $exitCode = 0
 try {
     $Repo = [IO.Path]::GetFullPath($Repo).TrimEnd([IO.Path]::DirectorySeparatorChar)
@@ -119,6 +119,8 @@ try {
                     if ($Decision -eq 'approve' -and $record['plan_hash'] -cne $state.plan_hash) {
                         Stop-TeamError 70 'Escalation belongs to an earlier plan; resolve as modify-plan and request approval for the current revision'
                     }
+                    $items=if ($Disposition) {Read-TeamData $Disposition} else {@()}
+                    Resolve-TeamReviewControl $state $directory $record $Decision $Reason $items
                     $record.status = $Decision; $record['reason'] = $Reason
                     Write-TeamData $path $record
                     $state.status = if ($Decision -eq 'reject') { 'CANCELLED' } else { 'PAUSED' }

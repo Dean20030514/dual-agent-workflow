@@ -71,3 +71,17 @@ Result SHA-256 `6546ab24d1267e431bdd2a17192c40eac5a152eca25ad01ff0a7a477a7b16df0
 控制器 exit 70，run/task 均 ESCALATED，生成 `ESC-59825732a9` 并绑定结果哈希，未生成外部验证证据。
 main 未改变、调用者工作树干净；验收断言完成后以明确的测试结束理由 resolve reject，最终 CANCELLED，证据保留。
 这是实际原生 Worker 的缺失决定升级验收，不是业务实现完成或人工业务决策验证。
+
+真实逐问题审查 `REVIEW-NATIVE-008`（临时仓库 `team-review-live-7ec409dc2d`）：
+这是独立 Reviewer adapter 的负例→修复验收，未运行 DSH/9P/9B，不称为完整 Critical 交付。
+base/main `9850bc5265cd182db4c24b8306ebf2150b27c11e`；首个 fixture 提交
+`13dff821e81d3173e19a3a7a11632f2cae518c11` 故意对负整数原样返回，外部检查只测正整数。
+真实 fresh Codex 给出 `ABS-001`：`-3` 返回 `-3` 而不是 `3`，归因为 no；exit 50，round 1/streak 0。
+verdict SHA-256 `ebc35dc1b870695e9995a3c944a5aa9a6e16c43fd4f48393460a4f8c4230be9e`。
+显式 replan 到 revision 2，修复提交 `1b8b2ff609dfe411764934855901055075ebb4c6`；
+外部进程验证 -100..100 共 201 个整数，exit 0，stdout SHA-256
+`c9a3fdefe2c636738a62cf7129d655a87534f64736c8de3ecf777b6b56878661`。
+第二次 fresh Codex 收到相关问题、前次 tip 和精确修复 diff，返回 pass、无 blocking/VN、writes_performed=false；
+verdict SHA-256 `51283908197cefed617492aca9fe15079fde0c6b2a27ed0dd7d70b640162c768`，
+输入 SHA-256 `5fd977066447fafe9884dd8514510ab9260097ec70f91f67c1bf0f78fc839ce0`。
+两份 verdict 历史均保留，round 2/streak 0；main 不变、两个审查快照干净。验收后 stop，最终 CANCELLED。

@@ -10,8 +10,15 @@
     "blocking_issues": {
       "type": "array",
       "items": {
-        "type": "string",
-        "minLength": 1
+        "type": "object",
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "consequence": {"type": "string", "minLength": 1},
+          "evidence": {"type": "string", "minLength": 1},
+          "caused_by_last_fix": {"type": "string", "enum": ["yes", "no", "dispute"]}
+        },
+        "required": ["id", "consequence", "evidence", "caused_by_last_fix"],
+        "additionalProperties": false
       }
     },
     "verification_needed": {
@@ -23,22 +30,13 @@
     "writes_performed": {
       "const": false,
       "type": "boolean"
-    },
-    "caused_by_last_fix": {
-      "enum": [
-        "yes",
-        "no",
-        "dispute"
-      ],
-      "type": "string"
     }
   },
   "required": [
     "verdict",
     "blocking_issues",
     "verification_needed",
-    "writes_performed",
-    "caused_by_last_fix"
+    "writes_performed"
   ],
   "additionalProperties": false
 }

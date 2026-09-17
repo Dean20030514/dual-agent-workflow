@@ -9,7 +9,7 @@
 |---|---|---|
 | 0–4 架构、自治、Ground Truth、角色 | 原生 Codex/DSH、PS 控制面、Git/外部验证、SHA 验收 | 图中的 DSH Local Review 尚无独立执行阶段 |
 | 5 逻辑别名、版本 pin、override | manifest、Preflight；真实 doctor 与错误版本 fixture | 当前只认证精确版本，未宣称更宽区间 |
-| 6 复用质量规则 | EXISTING_INTEGRATION_MAP、review-mapping | 目前按 stage/task 计数；需对齐母本的修复轮聚合、9A/9B 不重复计数、逐问题归因和 early-stop |
+| 6 复用质量规则 | ReviewRounds 按已审 revision 聚合 9A/9B；逐问题归因/去重、争议裁决、streak/三轮上限/early-stop；真实两次 9A 失败→修复通过 | Team 两阶段映射不替代目标项目旧双审同 SHA 等额外要求；活动旧计数拒绝静默重置 |
 | 7–9 能力 Spike、降级矩阵 | 8 份 Spike 文档；L1/L2、fresh child、fork 入口、Critical 真实验收 | fork 非空上下文继承、能力矩阵与 L3 准入对应关系仍需补齐 |
 | 10–13 L0–L3、纯本地 route、misroute | Core/Preflight、4 固定路由 fixture、连续 3 次降级 | route 尚未结合仓库 metadata；降级状态对 Lead 的通知及重新验证入口需复核 |
 | 14–16 计划与分阶段上下文发现 | Lead policy 明确顺序和最多 2 次修复；无效计划 exit 10 + `plan_invalid`，无 run 时只返回 JSON | 无 |
@@ -23,7 +23,7 @@
 | 33 恢复 | PID+UTC ticks、native PID、exit receipt、Result、Git、events、集成 checkpoint；实际终止 coordinator 后恢复通过 | 原生模型在 coordinator 崩溃后的长任务恢复尚未验收；checkpoint 落盘窗口自动协调尚待补齐 |
 | 34–35 受影响子图、修订、保留 ACCEPTED | Contracts/Recovery；fixture 保留无关 ACCEPTED | glob overlap 的候选集需补充交叉/传递边界测试 |
 | 36–38 fresh review、输入白名单、9P/A/B | 独立 Codex exec、stdin 白名单、read-only；真实 Critical 完成 | 需核对目标仓库旧 Critical 规则兼容性，不能以隔离 fixture 代替任意项目 |
-| 39 硬停 | hard_stop、ESCALATED、禁止下游 | 既有 Fix-Loop 全部判据对齐仍未完成 |
+| 39 硬停 | hard_stop、ESCALATED、禁止下游；连续两轮 yes 硬停优先于轮次出口；CLI 反例覆盖 | 硬停后新任务的重拆/架构批准仍属于人类决策，不自动清除 hard_stop |
 | 40 验证顺序 | self-check→Git→外部命令→review→accept | 无 |
 | 41–43 集成/定位/rollback | DAG merge、逐次 checkpoint/回归、最后 checkpoint revert | 多 checkpoint 连续回滚与失败定位任务生成尚缺；当前只支持最近 merge |
 | 44 失败目录 | Worker escalated Result 经 Git 审计后升级，真实 ESCALATE-NATIVE-007 验收；跨 attempt 相同验证失败证据二次升级由 CLI fixture 覆盖 | 启动重试一次、Critical/重复 scope 违规升级尚缺；不同输出是否同因仍由 Lead 判断 |

@@ -87,5 +87,10 @@ Worker 的 escalated Result 返回 70，保留证据并等待升级决定；决�
 不能直接 accept。不同 attempt 两次验证失败的命令和输出完全相同时也会升级，
 此时保留原始 exit 40。`team.enabled=false` 拒绝继续执行和验收，仍可查询及 stop 已有任务。
 
+Critical 审查按已审 plan revision 聚合 9A/9B；9P 不计入修复轮次。
+归因争议需人类逐项裁决，三轮上限/early-stop 需人类决定，连续两轮修复引入缺陷硬停。
+`resolve approve` 不使产品 blocking 消失；处理文件及额外一轮的明确含义见
+[审查映射](policies/review-mapping.md)。
+
 最小验收：result.status=completed、Worker 分支与 worktree 存在、main SHA 不变、
 外部验证 exit=0、Lead 验收绑定 commit、集成回归 exit=0、run.status=COMPLETED。

@@ -110,6 +110,7 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
     foreach ($taskId in $affected) {
         if ($State.tasks[$taskId].attempts -gt $Manifest.budget.max_worker_retries) { Stop-TeamError 60 'Worker retry budget exhausted' }
     }
+    Assert-TeamReviewRound $State $OldPlan $Directory -Close
     $State.replans++; $State.revision = $NewPlan.run.revision; $State.order = $order
     foreach ($task in $NewPlan.tasks) {
         if (-not $State.tasks.Contains($task.id)) {

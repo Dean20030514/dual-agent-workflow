@@ -24,6 +24,7 @@ function New-TeamIntegrationRepair($State, $Plan, $Manifest, [string]$Directory,
     $next = $Plan | ConvertTo-Json -Depth 80 | ConvertFrom-Json -AsHashtable
     $next.run.revision++; if ($next.mode -eq 'L1') { $next.mode='L2' }; $next.tasks += $task
     $order = @(Test-TeamPlan $next $Manifest)
+    Assert-TeamReviewRound $State $Plan $Directory -Close
     # Preserve the failed merge's file list before aborting only our own integration merge.
     $null = Invoke-TeamGit $State.integration_worktree @('merge','--abort')
     if ((Invoke-TeamGit $State.integration_worktree @('rev-parse','HEAD')) -cne $State.last_good_integration_sha) { Stop-TeamError 80 'Integration abort did not restore checkpoint' }

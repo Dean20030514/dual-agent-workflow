@@ -299,6 +299,49 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
         Test-Path (Join-Path $dir 'reviews/9B.json') | Should -BeTrue
         $r.data.status | Should -Be 'COMPLETED'
+        $s=State $f; $s.review_rounds.Count | Should -Be 1
+        $s.review_rounds['1'].number | Should -Be 1; $s.review_rounds['1'].streak | Should -Be 0
+        $s.review_rounds['1'].records.Keys | Should -Contain '9A-T1'; $s.review_rounds['1'].records.Keys | Should -Contain '9B'
+        $s.review_rounds['1'].records.Keys | Should -Not -Contain '9P'
+    }
+    It 'blocks replan on all-fix findings until an explicit one-round owner extension' {
+        $f=New-RuntimeFixture; $f.plan.classification.level='critical'; $f.plan.review.require_9p=$true; $f.plan.review.require_fresh_9b=$true
+        $f.plan.tasks[0].objective=@('FIXTURE_REVIEW_YES'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 50 -Because $r.raw
+        $f.plan.run.revision=2; $f.plan.tasks[0].objective=@('WRITE'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Fixture repair request','-Json'); $r.code | Should -Be 70 -Because $r.raw
+        $s=State $f; $s.revision | Should -Be 1; $s.tasks.T1.attempts | Should -Be 1; $s.review_stop.reason | Should -Be 'early_stop'
+        $r=Invoke-Cli @('escalations','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $entry=@($r.data | Where-Object type -eq 'review_round_limit')[0]
+        $r=Invoke-Cli @('resolve','-Repo',$f.repo,'-Run','FIXTURE','-Escalation',$entry.id,'-Decision','approve','-Reason','Fixture owner explicitly authorizes one additional round','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Approved bounded repair','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $s=State $f; $s.tasks.T1.status | Should -Be 'REVIEW'; $s.review_rounds['2'].streak | Should -Be 0
+        $review=Read-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/reviews/9A-T1.json')
+        (Get-Content (Join-Path $review.holding 'prompt.txt') -Raw) | Should -Match 'Previous reviewed tip: [a-f0-9]{40}'
+        @(Get-ChildItem (Join-Path $f.repo 'team/runtime/FIXTURE/reviews') -Filter 'verdict-*.json').Count | Should -Be 4
+    }
+    It 'hard-stops two confirmed fix-introduced rounds even when other blocking issues remain' {
+        $f=New-RuntimeFixture; $f.plan.classification.level='critical'; $f.plan.review.require_9p=$true; $f.plan.review.require_fresh_9b=$true
+        $f.plan.tasks[0].objective=@('FIXTURE_REVIEW_MIXED'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 50 -Because $r.raw
+        $f.plan.run.revision=2; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Fixture repair request','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 60 -Because $r.raw
+        $s=State $f; $s.hard_stop | Should -BeTrue; $s.review_rounds['2'].streak | Should -Be 2
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 60
+        (State $f).tasks.T1.attempts | Should -Be 2
+    }
+    It 'requires explicit per-issue causality dispositions instead of treating approve as attribution' {
+        $f=New-RuntimeFixture; $f.plan.classification.level='critical'; $f.plan.review.require_9p=$true; $f.plan.review.require_fresh_9b=$true
+        $f.plan.tasks[0].objective=@('FIXTURE_REVIEW_DISPUTE'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 70 -Because $r.raw
+        $r=Invoke-Cli @('escalations','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $entry=@($r.data | Where-Object type -eq 'review_causality')[0]
+        $r=Invoke-Cli @('resolve','-Repo',$f.repo,'-Run','FIXTURE','-Escalation',$entry.id,'-Decision','approve','-Reason','Missing attribution','-Json'); $r.code | Should -Be 10 -Because $r.raw
+        $dispositions=Join-Path $TestDrive 'causality.json'; Write-TeamData $dispositions @(@{id='fixture-dispute';value='no';reason='Fixture owner confirms it predates the repair'})
+        $r=Invoke-Cli @('resolve','-Repo',$f.repo,'-Run','FIXTURE','-Escalation',$entry.id,'-Decision','approve','-Reason','Explicit fixture attribution','-Disposition',$dispositions,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $s=State $f; $s.review_rounds['1'].causality_decisions['fixture-dispute'].value | Should -Be 'no'
+        $s.review_rounds['1'].records['9A-T1'].issues[0].caused_by_last_fix | Should -Be 'dispute'
+        $r=Invoke-Cli @('accept','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Commit',$s.tasks.T1.commit,'-Reason','Attribution is not defect resolution','-Json'); $r.code | Should -Be 50
     }
     It 'rejects wrong route and unverified versions before dispatch' {
         $f=New-RuntimeFixture
