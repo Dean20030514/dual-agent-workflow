@@ -41,6 +41,11 @@ function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $
         $task = @($Plan.tasks | Where-Object { $_.id -eq $taskId })[0]
         if (@($task.dependencies | Where-Object { $State.tasks[$_].status -notin @('MERGED','CLEANED') }).Count) { continue }
         $null = Read-WorkerResult $item $task $State.run_id
+        $previousPath=Join-Path $Directory "checkpoints/$taskId.json"
+        if (Test-Path -LiteralPath $previousPath) {
+            $previous=Read-TeamData $previousPath
+            if ($previous['rollback_commit'] -and -not $previous['noop'] -and $previous.worker_commit -ceq $item.commit) { Stop-TeamError 80 'A reverted source commit cannot be merged again unchanged; replan or use an integration repair' }
+        }
         $before = $State.last_good_integration_sha
         Add-TeamEvent $Directory 'integration_started' @{ task_id = $taskId; base_sha = $before; commit = $item.commit }
         # Merge only into the run-owned integration worktree, never the caller's branch.
@@ -57,18 +62,24 @@ function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $
             Stop-TeamError 81 'Integration conflict retained; Lead must approve a bounded integration task or rollback'
         }
         $mergedHead = Invoke-TeamGit $tree @('rev-parse','HEAD')
-        Write-TeamData (Join-Path $Directory "checkpoints/$taskId.json") @{ task_id=$taskId;before=$before;after=$mergedHead;worker_commit=$item.commit;verified=$false }
-        try { $null = Invoke-TeamVerification $task.verification $tree $Directory "integration-$taskId" }
+        $checkpointRecord=@{ task_id=$taskId;attempt=$item.attempts;before=$before;after=$mergedHead;worker_commit=$item.commit;verified=$false;noop=($mergedHead -ceq $before) }
+        Save-TeamCheckpoint $Directory $checkpointRecord
+        $verificationDirectory=Join-Path $Directory "integration-evidence/$taskId-a$($item.attempts)-$mergedHead"
+        [IO.Directory]::CreateDirectory($verificationDirectory) | Out-Null
+        try { $null = Invoke-TeamVerification $task.verification $tree $verificationDirectory 'verification' }
         catch { $State.status = 'PAUSED'; Save-TeamState $State $Directory; throw }
         $checkpoint = Invoke-TeamGit $tree @('rev-parse','HEAD')
         if ((Invoke-TeamGit $tree @('diff','HEAD','--name-only')) -or $checkpoint -cne $mergedHead) { Stop-TeamError 82 'Integration verification modified source or HEAD' }
         $State.last_good_integration_sha = $checkpoint; $item.status = 'MERGED'
+        $State['last_merged_task']=$taskId
         if ($State.Contains('repairs') -and $State.repairs.Contains($taskId)) {
             $repair = $State.repairs[$taskId]
-            $null = Invoke-TeamGit $tree @('merge-base','--is-ancestor',$repair.source_commit,$checkpoint)
-            $State.tasks[$repair.source_task].status='MERGED'
+            $sources=if ($repair['source_commits']) {@($repair.source_commits)} else {@($repair.source_commit)}
+            foreach ($source in $sources) { $null = Invoke-TeamGit $tree @('merge-base','--is-ancestor',$source,$checkpoint) }
+            foreach ($sourceId in @(Get-TeamRepairSources $repair)) { $State.tasks[$sourceId].status='MERGED' }
         }
-        Write-TeamData (Join-Path $Directory "checkpoints/$taskId.json") @{ task_id = $taskId; before = $before; after = $checkpoint; worker_commit = $item.commit; verified=$true }
+        $checkpointRecord.verified=$true; $checkpointRecord['evidence_directory']=$verificationDirectory
+        Save-TeamCheckpoint $Directory $checkpointRecord
         Save-TeamState $State $Directory
         Add-TeamEvent $Directory 'task_merged' @{ task_id = $taskId; commit = $checkpoint }
     }
@@ -77,12 +88,24 @@ function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $
     else {
         $State.status = 'VERIFYING'; Save-TeamState $State $Directory
         $finalHead = Invoke-TeamGit $tree @('rev-parse','HEAD')
-        $null = Invoke-TeamVerification $Plan.verification.final $tree $Directory 'final'
+        $State['final_evidence_directory']=Join-Path $Directory "final-evidence/$($State.revision)-$finalHead"
+        [IO.Directory]::CreateDirectory($State.final_evidence_directory) | Out-Null
+        Save-TeamState $State $Directory
+        try { $null = Invoke-TeamVerification $Plan.verification.final $tree $State.final_evidence_directory 'final' }
+        catch {
+            if ($_.Exception.Data['TeamExitCode'] -eq 40) { Record-TeamIntegrationFailure $State $Plan $Directory }
+            throw
+        }
         if ((Invoke-TeamGit $tree @('diff','HEAD','--name-only')) -or (Invoke-TeamGit $tree @('rev-parse','HEAD')) -cne $finalHead) { Stop-TeamError 82 'Final verification modified source or HEAD' }
         if ($Plan.classification.level -eq 'critical') {
             $null = Invoke-TeamReview $State $Plan $Manifest $Directory '9B' $tree $State.run_base_sha $State.last_good_integration_sha
         }
         $State.status = 'COMPLETED'
+        $failurePath=Join-Path $Directory 'integration-failure.json'
+        if (Test-Path -LiteralPath $failurePath) {
+            $failure=Read-TeamData $failurePath; $failure.status='resolved'; $failure['resolved_sha']=$finalHead
+            Write-TeamData $failurePath $failure
+        }
         Save-TeamState $State $Directory
         Unlock-TeamRepo $State.repo $State.run_id
         Add-TeamEvent $Directory 'run_completed' @{ integration_commit = $State.last_good_integration_sha }
@@ -131,12 +154,13 @@ function Remove-TeamWorktrees($State, [string]$Directory) {
     foreach ($taskId in $State.tasks.Keys) {
         $item = $State.tasks[$taskId]
         if ($item.status -ne 'MERGED') { continue }
+        if ($item['worktree_removed']) { $item.status='CLEANED'; Save-TeamState $State $Directory; continue }
         $expected = Get-TeamChild $State.repo ".worktrees/$($State.run_id)-$taskId-$((Read-TeamData (Join-Path $item.directory 'task.yaml')).role.id)-a$($item.attempts)"
         if ($item.worktree -cne $expected) { Stop-TeamError 82 'Cleanup path mismatch' }
         if (Invoke-TeamGit $expected @('status','--porcelain','--untracked-files=all')) { Stop-TeamError 80 'Cleanup refuses a dirty worktree' }
         if ((Invoke-TeamGit $expected @('rev-parse','HEAD')) -cne $item.commit) { Stop-TeamError 80 'Cleanup refuses an altered worktree' }
         $null = Invoke-TeamGit $State.repo @('worktree','remove',$expected)
-        $item.status = 'CLEANED'; $removed += $taskId
+        $item.status = 'CLEANED'; $item['worktree_removed']=$true; $removed += $taskId
         Save-TeamState $State $Directory
     }
     return @{ removed = $removed; integration_preserved = $true }

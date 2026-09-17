@@ -1,6 +1,12 @@
-function New-TeamIntegrationRepair($State, $Plan, $Manifest, [string]$Directory, [string[]]$GlueScope, [string]$Reason) {
+function New-TeamIntegrationRepair($State, $Plan, $Manifest, [string]$Directory, [string[]]$GlueScope, [string]$Reason, [string]$RootTask = '') {
     if (-not $Reason) { Stop-TeamError 10 'Integration repair requires a Lead Decision Log reason' }
     if ($State.replans -ge $Manifest.budget.max_replans) { Stop-TeamError 60 'Replan limit reached' }
+    if (-not $State.integration_worktree) { Stop-TeamError 80 'Integration repair requires an integration worktree' }
+    $null = & git -C $State.integration_worktree rev-parse -q --verify MERGE_HEAD 2>$null
+    if ($LASTEXITCODE -ne 0 -and (Test-Path -LiteralPath (Join-Path $Directory 'integration-failure.json'))) {
+        if ($GlueScope.Count) { Stop-TeamError 10 'Regression repair scope comes from the affected approved tasks; use a plan revision for additional scope' }
+        return New-TeamRegressionRepair $State $Plan $Manifest $Directory $RootTask $Reason
+    }
     $conflict = Read-TeamData (Join-Path $Directory 'integration-conflict.json')
     $sourceTask = @($Plan.tasks | Where-Object { $_.id -eq $conflict.task_id })[0]
     $source = $State.tasks[$sourceTask.id]

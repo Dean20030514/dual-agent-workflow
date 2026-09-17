@@ -15,7 +15,7 @@
 | 14–16 计划与分阶段上下文发现 | Lead policy 明确顺序和最多 2 次修复；无效计划 exit 10 + `plan_invalid`，无 run 时只返回 JSON | 无 |
 | 17 Team Plan、DAG | team-plan schema、Contracts、真实 Git 的 DAG fixture | 无 |
 | 18–19 19 种角色与 role schema | 19 种领域能力/验证建议/指导；run 冻结定义，Task Packet 携带；真实 backend/frontend Worker 已验收 | 默认值是规划建议，不扩张具体 Task 的有效权限 |
-| 20 Integration 约束 | 完整角色合同进入 schema/packet；必须来自已记录冲突并绑定 scope；真实 Integration Worker 保留双方合同 | 接口/测试的语义判断由 Lead 审核，机械门负责范围和源提交祖先关系 |
+| 20 Integration 约束 | 完整角色合同进入 schema/packet；必须来自已记录冲突或回归，scope 绑定 conflict+显式 glue 决定；真实 Integration Worker 保留合同 | 接口/测试的语义判断由 Lead 审核，机械门负责范围和源提交祖先关系 |
 | 21–22 子 Agent 权限/深度/三种限额 | native guard 准入、实际创建记录、Result/Git 审计 | 权限为声明+原生继承，非 OS 沙箱；全局并发采取家族保守预留，尚无真实多 Worker+子 Agent 联合验收 |
 | 23–25 worktree/base/cleanup | 冻结 base、依赖从集成 SHA、MERGED 清理；Git fixture | DISCARDED 生命周期/清理尚缺 |
 | 26–30 Packet、范围、启动 | schemas、adapter、Git diff 范围审计、`scope_violation` 事件；真实 L1 | DSH 启动前失败重试一次尚缺 |
@@ -25,7 +25,7 @@
 | 36–38 fresh review、输入白名单、9P/A/B | 独立 Codex exec、stdin 白名单、read-only；真实 Critical 完成 | 需核对目标仓库旧 Critical 规则兼容性，不能以隔离 fixture 代替任意项目 |
 | 39 硬停 | hard_stop、ESCALATED、禁止下游；连续两轮 yes 硬停优先于轮次出口；CLI 反例覆盖 | 硬停后新任务的重拆/架构批准仍属于人类决策，不自动清除 hard_stop |
 | 40 验证顺序 | self-check→Git→外部命令→review→accept | 无 |
-| 41–43 集成/定位/rollback | DAG merge、逐次 checkpoint/回归、最后 checkpoint revert | 多 checkpoint 连续回滚与失败定位任务生成尚缺；当前只支持最近 merge |
+| 41–43 集成/定位/rollback | DAG merge、task/attempt/SHA 检查点历史；按受影响子图倒序/连续 revert；原失败与 probe 保留；生成 Regression Task 并接入 Integration Worker；隔离 CLI 和真实 DSH 修复验收 | probe 是定位线索，失败可能来自缺失功能；V1 不自动宣称因果或运行完整 git bisect |
 | 44 失败目录 | Worker escalated Result 经 Git 审计后升级，真实 ESCALATE-NATIVE-007 验收；跨 attempt 相同验证失败证据二次升级由 CLI fixture 覆盖 | 启动重试一次、Critical/重复 scope 违规升级尚缺；不同输出是否同因仍由 Lead 判断 |
 | 45 返回码 | team.ps1 统一 0/10/20/30/31/40/50/60/70/80/81/82/90 | 需确保异常恢复分支不会把可诊断错误误记 90 |
 | 46、71 费用软/硬限制 | Controls 收据队列；dispatch 与 native guard 动态读取 | 原生账单仍未知，人工录入有时间差；不得把 unknown usage 宣称为金额硬上限保证 |

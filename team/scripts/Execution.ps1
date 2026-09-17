@@ -12,7 +12,7 @@ function New-TeamWorktree([string]$Repo, [string]$RunId, [string]$TaskId, [strin
 function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory) {
     if ($Task.role -eq 'integration') {
         if (-not $State.Contains('repairs') -or -not $State.repairs.Contains($Task.id)) {
-            Stop-TeamError 10 'Integration workers must be generated from a recorded integration conflict'
+            Stop-TeamError 10 'Integration workers must be generated from a recorded integration conflict or regression'
         }
         $repair = $State.repairs[$Task.id]
         if ($repair['write_scope'] -and @(Compare-Object @($repair.write_scope | Sort-Object) @($Task.write_scope | Sort-Object)).Count) {
@@ -35,6 +35,7 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory) {
     $item.attempts++
     $worktree = New-TeamWorktree $State.repo $State.run_id $Task.id $Task.role $base "-a$($item.attempts)"
     $item.worktree = $worktree.path; $item.branch = $worktree.branch; $item.base_sha = $base
+    $item['worktree_removed']=$false
     $item.directory = Get-TeamChild $Directory "tasks/$($Task.id)/attempt-$($item.attempts)"
     [IO.Directory]::CreateDirectory($item.directory) | Out-Null
     $packet = @{
@@ -111,7 +112,9 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
     }
     if ($audit.result.status -ne 'completed' -or -not $audit.result.verification.passed) { Stop-TeamError 30 'Worker did not complete its self-check' }
     if ($State.Contains('repairs') -and $State.repairs.Contains($Task.id)) {
-        $null = Invoke-TeamGit $item.worktree @('merge-base','--is-ancestor',$State.repairs[$Task.id].source_commit,$audit.commit)
+        $repair=$State.repairs[$Task.id]
+        $sources=if ($repair['source_commits']) {@($repair.source_commits)} else {@($repair.source_commit)}
+        foreach ($source in $sources) { $null = Invoke-TeamGit $item.worktree @('merge-base','--is-ancestor',$source,$audit.commit) }
     }
     $item.commit = $audit.commit; $item.status = 'VERIFYING'
     Save-TeamState $State $Directory

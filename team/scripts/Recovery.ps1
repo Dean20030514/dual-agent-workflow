@@ -57,6 +57,10 @@ function Assert-TeamRecovery($State, $Plan, [string]$Directory) {
             Stop-TeamError 80 'Task worktree or packet identity mismatch'
         }
         if ($item.status -eq 'CLEANED') { continue }
+        if ($item['worktree_removed']) {
+            if ($item.status -in @('RUNNING','VERIFYING','REVIEW','ACCEPTED') -or (Test-Path -LiteralPath $expected)) { Stop-TeamError 80 'Removed worktree has inconsistent execution state' }
+            continue
+        }
         if ((Invoke-TeamGit $expected @('branch','--show-current')) -cne $item.branch) { Stop-TeamError 80 'Task is no longer on its assigned branch' }
         $null = Invoke-TeamGit $expected @('merge-base','--is-ancestor',$item.base_sha,'HEAD')
         if ($item.status -in @('RUNNING','VERIFYING')) {
@@ -84,19 +88,7 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
     if ($NewPlan.classification.level -cne $OldPlan.classification.level) { Stop-TeamError 10 'Replan cannot silently change Routine/Critical classification' }
     if (@($State.tasks.Values | Where-Object { $_.status -eq 'RUNNING' }).Count) { Stop-TeamError 80 'Replan requires quiescent workers' }
     if (-not $State.tasks.Contains($FailedTask)) { Stop-TeamError 10 'Unknown failed task' }
-    $oldTask = @($OldPlan.tasks | Where-Object { $_.id -eq $FailedTask })[0]
-    $paths = @($oldTask.write_scope)
-    $affected = @(Get-TeamAffected $OldPlan $FailedTask $paths)
-    # Glob overlap needs a conservative prefix check when no concrete changed files are available.
-    foreach ($task in $OldPlan.tasks) {
-        foreach ($scope in $task.write_scope) {
-            foreach ($failedScope in $paths) {
-                $a = ($scope -split '[*?]',2)[0]; $b = ($failedScope -split '[*?]',2)[0]
-                if ($a.StartsWith($b) -or $b.StartsWith($a)) { $affected += @(Get-TeamAffected $OldPlan $task.id @()) }
-            }
-        }
-    }
-    $affected = @($affected | Sort-Object -Unique)
+    $affected = @(Get-TeamAffectedByScope $OldPlan $FailedTask)
     foreach ($task in $OldPlan.tasks) {
         $next = @($NewPlan.tasks | Where-Object { $_.id -eq $task.id })
         if ($task.id -notin $affected) {
@@ -159,21 +151,77 @@ function Stop-TeamOwnedProcesses($State, [string]$Directory) {
 function Undo-TeamIntegration($State, [string]$Directory, [string]$TaskId, [string]$Reason) {
     if (-not $Reason -or -not $State.integration_worktree) { Stop-TeamError 80 'Rollback requires integration worktree and reason' }
     $tree = Get-TeamChild $State.repo ".worktrees/$($State.run_id)-integration"
-    if ($tree -cne $State.integration_worktree) { Stop-TeamError 82 'Integration worktree path mismatch' }
+    if ($tree -cne $State.integration_worktree -or (Invoke-TeamGit $tree @('branch','--show-current')) -cne $State.integration_branch) { Stop-TeamError 82 'Integration worktree or branch mismatch' }
+    if (@($State.tasks.Values | Where-Object status -eq 'RUNNING').Count) { Stop-TeamError 80 'Rollback requires quiescent workers' }
+    $head=Invoke-TeamGit $tree @('rev-parse','HEAD')
+    $revertHead = & git -C $tree rev-parse -q --verify REVERT_HEAD 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        $pending=@(Get-ChildItem (Join-Path $Directory 'rollbacks') -Filter '*.json' -ErrorAction SilentlyContinue | ForEach-Object { Read-TeamData $_.FullName } | Where-Object { $_.status -eq 'started' -and $_.before -ceq $head -and $_.reverted_merge -ceq $revertHead })
+        if ($pending.Count -ne 1) { Stop-TeamError 80 'Unowned revert conflict; preserve Git state for reconciliation' }
+        $null=Invoke-TeamGit $tree @('revert','--abort')
+        $pending[0].status='aborted'; $pending[0]['abort_reason']=$Reason
+        Write-TeamData (Join-Path $Directory "rollbacks/$($pending[0].id).json") $pending[0]
+        $State.status='PAUSED'; Save-TeamState $State $Directory
+        return @{status='PAUSED';aborted_revert=$pending[0].id;commit=$head}
+    }
     $mergeHead = & git -C $tree rev-parse -q --verify MERGE_HEAD 2>$null
     if ($LASTEXITCODE -eq 0) {
+        $conflict=Read-TeamData (Join-Path $Directory 'integration-conflict.json')
+        if ($head -cne $conflict.base_sha -or $mergeHead -cne $State.tasks[$conflict.task_id].commit -or ($TaskId -and $TaskId -cne $conflict.task_id)) { Stop-TeamError 80 'Unowned integration merge; preserve Git state' }
         $null = Invoke-TeamGit $tree @('merge','--abort')
-    } else {
-        Assert-TeamId $TaskId
-        $checkpoint = Read-TeamData (Join-Path $Directory "checkpoints/$TaskId.json")
-        $head = Invoke-TeamGit $tree @('rev-parse','HEAD')
-        if ($head -cne $checkpoint.after) { Stop-TeamError 80 'Rollback supports the most recent integration checkpoint only' }
-        if (Invoke-TeamGit $tree @('status','--porcelain')) { Stop-TeamError 80 'Rollback refuses unrelated dirty changes' }
-        $null = Invoke-TeamGit $tree @('revert','-m','1','--no-edit',$head)
-        $State.tasks[$TaskId].status = 'REWORK'
+        $State.status='PAUSED'; Save-TeamState $State $Directory
+        Add-TeamEvent $Directory 'integration_merge_aborted' @{task_id=$conflict.task_id;reason=$Reason;commit=$head}
+        return @{status='PAUSED';commit=$head;aborted_merge=$conflict.task_id}
     }
-    $State.last_good_integration_sha = Invoke-TeamGit $tree @('rev-parse','HEAD')
-    $State.status = 'PAUSED'; Save-TeamState $State $Directory
-    Add-TeamEvent $Directory 'integration_rollback' @{ task_id=$TaskId; reason=$Reason; commit=$State.last_good_integration_sha }
-    return @{status='PAUSED';commit=$State.last_good_integration_sha}
+    Assert-TeamId $TaskId
+    if (Invoke-TeamGit $tree @('status','--porcelain','--untracked-files=all')) { Stop-TeamError 80 'Rollback refuses unrelated dirty changes' }
+    $plan=Read-TeamData (Join-Path $Directory 'plan.yaml')
+    $affected=@(Get-TeamAffectedByScope $plan $TaskId)
+    if ($State['repairs']) {
+        do {
+            $beforeCount=$affected.Count
+            foreach ($id in $State.repairs.Keys) {
+                $sources=@(Get-TeamRepairSources $State.repairs[$id])
+                if ($id -in $affected -or @($sources | Where-Object { $_ -in $affected }).Count) { $affected+=@($sources)+@(Get-TeamAffectedByScope $plan $id) }
+            }
+            $affected=@($affected | Sort-Object -Unique)
+        } while ($beforeCount -ne $affected.Count)
+    }
+    $active=@(Get-TeamActiveCheckpoints $Directory)
+    $history=@((Invoke-TeamGit $tree @('rev-list','--first-parent',"$($State.run_base_sha)..HEAD")) -split "`n" | Where-Object { $_ }) + @($State.run_base_sha)
+    $selected=@($active | Where-Object { $_.task_id -in $affected } | Sort-Object { [array]::IndexOf($history,$_.after) })
+    if (-not $selected.Count) { Stop-TeamError 80 'No active integration checkpoint matches the rollback target' }
+    if ($head -cne $State.last_good_integration_sha -and -not @($selected | Where-Object { -not $_.verified -and $_.after -ceq $head -and $_.before -ceq $State.last_good_integration_sha }).Count) {
+        Stop-TeamError 80 'Integration HEAD moved outside the recorded rollback checkpoints'
+    }
+    foreach ($checkpoint in $selected) {
+        if ($checkpoint.worker_commit -cne $State.tasks[$checkpoint.task_id].commit) { Stop-TeamError 80 'Checkpoint source differs from the accepted task commit' }
+        if ($checkpoint.after -notin $history) { Stop-TeamError 80 'Checkpoint is not on the integration first-parent history' }
+        if (-not $checkpoint['noop'] -and (Invoke-TeamGit $tree @('rev-parse',"$($checkpoint.after)^1")) -cne $checkpoint.before) { Stop-TeamError 80 'Checkpoint parent differs from its recorded base' }
+        $null=Invoke-TeamGit $tree @('merge-base','--is-ancestor',$checkpoint.worker_commit,$checkpoint.after)
+    }
+    $rolled=@()
+    foreach ($checkpoint in $selected) {
+        $before=Invoke-TeamGit $tree @('rev-parse','HEAD')
+        $id='ROLLBACK-' + [guid]::NewGuid().ToString('N').Substring(0,12)
+        $record=@{id=$id;task_id=$checkpoint.task_id;before=$before;reverted_merge=$checkpoint.after;reason=$Reason;status='started'}
+        Write-TeamData (Join-Path $Directory "rollbacks/$id.json") $record
+        if (-not $checkpoint['noop']) { $null=Invoke-TeamGit $tree @('revert','-m','1','--no-edit',$checkpoint.after) }
+        $after=Invoke-TeamGit $tree @('rev-parse','HEAD')
+        $record.status='completed'; $record['after']=$after
+        Write-TeamData (Join-Path $Directory "rollbacks/$id.json") $record
+        $checkpoint['rollback_commit']=$after; $checkpoint['rollback_before']=$before
+        Save-TeamCheckpoint $Directory $checkpoint
+        $ids=@($checkpoint.task_id)
+        if ($State['repairs'] -and $State.repairs.Contains($checkpoint.task_id)) { $ids+=@(Get-TeamRepairSources $State.repairs[$checkpoint.task_id]) }
+        foreach ($id in $ids) {
+            if ($State.tasks[$id].status -eq 'CLEANED') { $State.tasks[$id]['worktree_removed']=$true }
+            $State.tasks[$id].status='REWORK'
+        }
+        $State.last_good_integration_sha=$after; $State.status='PAUSED'; Save-TeamState $State $Directory
+        Add-TeamEvent $Directory 'integration_rollback' @{task_id=$checkpoint.task_id;reason=$Reason;reverted_merge=$checkpoint.after;commit=$after}
+        $rolled+=$checkpoint.task_id
+    }
+    Record-TeamRollbackProbe $State $plan $Directory $rolled
+    return @{status='PAUSED';commit=$State.last_good_integration_sha;rolled_back=$rolled;affected=$affected}
 }

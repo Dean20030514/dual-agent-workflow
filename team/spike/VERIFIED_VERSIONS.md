@@ -85,3 +85,18 @@ verdict SHA-256 `ebc35dc1b870695e9995a3c944a5aa9a6e16c43fd4f48393460a4f8c4230be9
 verdict SHA-256 `51283908197cefed617492aca9fe15079fde0c6b2a27ed0dd7d70b640162c768`，
 输入 SHA-256 `5fd977066447fafe9884dd8514510ab9260097ec70f91f67c1bf0f78fc839ce0`。
 两份 verdict 历史均保留，round 2/streak 0；main 不变、两个审查快照干净。验收后 stop，最终 CANCELLED。
+
+真实回归修复 `REGRESSION-NATIVE-009`（临时仓库 `team-regression-live-8b43232241`）：
+两个初始 Worker 输入由测试替身故意制造并接受，以触发 final 失败；**并非真实双 Worker 交付验收**。
+base/main `1839aa9c7be57019335a496732b748fc99de626d`；失败集成 SHA
+`346dec44e00c3a1ee58905ca4e9cf024ef627d0b`，失败记录 `FAIL-144e606860a6`，
+原始验证证据 SHA-256 `a43d6fe9227e90449f327827b601832778000ee3dcb83c64566cb70569816ca5`。
+回滚较早的 T1 后，集成 SHA `8dcd0579fd3bae17b578d3e718c2de21c0fcc5b6`；
+较晚的无关 T2 保留，commit `d91d12b070cabecedaf0f67c000310c3bd99afb5`、attempt=1。
+Regression Task 经显式 Lead 决定生成 revision 2，然后调用**真实 DSH Integration Worker**，
+session `session-851b9b38-42de-4de7-9013-48684f83dcd0`，deepseek-official/deepseek-flash，depth 0。
+Worker 只把 `files/T1.txt` 恢复为已批准的 `42`，T2 原样保留；repair commit
+`54c9689a9498d10789df850dee599804c10c7494`。Git scope、原命令及完整合同验证 exit 0，Lead 按实际 SHA 验收。
+最终 integration `1111af407973c76699f2661344e49dc38620c296`，run=COMPLETED、failure=resolved；
+final stdout SHA-256 `b46cc5e6634d0e0b8bd41c963947a14f218b811ca29d373f22a081727205e497`。
+原失败证据哈希不变、main 未变、调用者工作树干净；这证明恢复协议与原生修复执行，不是业务项目验收。

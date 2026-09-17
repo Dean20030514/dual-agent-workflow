@@ -110,6 +110,21 @@ function Get-TeamAffected($Plan, [string]$FailedTask, [string[]]$ChangedPaths) {
     return @($affected | Sort-Object)
 }
 
+function Get-TeamAffectedByScope($Plan, [string]$FailedTask) {
+    $root=@($Plan.tasks | Where-Object id -eq $FailedTask)
+    if ($root.Count -ne 1) { Stop-TeamError 10 'Unknown failed task' }
+    $affected=@(Get-TeamAffected $Plan $FailedTask @($root[0].write_scope))
+    foreach ($task in $Plan.tasks) {
+        foreach ($scope in $task.write_scope) {
+            foreach ($failedScope in $root[0].write_scope) {
+                $a=($scope -split '[*?]',2)[0]; $b=($failedScope -split '[*?]',2)[0]
+                if ($a.StartsWith($b) -or $b.StartsWith($a)) { $affected+=@(Get-TeamAffected $Plan $task.id @()) }
+            }
+        }
+    }
+    return @($affected | Sort-Object -Unique)
+}
+
 function Read-WorkerResult($TaskState, $Task, [string]$RunId, [switch]$AllowIncomplete) {
     $result = Read-TeamData (Join-Path $TaskState.directory 'result.yaml')
     Test-TeamSchema $result 'result'

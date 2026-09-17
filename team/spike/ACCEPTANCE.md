@@ -103,3 +103,20 @@ CLI 场景验证了 9P 不占轮、9A/9B 同轮聚合、mixed yes/no 连续两�
 Reviewer 输入包含相关前次问题和精确修复 diff；两个独立 verdict 历史保留，round 2/streak 0。
 这是 Reviewer adapter 和结构化归因/上下文协议的真实验收，没有运行 DSH、9P 或 9B，
 不将它标为新的完整 Critical 交付；详细 SHA 与证据边界见 VERIFIED_VERSIONS。
+
+# 第八批：集成回归定位、连续回滚与原生修复
+
+Team 完整回归 **78 passed / 0 failed**，exit 0（468.21 秒）；检查点按 attempt 保留及历史范围
+收窄到 run base 后，对连续回滚、无关结果保留、依赖闭包重做和空变更再次执行 **4 passed / 0 failed**，exit 0。
+最后将回归修复的 conflict_files/glue_scope 明确写入 Decision 与记录，该完整修复场景复测 **1 passed / 0 failed**，exit 0。
+用例实际执行 Git merge/revert：可回滚更早任务或多次回滚，按下游/相交范围倒序处理，
+无关后续任务的 commit/attempt 保持不变。已 cleanup 的源结果可参与受限修复，且不重新创建旧目录。
+空变更不会撤销无关 commit，重复回滚、错误分支和未跟踪文件均被拒绝；原失败日志和各次 probe 独立保留。
+新增 fixture 的空数组曾被 PowerShell 条件输出展开为 null，被 schema 正确拒绝；已修正 fixture，未放宽结果 schema。
+
+真实 `REGRESSION-NATIVE-009`：最初两个 Worker 是故意制造失败的替身输入，之后回滚 T1，
+保持 T2 已集成结果，生成受限回归修复任务，再由真实 DSH Integration Worker 恢复 T1 的既有合同。
+实际 diff 只含目标文件，原验证与 final 验证 exit 0，Lead 绑定真实 commit 验收后集成完成。
+run=COMPLETED、failure=resolved；main 不变，T2 commit/attempt 不变，原失败证据哈希不变。
+这是原生修复链路验收，不声称初始 Author 为真实模型或业务质量已保证。
+具体 SHA、session、证据哈希见 VERIFIED_VERSIONS。漂移门 17 对/292 行、git diff --check 均通过。

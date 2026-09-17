@@ -10,7 +10,7 @@ param(
     [string[]]$ChangedPaths = @(), [string[]]$GlueScope = @(), [datetime]$Since = [datetime]::MinValue,
     [switch]$Json, [switch]$Follow, [switch]$AllowUnverifiedRuntime, [switch]$RepairLock
 )
-foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','Integration','Recovery','ReviewRounds','Review','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
+foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Integration','Recovery','ReviewRounds','Review','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
 $lock = $null; $runData = $null; $exitCode = 0
 try {
     $Repo = [IO.Path]::GetFullPath($Repo).TrimEnd([IO.Path]::DirectorySeparatorChar)
@@ -133,7 +133,7 @@ try {
                 'integrate' { $output = Invoke-TeamIntegration $state $document $directory $config }
                 'replan' { $output = Invoke-TeamReplan $state $document (Read-TeamPlanInput $Plan) $config $directory $Task $Reason }
                 'rollback' { $output = Undo-TeamIntegration $state $directory $Task $Reason }
-                'repair-integration' { $output = New-TeamIntegrationRepair $state $document $config $directory $GlueScope $Reason }
+                'repair-integration' { $output = New-TeamIntegrationRepair $state $document $config $directory $GlueScope $Reason $Task }
                 'resolve-review' { $output = Resolve-TeamReview $state $document $directory $Stage $Task (Read-TeamData $Disposition) }
                 'report-cost' {
                     $hash = Submit-TeamCost $directory $Amount $Evidence

@@ -72,8 +72,9 @@ function Invoke-TeamReview($State, $Plan, $Manifest, [string]$Directory, [string
     } else {
         $reviewPlan = $Plan
         if ($Stage -eq '9B') {
-            $evidence += Read-TeamData (Join-Path $Directory 'final-evidence.json')
-            foreach ($file in Get-ChildItem -LiteralPath $Directory -Filter 'final-*.stdout') {
+            $finalDirectory=if ($State['final_evidence_directory']) {$State.final_evidence_directory} else {$Directory}
+            $evidence += Read-TeamData (Join-Path $finalDirectory 'final-evidence.json')
+            foreach ($file in Get-ChildItem -LiteralPath $finalDirectory -Filter 'final-*.stdout') {
                 $testOutput += "`n$($file.Name):`n$([IO.File]::ReadAllText($file.FullName))"
             }
         }

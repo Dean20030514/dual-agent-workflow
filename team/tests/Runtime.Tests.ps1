@@ -448,4 +448,116 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         (Invoke-TeamGit $f.repo @('rev-parse','main')) | Should -Be $f.base
         Test-Path (Join-Path (State $f).integration_worktree 'files/T1.txt') | Should -BeFalse
     }
+    It 'rolls back multiple historical checkpoints and preserves failed final evidence' {
+        $f=New-RuntimeFixture 2
+        $f.plan.verification.final[0].args=@('-NoProfile','-Command','Write-Output "stable failure"; exit 9'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 40 -Because $r.raw
+        $dir=Join-Path $f.repo 'team/runtime/FIXTURE'; $failure=Read-TeamData (Join-Path $dir 'integration-failure.json')
+        $failure.last_merged_task | Should -Be 'T2'; $failure.checkpoints.Count | Should -Be 2
+        $evidencePath=Join-Path $failure.directory 'final-evidence.json'; $hash=Get-TeamHash $evidencePath
+        $first=Read-TeamData (Join-Path $dir 'checkpoints/T1.json'); $second=Read-TeamData (Join-Path $dir 'checkpoints/T2.json')
+        foreach ($taskId in @('T2','T1')) {
+            $r=Invoke-Cli @('rollback','-Repo',$f.repo,'-Run','FIXTURE','-Task',$taskId,'-Reason','Locate isolated final failure','-Json'); $r.code | Should -Be 0 -Because $r.raw
+            (State $f).tasks[$taskId].status | Should -Be 'REWORK'
+        }
+        $s=State $f
+        (Invoke-TeamGit $s.integration_worktree @('rev-parse','HEAD^{tree}')) | Should -Be (Invoke-TeamGit $f.repo @('rev-parse',"$($f.base)^{tree}"))
+        $null=Invoke-TeamGit $s.integration_worktree @('merge-base','--is-ancestor',$first.after,'HEAD')
+        $null=Invoke-TeamGit $s.integration_worktree @('merge-base','--is-ancestor',$second.after,'HEAD')
+        (Get-TeamHash $evidencePath) | Should -Be $hash
+        $failure=Read-TeamData (Join-Path $dir 'integration-failure.json'); $failure.probes.Count | Should -Be 2
+        @($failure.probes | Where-Object result -eq 'inconclusive_still_fails').Count | Should -Be 2
+        $draft=Read-TeamData (Join-Path $dir 'integration-failure-task.json')
+        $draft.status | Should -Be 'draft'; $draft.sources | Should -Be @('T1','T2')
+        $r=Invoke-Cli @('rollback','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Reason','Must not duplicate a revert','-Json'); $r.code | Should -Be 80
+        (Invoke-TeamGit $f.repo @('rev-parse','main')) | Should -Be $f.base
+    }
+    It 'repairs a rolled-back earlier task while preserving unrelated later integrations and cleanup evidence' {
+        $f=New-RuntimeFixture 3
+        $f.plan.verification.final[0].args=@('-NoProfile','-Command','if (-not (Test-Path files/T1.txt) -or (Get-Content files/T1.txt -Raw).Trim() -ne "INTEGRATION-1" -or -not (Test-Path files/T2.txt) -or -not (Test-Path files/T3.txt)) { exit 9 }')
+        Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 40 -Because $r.raw
+        $s=State $f; $unrelated=@($s.tasks.T2.commit,$s.tasks.T3.commit)
+        $r=Invoke-Cli @('cleanup','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0
+        $r=Invoke-Cli @('rollback','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Reason','Known fixture defect in the earliest independent task','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $s=State $f; $s.tasks.T1.status | Should -Be 'REWORK'; $s.tasks.T2.status | Should -Be 'CLEANED'; $s.tasks.T3.status | Should -Be 'CLEANED'
+        Test-Path (Join-Path $s.integration_worktree 'files/T1.txt') | Should -BeFalse
+        Test-Path (Join-Path $s.integration_worktree 'files/T3.txt') | Should -BeTrue
+        $r=Invoke-Cli @('repair-integration','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Reason','Restore the existing approved contract only','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $s=State $f; $s.repairs['INTEGRATION-1'].source_tasks | Should -Be @('T1')
+        $s.repairs['INTEGRATION-1'].write_scope | Should -Be @('files/T1.txt')
+        $s.repairs['INTEGRATION-1'].glue_scope | Should -Be @('files/T1.txt')
+        $s.repairs['INTEGRATION-1'].conflict_files.Count | Should -Be 0
+        $decision=Read-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/decisions/DEC-Integration-2.json')
+        $decision.glue_scope | Should -Be @('files/T1.txt')
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r.data.status | Should -Be 'COMPLETED'
+        $s=State $f; @($s.tasks.T2.commit,$s.tasks.T3.commit) | Should -Be $unrelated
+        $s.tasks.T2.attempts | Should -Be 1; $s.tasks.T3.attempts | Should -Be 1
+        (Read-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/integration-failure.json')).status | Should -Be 'resolved'
+        $r=Invoke-Cli @('cleanup','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        (Invoke-TeamGit $f.repo @('rev-parse','main')) | Should -Be $f.base
+    }
+    It 'rolls back a dependency closure in reverse merge order and only replans that closure' {
+        $f=New-RuntimeFixture 3; $f.plan.tasks[2].dependencies=@('T1'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0
+        $unrelated=(State $f).tasks.T2.commit
+        $r=Invoke-Cli @('rollback','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Reason','Rework one dependency chain only','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r.data.rolled_back | Should -Be @('T3','T1')
+        $s=State $f; $s.tasks.T2.status | Should -Be 'MERGED'; $s.tasks.T3.status | Should -Be 'REWORK'
+        $f.plan.run.revision=2; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Re-run the affected closure','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        foreach ($wave in 1..2) {
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+            Accept-All $f
+            $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        }
+        $r.data.status | Should -Be 'COMPLETED'
+        (State $f).tasks.T2.commit | Should -Be $unrelated; (State $f).tasks.T2.attempts | Should -Be 1
+        (State $f).tasks.T1.attempts | Should -Be 2; (State $f).tasks.T3.attempts | Should -Be 2
+        @(Get-ChildItem (Join-Path $f.repo 'team/runtime/FIXTURE/checkpoints/history') -Filter '*.json').Count | Should -Be 5
+    }
+    It 'does not revert an unrelated commit when an accepted task is a no-op' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('NOOP')
+        $f.plan.tasks[0].verification[0].args=@('-NoProfile','-Command','exit 0'); $f.plan.verification.final=$f.plan.tasks[0].verification
+        Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0
+        $r.data.commit | Should -Be $f.base
+        $r=Invoke-Cli @('rollback','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Reason','Invalidate the no-op task only','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r.data.commit | Should -Be $f.base
+        (State $f).tasks.T1.status | Should -Be 'REWORK'
+        $f.plan.run.revision=2; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Explicitly repeat the no-op task','-Json'); $r.code | Should -Be 0
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        @(Get-ChildItem (Join-Path $f.repo 'team/runtime/FIXTURE/checkpoints/history') -Filter '*.json').Count | Should -Be 2
+    }
+    It 'refuses rollback on an altered integration branch or untracked user file' {
+        $f=New-RuntimeFixture
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0
+        $s=State $f; $head=$s.last_good_integration_sha
+        $untracked=Join-Path $s.integration_worktree 'owner-note.txt'; Set-Content $untracked 'Preserve this file'
+        $r=Invoke-Cli @('rollback','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Reason','Must refuse dirty tree','-Json'); $r.code | Should -Be 80
+        (Get-Content $untracked -Raw).Trim() | Should -Be 'Preserve this file'
+        [IO.File]::Delete($untracked)
+        $null=Invoke-TeamGit $s.integration_worktree @('switch','-c','fixture-unexpected')
+        $r=Invoke-Cli @('rollback','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Reason','Must refuse wrong branch','-Json'); $r.code | Should -Be 82
+        (Invoke-TeamGit $s.integration_worktree @('rev-parse','HEAD')) | Should -Be $head
+    }
 }
