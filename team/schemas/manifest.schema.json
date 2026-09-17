@@ -1,0 +1,239 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "team": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "auto_activate": {
+          "type": "boolean"
+        },
+        "dynamic_roles": {
+          "type": "boolean"
+        },
+        "default_mode": {
+          "const": "auto"
+        },
+        "single_active_run_per_repo": {
+          "const": true
+        }
+      },
+      "required": [
+        "enabled",
+        "auto_activate",
+        "dynamic_roles",
+        "default_mode",
+        "single_active_run_per_repo"
+      ],
+      "additionalProperties": false
+    },
+    "models": {
+      "type": "object",
+      "properties": {
+        "lead": {
+          "type": "object",
+          "properties": {
+            "alias": {
+              "type": "string",
+              "minLength": 1
+            },
+            "harness": {
+              "const": "codex"
+            },
+            "runtime_model": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "alias",
+            "harness",
+            "runtime_model"
+          ],
+          "additionalProperties": false
+        },
+        "worker": {
+          "type": "object",
+          "properties": {
+            "alias": {
+              "type": "string",
+              "minLength": 1
+            },
+            "harness": {
+              "const": "dsh"
+            },
+            "provider": {
+              "type": "string",
+              "minLength": 1
+            },
+            "runtime_model": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "alias",
+            "harness",
+            "provider",
+            "runtime_model"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "lead",
+        "worker"
+      ],
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "dsh_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "codex_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "idle_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_single_log_mb": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "dsh_version",
+        "codex_version",
+        "profile",
+        "timeout_seconds",
+        "idle_timeout_seconds",
+        "max_single_log_mb"
+      ],
+      "additionalProperties": false
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "max_active_workers": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_parallel_agents_total": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_agents_per_run": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_worker_retries": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "max_replans": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        "soft_limit": {
+          "type": "number",
+          "minimum": 0
+        },
+        "hard_limit": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "max_active_workers",
+        "max_parallel_agents_total",
+        "max_agents_per_run",
+        "max_worker_retries",
+        "max_replans",
+        "soft_limit",
+        "hard_limit"
+      ],
+      "additionalProperties": false
+    },
+    "routing": {
+      "type": "object",
+      "properties": {
+        "misroute_threshold": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "misroute_threshold"
+      ],
+      "additionalProperties": false
+    },
+    "subagents": {
+      "type": "object",
+      "properties": {
+        "native_only": {
+          "const": true
+        },
+        "max_depth": {
+          "const": 2
+        },
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "native_only",
+        "max_depth",
+        "enabled"
+      ],
+      "additionalProperties": false
+    },
+    "review": {
+      "type": "object",
+      "properties": {
+        "critical_requires_9p": {
+          "const": true
+        },
+        "critical_requires_fresh_9b": {
+          "const": true
+        }
+      },
+      "required": [
+        "critical_requires_9p",
+        "critical_requires_fresh_9b"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "team",
+    "models",
+    "runtime",
+    "budget",
+    "routing",
+    "subagents",
+    "review"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,6 @@
+schema_version: 1
+worktree_is_security_sandbox: false
+native_children_inherit_parent: true
+declared_permissions: [shell, network, secrets, production]
+enforced_before_creation: [model_route, cwd, max_depth, cumulative_family_count]
+enforced_after_execution: [git_write_scope, result_identity, reported_child_scope_subset]

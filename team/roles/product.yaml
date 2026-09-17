@@ -1,0 +1,10 @@
+schema_version: 1
+role_id: product
+display_name: product Worker
+capabilities: [product]
+default_permissions: {shell: true, network: false, secrets: false, production: false}
+default_read_scope: ["src/**", "tests/**", "docs/**"]
+default_write_scope: ["src/**", "tests/**", "docs/**"]
+subagents: {allowed: false, max_depth: 0}
+critical_triggers: [auth_boundary_change]
+escalation_triggers: [production_access_required, real_secret_required]

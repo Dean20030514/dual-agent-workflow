@@ -1,0 +1,5 @@
+schema_version: 1
+timeout_hours: 24
+timeout_action: pause
+decisions: [approve, reject, modify-plan]
+triggers: [production, secrets, destructive, financial, legal_owner_decision, business_ambiguity, repeated_failure, repository_integrity]

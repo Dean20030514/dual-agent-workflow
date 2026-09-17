@@ -1,0 +1,41 @@
+schema_version: 1
+team:
+  enabled: true
+  auto_activate: true
+  dynamic_roles: true
+  default_mode: auto
+  single_active_run_per_repo: true
+models:
+  lead:
+    alias: astra-lead
+    harness: codex
+    runtime_model: gpt-6-astra
+  worker:
+    alias: deepseek-worker
+    harness: dsh
+    provider: deepseek-official
+    runtime_model: deepseek-flash
+runtime:
+  dsh_version: 0.1.5-rc.1
+  codex_version: 0.153.3
+  profile: headless
+  timeout_seconds: 3600
+  idle_timeout_seconds: 900
+  max_single_log_mb: 50
+budget:
+  max_active_workers: 4
+  max_parallel_agents_total: 6
+  max_agents_per_run: 10
+  max_worker_retries: 2
+  max_replans: 3
+  soft_limit: 10
+  hard_limit: 20
+routing:
+  misroute_threshold: 3
+subagents:
+  native_only: true
+  max_depth: 2
+  enabled: true
+review:
+  critical_requires_9p: true
+  critical_requires_fresh_9b: true

@@ -1,0 +1,30 @@
+schema_version: 1
+run: {id: SQL-SMOKE-001, revision: 1}
+classification:
+  level: routine
+  reasons: [isolated SQL health-query fixture]
+mode: L1
+capabilities: [database]
+tasks:
+  - id: SQL-001
+    role: database
+    objective:
+      - Create queries/health.sql containing exactly SELECT 1; followed by a newline.
+      - Run the verification command in the repository and commit only queries/health.sql on the assigned branch.
+    dependencies: []
+    write_scope: [queries/health.sql]
+    acceptance: [queries/health.sql contains SELECT 1; and the worktree is clean after commit]
+    permissions: {shell: true, network: false, secrets: false, production: false}
+    subagents: {allowed: false, max_depth: 0}
+    verification:
+      - id: query-content
+        executable: pwsh
+        args: [-NoProfile, -Command, "if ((Get-Content queries/health.sql -Raw) -cnotmatch '^SELECT 1;\\r?\\n\\z') { exit 1 }"]
+        timeout_seconds: 30
+verification:
+  final:
+    - id: query-content
+      executable: pwsh
+      args: [-NoProfile, -Command, "if ((Get-Content queries/health.sql -Raw) -cnotmatch '^SELECT 1;\\r?\\n\\z') { exit 1 }"]
+      timeout_seconds: 30
+review: {require_9p: false, require_fresh_9b: false}

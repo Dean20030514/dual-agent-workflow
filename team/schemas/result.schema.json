@@ -1,0 +1,152 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$"
+    },
+    "task_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "failed",
+        "escalated"
+      ]
+    },
+    "summary": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "changed_files": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "passed"
+      ],
+      "additionalProperties": false
+    },
+    "subagents_used": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "fresh",
+              "fork"
+            ]
+          },
+          "purpose": {
+            "type": "string",
+            "minLength": 1
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "permissions": {
+            "type": "object",
+            "properties": {
+              "shell": {
+                "type": "boolean"
+              },
+              "network": {
+                "type": "boolean"
+              },
+              "secrets": {
+                "type": "boolean"
+              },
+              "production": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "shell",
+              "network",
+              "secrets",
+              "production"
+            ],
+            "additionalProperties": false
+          },
+          "write_scope": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "type",
+          "purpose",
+          "depth",
+          "permissions",
+          "write_scope"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "git": {
+      "type": "object",
+      "properties": {
+        "branch": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        }
+      },
+      "required": [
+        "branch",
+        "commit"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "task_id",
+    "status",
+    "summary",
+    "changed_files",
+    "verification",
+    "subagents_used",
+    "risks",
+    "git"
+  ],
+  "additionalProperties": false
+}

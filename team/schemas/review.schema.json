@@ -1,0 +1,44 @@
+{
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "blocking_issues": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "verification_needed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "writes_performed": {
+      "const": false,
+      "type": "boolean"
+    },
+    "caused_by_last_fix": {
+      "enum": [
+        "yes",
+        "no",
+        "dispute"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "verdict",
+    "blocking_issues",
+    "verification_needed",
+    "writes_performed",
+    "caused_by_last_fix"
+  ],
+  "additionalProperties": false
+}

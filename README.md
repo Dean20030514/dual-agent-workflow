@@ -6,6 +6,13 @@
 
 > **两套落地、一套纪律（2026-09-06）**：`claude/` 是 Claude Code（Author）+ Codex CLI（Reviewer）落地；`dsh/` 是 **DeepSeek Harness** 落地——**Author 与 Reviewer 都是 deepseek/dsh**（Author = 当前 DSH 会话主 agent；Reviewer = `subagent` 子 agent 或 `dsh --profile headless` 独立进程），模型档统一 `provider: deepseek-official` + `model: deepseek-flash`（= DeepSeek-V4.1-Flash）。**两套的规则判据与阈值一致，只允许"怎么跑"不同**（命令形态、Reviewer 进程形态、推理档）；`dsh/workflow/AGENTS.md` 是 DSH 会话的判据唯一出处，冲突时以它为准。DSH 侧的关键差异：**没有 Codex 进程沙箱兜底**——Reviewer 同机同权限、技术上写得到仓库，因此零写入从"沙箱帮你挡"变成"纪律 + verdict 的 `writes_performed` 字段自证"，违反即该轮审查作废重跑。
 
+## Team Mode（Codex Lead + DSH Workers）
+
+仓库新增的本地运行模式见 [Team Quickstart](team/QUICKSTART.md)：`team/scripts/team.ps1`
+负责计划校验、动态 Worker 的独立 worktree、原生子 Agent 额度、外部验证、验收、集成和恢复。
+能力与实际验收边界见 [Capability Spike](team/spike/OPEN_GAPS.md)。
+运行目录和 worktree 不进版本库；`install.ps1` 不部署 Team runtime，也不改 DSH 本机设置。
+
 ## 一键部署（新设备）
 
 ```powershell

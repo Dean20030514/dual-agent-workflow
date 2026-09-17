@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "role_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "default_permissions": {
+      "type": "object",
+      "properties": {
+        "shell": {
+          "type": "boolean"
+        },
+        "network": {
+          "type": "boolean"
+        },
+        "secrets": {
+          "type": "boolean"
+        },
+        "production": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "shell",
+        "network",
+        "secrets",
+        "production"
+      ],
+      "additionalProperties": false
+    },
+    "default_read_scope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "default_write_scope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "subagents": {
+      "type": "object",
+      "properties": {
+        "allowed": {
+          "type": "boolean"
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        }
+      },
+      "required": [
+        "allowed",
+        "max_depth"
+      ],
+      "additionalProperties": false
+    },
+    "critical_triggers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "escalation_triggers": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "role_id",
+    "display_name",
+    "capabilities",
+    "default_permissions",
+    "default_read_scope",
+    "default_write_scope",
+    "subagents",
+    "critical_triggers",
+    "escalation_triggers"
+  ],
+  "additionalProperties": false
+}
