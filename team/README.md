@@ -11,8 +11,14 @@ Codex Lead → `scripts/team.ps1` → DSH native Workers → Git 范围审计 �
 依赖：PowerShell ≥ 7.4、Git、DSH native CLI、Codex native CLI、powershell-yaml ≥ 0.4.12。
 YAML 模块由用户在本任务中明确批准；运行器不会安装依赖、修改全局配置或调用部署器。
 JSON 是协议文件的规范写出形式（YAML 1.2 子集）；输入支持普通 YAML 与 JSON。
+DSH 的正文输出可带普通说明前缀，但必须以唯一、符合 Result schema 的 JSON 对象结束；
+多份结构化结果或有歧义的围栏前缀会被拒绝。`result-source.json` 记录提取方式与原始 stdout 哈希，原文保留。
 
 运行模型由 manifest 中逻辑别名解析。默认精确版本 pin；升级先重新运行能力验收再改 pin。
+`roles/` 的 19 个模板提供领域能力、默认读写范围、验证建议、升级触发条件和工作指导。
+run 会保存角色定义，Worker 的 Task Packet 携带该定义；模板默认值不扩张任务已声明的权限或范围。
+Integration 角色只能由记录在案的冲突生成，并绑定 conflict/glue scope；它不得更改已批准接口或验收，
+只能为集成破坏的有效测试或既有已批准合同适配测试。语义判断仍由 Lead 审核，Git 范围由程序强制检查。
 `-AllowUnverifiedRuntime` 只放宽 CLI 版本，不放宽模型路由、协议、范围或审查；运行记录标记 `UNVERIFIED_RUNTIME`。
 
 L0 不建立 run。L1 单 Worker；L2 按 DAG 并行调度；L3 可由 Worker 使用 DSH 原生

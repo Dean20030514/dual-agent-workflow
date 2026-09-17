@@ -84,6 +84,28 @@
         "minLength": 1
       }
     },
+    "verification": {
+      "type": "object",
+      "properties": {"preferred": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}},
+      "required": ["preferred"], "additionalProperties": false
+    },
+    "guidance": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "write_scope_policy": {
+      "type": "object", "properties": {"mode": {"const": "conflict_files_plus_explicit_glue_scope"}},
+      "required": ["mode"], "additionalProperties": false
+    },
+    "may_change_interfaces": {"type": "boolean", "const": false},
+    "may_change_acceptance": {"type": "boolean", "const": false},
+    "may_change_tests": {
+      "type": "object",
+      "properties": {"allowed": {"const": true}, "only_if": {
+        "type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true,
+        "items": {"enum": ["integration_broke_valid_test", "adaptation_to_approved_contract"]}
+      }},
+      "required": ["allowed", "only_if"], "additionalProperties": false
+    },
+    "forbidden": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "escalate_if": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
     "escalation_triggers": {
       "type": "array",
       "items": {
@@ -102,7 +124,10 @@
     "default_write_scope",
     "subagents",
     "critical_triggers",
-    "escalation_triggers"
+    "escalation_triggers", "verification", "guidance"
   ],
+  "allOf": [{"if": {"properties": {"role_id": {"const": "integration"}}}, "then": {
+    "required": ["write_scope_policy", "may_change_interfaces", "may_change_acceptance", "may_change_tests", "forbidden", "escalate_if"]
+  }}],
   "additionalProperties": false
 }

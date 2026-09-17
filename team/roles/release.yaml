@@ -1,10 +1,14 @@
 schema_version: 1
 role_id: release
-display_name: release Worker
-capabilities: [release]
+display_name: 发布工程
+capabilities: ["release","packaging","versioning","artifact-integrity"]
 default_permissions: {shell: true, network: false, secrets: false, production: false}
-default_read_scope: ["src/**", "tests/**", "docs/**"]
-default_write_scope: ["src/**", "tests/**", "docs/**"]
+default_read_scope: ["scripts/**","tools/**","docs/**","tests/**"]
+default_write_scope: ["scripts/**","tools/**","docs/**"]
+verification:
+  preferred: ["package-integrity","smoke","compatibility"]
 subagents: {allowed: false, max_depth: 0}
-critical_triggers: [auth_boundary_change]
-escalation_triggers: [production_access_required, real_secret_required]
+critical_triggers: ["deployment_boundary_change"]
+escalation_triggers: [production_access_required, real_secret_required, destructive_operation, mutually_exclusive_business_decision]
+guidance:
+  - "Verify versions, package contents, checksums, and rollback instructions; distinguish artifact preparation from authorized publishing."

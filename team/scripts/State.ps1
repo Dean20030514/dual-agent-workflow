@@ -66,6 +66,9 @@ function New-TeamRun($Plan, $Manifest, [string]$Repo, [string[]]$Order, [string]
     [IO.Directory]::CreateDirectory($directory) | Out-Null
     Write-TeamData (Join-Path $directory 'plan.yaml') $Plan
     Write-TeamData (Join-Path $directory 'manifest.yaml') $Manifest
+    foreach ($roleId in @($Plan.tasks.role | Sort-Object -Unique)) {
+        Write-TeamData (Join-Path $directory "roles/$roleId.yaml") (Get-TeamRole $roleId)
+    }
     New-DshPatch (Join-Path $directory 'worker.patch.yaml')
     $base = Invoke-TeamGit $Repo @('rev-parse','HEAD')
     $state = @{

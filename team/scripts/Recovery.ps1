@@ -51,7 +51,7 @@ function Assert-TeamRecovery($State, $Plan, [string]$Directory) {
         $taskDirectory = Get-TeamChild $Directory "tasks/$id/attempt-$($item.attempts)"
         if ($item.directory -cne $taskDirectory) { Stop-TeamError 80 'Task attempt directory mismatch' }
         $packet = Read-TeamData (Join-Path $taskDirectory 'task.yaml')
-        Test-TeamSchema $packet 'task'
+        Test-TeamTask $packet
         $expected = Get-TeamChild $State.repo ".worktrees/$($State.run_id)-$id-$($packet.role.id)-a$($item.attempts)"
         if ($item.worktree -cne $expected -or $packet.base_sha -cne $item.base_sha -or $packet.task_id -cne $id -or $packet.run_id -cne $State.run_id) {
             Stop-TeamError 80 'Task worktree or packet identity mismatch'

@@ -11,7 +11,9 @@ function Stop-TeamError([int]$Code, [string]$Message) {
 
 function Read-TeamData([string]$Path) {
     try {
-        $raw = [IO.File]::ReadAllText([IO.Path]::GetFullPath($Path))
+        $stream = [IO.File]::Open([IO.Path]::GetFullPath($Path), 'Open', 'Read', ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+        $reader = [IO.StreamReader]::new($stream, [Text.Encoding]::UTF8, $true)
+        try { $raw = $reader.ReadToEnd() } finally { $reader.Dispose() }
         if ($raw.TrimStart().StartsWith('{') -or $raw.TrimStart().StartsWith('[')) {
             return ConvertFrom-Json -InputObject $raw -AsHashtable -Depth 100
         }
@@ -26,7 +28,13 @@ function Write-TeamData([string]$Path, $Value) {
     $temp = Join-Path $parent ('.atomic-' + [guid]::NewGuid().ToString('N'))
     try {
         [IO.File]::WriteAllText($temp, ($Value | ConvertTo-Json -Depth 100) + "`n", [Text.UTF8Encoding]::new($false))
-        [IO.File]::Move($temp, [IO.Path]::GetFullPath($Path), $true)
+        # Windows readers outside our control may omit FileShare.Delete. Retry only a bounded
+        # sharing window; persistent ACL/read-only failures still surface with the old file intact.
+        for ($attempt=0; ; $attempt++) {
+            try { [IO.File]::Move($temp, [IO.Path]::GetFullPath($Path), $true); break }
+            catch [IO.IOException] { if ($attempt -ge 8) { throw }; Start-Sleep -Milliseconds 25 }
+            catch [UnauthorizedAccessException] { if ($attempt -ge 8) { throw }; Start-Sleep -Milliseconds 25 }
+        }
     } finally { if (Test-Path -LiteralPath $temp) { [IO.File]::Delete($temp) } }
 }
 
@@ -132,12 +140,15 @@ function New-TeamProcess([string]$Executable, [string[]]$Arguments, [string]$Dir
 }
 
 function Close-TeamProcess($Handle, [switch]$Terminate) {
+    if ($Handle['closed']) { return $Handle.exit_code }
     if ($Terminate -and -not $Handle.process.HasExited) { $Handle.process.Kill($true) }
     $Handle.process.WaitForExit()
-    try { $null = $Handle.out_copy.GetAwaiter().GetResult(); $null = $Handle.err_copy.GetAwaiter().GetResult() }
-    finally { $Handle.out_stream.Dispose(); $Handle.err_stream.Dispose() }
     $code = $Handle.process.ExitCode
-    $Handle.process.Dispose()
+    try { $null = $Handle.out_copy.GetAwaiter().GetResult(); $null = $Handle.err_copy.GetAwaiter().GetResult() }
+    finally {
+        $Handle.out_stream.Dispose(); $Handle.err_stream.Dispose()
+        $Handle['exit_code']=$code; $Handle['closed']=$true; $Handle.process.Dispose()
+    }
     return $code
 }
 

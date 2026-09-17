@@ -10,6 +10,18 @@ function New-TeamWorktree([string]$Repo, [string]$RunId, [string]$TaskId, [strin
 }
 
 function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory) {
+    if ($Task.role -eq 'integration') {
+        if (-not $State.Contains('repairs') -or -not $State.repairs.Contains($Task.id)) {
+            Stop-TeamError 10 'Integration workers must be generated from a recorded integration conflict'
+        }
+        $repair = $State.repairs[$Task.id]
+        if ($repair['write_scope'] -and @(Compare-Object @($repair.write_scope | Sort-Object) @($Task.write_scope | Sort-Object)).Count) {
+            Stop-TeamError 82 'Integration task scope differs from its recorded conflict and glue decision'
+        }
+    }
+    $rolePath = Join-Path $Directory "roles/$($Task.role).yaml"
+    if (-not (Test-Path -LiteralPath $rolePath)) { Write-TeamData $rolePath (Get-TeamRole $Task.role) }
+    $role = Get-TeamRole $Task.role $Directory
     $allowChildren = $Task.subagents.allowed -and $State.known_cost -lt $Manifest.budget.soft_limit
     $reservation = if ($allowChildren) { 3 } else { 1 }
     if (($State.agents_created + $State.agents_reserved + $reservation) -gt $Manifest.budget.max_agents_per_run) { Stop-TeamError 70 'Cumulative agent budget reached' }
@@ -26,13 +38,13 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory) {
     $item.directory = Get-TeamChild $Directory "tasks/$($Task.id)/attempt-$($item.attempts)"
     [IO.Directory]::CreateDirectory($item.directory) | Out-Null
     $packet = @{
-        schema_version = 1; run_id = $State.run_id; task_id = $Task.id; role = @{ id = $Task.role }
+        schema_version = 1; run_id = $State.run_id; task_id = $Task.id; role = @{ id = $Task.role; definition = $role }
         objective = $Task.objective; dependencies = $Task.dependencies; permissions = $Task.permissions
         write_scope = $Task.write_scope; acceptance = $Task.acceptance; subagents = @{allowed=$allowChildren;max_depth=$(if ($allowChildren) {2} else {0})}
         verification = $Task.verification
         base_sha = $base; result_schema = 'team/schemas/result.schema.json'
     }
-    Test-TeamSchema $packet 'task'
+    Test-TeamTask $packet
     $taskPath = Join-Path $item.directory 'task.yaml'
     Write-TeamData $taskPath $packet
     $item['reserved'] = $reservation

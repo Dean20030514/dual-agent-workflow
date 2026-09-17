@@ -1,3 +1,41 @@
+function Get-TeamRole([string]$Id, [string]$Directory = '') {
+    Assert-TeamId $Id
+    $path = if ($Directory) { Join-Path $Directory "roles/$Id.yaml" } else { Join-Path $script:TeamRoot "roles/$Id.yaml" }
+    if (-not (Test-Path -LiteralPath $path)) { Stop-TeamError 10 "Unknown role: $Id" }
+    $role = Read-TeamData $path
+    Test-TeamSchema $role 'role'
+    if ($role.role_id -cne $Id) { Stop-TeamError 10 'Role filename and identity differ' }
+    return $role
+}
+
+function Test-TeamTask($Packet) {
+    Test-TeamSchema $Packet 'task'
+    # Historical packets contain only the ID. New dispatches always include the frozen definition.
+    if ($Packet.role['definition']) {
+        Test-TeamSchema $Packet.role.definition 'role'
+        if ($Packet.role.definition.role_id -cne $Packet.role.id) { Stop-TeamError 10 'Task role definition identity mismatch' }
+    }
+}
+
+function Read-TeamWorkerOutput([string]$Path) {
+    $raw = [IO.File]::ReadAllText($Path).Trim()
+    $candidates = @([regex]::Matches($raw, '(?m)^[\t ]*\{'))
+    foreach ($match in $candidates) {
+        try { $value = ConvertFrom-Json $raw.Substring($match.Index) -AsHashtable -Depth 100 -ErrorAction Stop }
+        catch { continue }
+        if ($value -isnot [Collections.IDictionary]) { continue }
+        # O2 headless output can prepend a plain final-message sentence. Accept one terminal
+        # JSON object only; earlier JSON-looking records make the response ambiguous.
+        $prefix = $raw.Substring(0,$match.Index).Trim()
+        if ($prefix -match '(?m)^[\t ]*[\{\[]' -or $prefix -match '```') {
+            Stop-TeamError 10 'Ambiguous worker stdout contains multiple structured records or a fenced preamble'
+        }
+        Test-TeamSchema $value 'result'
+        return @{packet=$value;format=$(if ($prefix) {'plain-prefix-final-json'} else {'json'});stdout_sha256=(Get-TeamHash $Path)}
+    }
+    Stop-TeamError 10 'Worker stdout does not end with one valid JSON Result Packet'
+}
+
 function Test-TeamPlan($Plan, $Manifest) {
     Test-TeamSchema $Manifest 'manifest'
     Test-TeamSchema $Plan 'team-plan'
@@ -18,9 +56,10 @@ function Test-TeamPlan($Plan, $Manifest) {
     foreach ($task in $Plan.tasks) {
         if ($ids.ContainsKey($task.id)) { Stop-TeamError 10 "Duplicate task: $($task.id)" }
         $ids[$task.id] = $task
-        $rolePath = Join-Path $script:TeamRoot "roles/$($task.role).yaml"
-        if (-not (Test-Path -LiteralPath $rolePath)) { Stop-TeamError 10 "Unknown role: $($task.role)" }
-        Test-TeamSchema (Read-TeamData $rolePath) 'role'
+        $role = Get-TeamRole $task.role
+        if ($task.role -eq 'integration' -and ($task.permissions.network -or $task.permissions.secrets -or $task.permissions.production)) {
+            Stop-TeamError 10 'Integration role cannot request network, secrets, or production access'
+        }
         foreach ($scope in $task.write_scope) {
             if ($scope -match '(^/|\\|:|(^|/)\.\.(/|$)|(^|/)\.git(/|$))' -or $scope -in @('*','**','**/*')) {
                 Stop-TeamError 10 "Unsafe or unbounded write scope: $scope"

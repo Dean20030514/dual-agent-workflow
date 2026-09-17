@@ -1,10 +1,14 @@
 schema_version: 1
 role_id: frontend
-display_name: frontend Worker
-capabilities: [frontend]
+display_name: 前端工程
+capabilities: ["frontend","client-state","api-consumption"]
 default_permissions: {shell: true, network: false, secrets: false, production: false}
-default_read_scope: ["src/**", "tests/**", "docs/**"]
-default_write_scope: ["src/**", "tests/**", "docs/**"]
-subagents: {allowed: false, max_depth: 0}
-critical_triggers: [auth_boundary_change]
-escalation_triggers: [production_access_required, real_secret_required]
+default_read_scope: ["src/**","tests/**","docs/**"]
+default_write_scope: ["src/**","tests/**"]
+verification:
+  preferred: ["unit","typecheck","browser-flow"]
+subagents: {allowed: true, max_depth: 2}
+critical_triggers: ["auth_boundary_change"]
+escalation_triggers: [production_access_required, real_secret_required, destructive_operation, mutually_exclusive_business_decision]
+guidance:
+  - "Handle duplicate actions, stale responses, cancellation, and failed-request recovery against the approved API."

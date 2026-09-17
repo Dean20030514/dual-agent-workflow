@@ -16,6 +16,7 @@
     "role": {
       "type": "object",
       "properties": {
+        "definition": {"type": "object"},
         "id": {
           "type": "string",
           "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$"

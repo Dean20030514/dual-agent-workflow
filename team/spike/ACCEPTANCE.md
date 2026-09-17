@@ -56,3 +56,18 @@ Worker 完成后第二次 resume 到 REVIEW，attempts=1、agents_created=1，�
 与 Result 相符；父 Worker 的 SQL 提交、外部验证和集成回归 exit 0，COMPLETED。
 fork 子会话 isSeeded=false（首次回合没有已完成前缀），不宣称非空上下文继承已验收。
 两个新 run 的 SHA、实际 session 和日志哈希见 VERIFIED_VERSIONS；真实 run 不替代业务数据库测试。
+
+# 第五批：领域角色与真实冲突修复
+
+最终 `team/tests` 完整回归 **55 passed / 0 failed**，exit 0；native guard **5 passed**，exit 0。
+19 个角色均包含领域能力、默认范围、验证建议、升级条件和指导；run/Task Packet 保存冻结定义。
+合同测试拒绝角色身份错配、集成角色扩权及没有冲突记录的集成 Worker；L2/L3 冲突用例均通过，L3 不再被修复计划降级。
+早期回归曾暴露 Windows 原子替换被读取句柄短暂阻止，保留了该失败；现读取允许 delete sharing，写入对共享冲突有界重试，
+永久拒绝仍失败并保留旧文档。进程关闭可重复调用，不再以二次清理错误覆盖原始退出码。
+
+真实 `ROLES-NATIVE-006`：backend/frontend 各自提交一个兼容 JSON 字段，原生 Worker 收到新角色合同。
+首次 stdout 说明前缀导致 adapter 拒绝（exit 10），原文回放证明问题后增加唯一末尾 JSON 提取，
+显式 replan 保留失败 attempt，再次运行通过；多份 JSON、无效 JSON 和无效 schema 仍被拒绝。
+真实 add/add 冲突返回 81；Lead Decision Log 保留双方字段，受限 Integration Worker 从已接受 checkpoint 启动，
+修复后 Git 范围/源提交祖先/外部验证/最终双字段回归均通过，run=COMPLETED、main 未改变。
+这证明的是角色协议与集成执行链路；JSON fixture 不是实际前后端应用的业务验收。

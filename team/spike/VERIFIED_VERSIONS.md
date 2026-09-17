@@ -49,3 +49,16 @@ root `session-452a4934-cf5b-4196-8b3b-ecc2f96a5c69`；child `e8c66848-b030-432b-
 只导出工具名/ID和 session metadata，未导出推理或工具参数；证据在该 run 的 `native-fork-evidence.json`。
 边界：首次 headless 回合没有已完成的父回合前缀，native fork 按其实现创建 isSeeded=false 的子会话；
 此验收证明 fork 工具和交付链路可用，不证明非空历史继承。非空前缀行为仍需单独验收。
+
+真实角色/冲突集成 `ROLES-NATIVE-006`（同一临时仓库/base，最终 revision 3）：
+backend commit `0e44879bcddf4a23880b3dbdd5cc0403a5798764`，frontend commit `3d0237fb430024ad7bfe9b78380613c18b1b6b57`。
+两者均收到冻结角色定义并通过外部验证；合并同一 JSON 的两个字段产生真实 add/add 冲突，exit 81。
+Integration Worker 从已合并 backend 的 checkpoint `eba88c44e56c961c74909aeebda838316acff82b` 启动，
+repair commit `fbdc520a4b2cc342ff96850e6f0c54cac8c6bbcc` 包含 frontend 源提交祖先，且只改 `contracts/components.json`。
+最终 integration `7b735242243d545681a547ea706760016ac02af9`；完整计划验证 backend/frontend 两个布尔值同时为 true，exit 0，COMPLETED。
+三个成功 Worker 的实际 session：`session-5e4c7161-3035-4637-8579-64c3967b2540`、
+`session-ac4ce94e-5791-4285-9ff5-cf949edbc8ba`、`session-d3fcf08d-8a90-4af6-a96a-b90ea47b6a19`。
+首次 frontend stdout 在合法 JSON 前带说明句，被原严格正文适配器拒绝；原文 SHA-256
+`4eb370051ff1d77577976f15b160e1009632768d4b0f2bddb42500fc8fc62a5f`。
+适配器修正后对该原文回放成功，并通过显式 replan 重跑受影响任务；失败 attempt-1 全部保留，累计计入 5 个 Agent。
+测试仓库 main 仍为 `61cfe04a9153189eede41c974d0062508dcde908`，调用者工作树干净；未部署业务系统。

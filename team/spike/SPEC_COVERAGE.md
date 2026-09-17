@@ -9,13 +9,13 @@
 |---|---|---|
 | 0–4 架构、自治、Ground Truth、角色 | 原生 Codex/DSH、PS 控制面、Git/外部验证、SHA 验收 | 图中的 DSH Local Review 尚无独立执行阶段 |
 | 5 逻辑别名、版本 pin、override | manifest、Preflight；真实 doctor 与错误版本 fixture | 当前只认证精确版本，未宣称更宽区间 |
-| 6 复用质量规则 | EXISTING_INTEGRATION_MAP、review-mapping | Review 的计数/硬停仍需逐条对齐母本规则，不能仅凭 gate 接线宣称完整复用 |
+| 6 复用质量规则 | EXISTING_INTEGRATION_MAP、review-mapping | 目前按 stage/task 计数；需对齐母本的修复轮聚合、9A/9B 不重复计数、逐问题归因和 early-stop |
 | 7–9 能力 Spike、降级矩阵 | 8 份 Spike 文档；L1/L2、fresh child、fork 入口、Critical 真实验收 | fork 非空上下文继承、能力矩阵与 L3 准入对应关系仍需补齐 |
 | 10–13 L0–L3、纯本地 route、misroute | Core/Preflight、4 固定路由 fixture、连续 3 次降级 | route 尚未结合仓库 metadata；降级状态对 Lead 的通知及重新验证入口需复核 |
 | 14–16 计划与分阶段上下文发现 | Lead policy 明确顺序和最多 2 次修复 | 无效计划 exit 10 已有；`plan_invalid` 命名事件尚缺 |
 | 17 Team Plan、DAG | team-plan schema、Contracts、真实 Git 的 DAG fixture | 无 |
-| 18–19 19 种角色与 role schema | 19 文件存在且校验 | 多数模板能力仍为同名占位；缺 preferred verification，Worker 尚未收到角色专属指导 |
-| 20 Integration 约束 | Conflict 生成冲突文件+显式 glue、Decision Log、祖先检查 | 完整角色合同未进入 schema/packet；接口/测试语义限制仍主要依靠提示和 Lead |
+| 18–19 19 种角色与 role schema | 19 种领域能力/验证建议/指导；run 冻结定义，Task Packet 携带；真实 backend/frontend Worker 已验收 | 默认值是规划建议，不扩张具体 Task 的有效权限 |
+| 20 Integration 约束 | 完整角色合同进入 schema/packet；必须来自已记录冲突并绑定 scope；真实 Integration Worker 保留双方合同 | 接口/测试的语义判断由 Lead 审核，机械门负责范围和源提交祖先关系 |
 | 21–22 子 Agent 权限/深度/三种限额 | native guard 准入、实际创建记录、Result/Git 审计 | 权限为声明+原生继承，非 OS 沙箱；全局并发采取家族保守预留，尚无真实多 Worker+子 Agent 联合验收 |
 | 23–25 worktree/base/cleanup | 冻结 base、依赖从集成 SHA、MERGED 清理；Git fixture | DISCARDED 生命周期/清理尚缺 |
 | 26–30 Packet、范围、启动 | schemas、adapter、Git diff 范围审计；真实 L1 | `scope_violation` 专属事件尚缺；DSH 启动前失败重试一次尚缺 |
@@ -26,7 +26,7 @@
 | 39 硬停 | hard_stop、ESCALATED、禁止下游 | 既有 Fix-Loop 全部判据对齐仍未完成 |
 | 40 验证顺序 | self-check→Git→外部命令→review→accept | 无 |
 | 41–43 集成/定位/rollback | DAG merge、逐次 checkpoint/回归、最后 checkpoint revert | 多 checkpoint 连续回滚与失败定位任务生成尚缺；当前只支持最近 merge |
-| 44 失败目录 | 大多数错误有统一出口，代码模块对应下表 | 启动重试一次、重复同因验证失败升级尚缺；需补逐条故障注入 |
+| 44 失败目录 | 大多数错误有统一出口，代码模块对应下表 | 启动重试一次、重复同因验证失败升级尚缺；Worker 的 escalated Result 目前仍映射为普通失败，需接入升级文件 |
 | 45 返回码 | team.ps1 统一 0/10/20/30/31/40/50/60/70/80/81/82/90 | 需确保异常恢复分支不会把可诊断错误误记 90 |
 | 46、71 费用软/硬限制 | Controls 收据队列；dispatch 与 native guard 动态读取 | 原生账单仍未知，人工录入有时间差；不得把 unknown usage 宣称为金额硬上限保证 |
 | 47–48 观察命令/watch | status/watch/escalations/cost/logs，Json、Since、Task、Follow | 终止/过滤语义仍需专门 CLI 验收 |
@@ -34,7 +34,7 @@
 | 51 disabled | run/resume/repair 拒绝，route 返回 L0、Lead hook | 其他执行命令对 disabled 的一致处理需补齐 |
 | 52–53 单 run、锁 | coordinator 排他文件句柄、持久 run 锁、terminal stale repair；禁止 linked worktree 另建 run | 当前只允许主仓库根目录作为控制根，linked worktree 内调用必须显式指向主根目录 |
 | 54–57 Lead、AGENTS、既有规则映射 | root/codex AGENTS hook、Lead policy、Case B/map | 未部署本机全局副本；项目契约优先 |
-| 58–59 QUICKSTART/首条链路 | QUICKSTART，真实 SQL-SMOKE-001 | Quickstart 尚需完整决策矩阵/内联 Result 示例 |
+| 58–59 QUICKSTART/首条链路 | QUICKSTART 含能力矩阵、Task/Result 示例及操作链路，真实 SQL-SMOKE-001 | 无 |
 | 60–69 Phase 0–8 | 单/双 Worker、worktree、验证、fresh/fork 子 Agent、Critical 有真实证据；coordinator crash 为真实进程+替身模型；doctor.route 含 input/output/exit axes | 真实多 Worker 的依赖串接、真实模型 crash/replan 组合仍待验 |
 | 70 A–T 验收矩阵 | 见下方明细 | 未完成项不得用相邻测试替代 |
 | 72 资源约束 | 4/6/10、timeout/idle/log、worktree 12 | 验证/审查日志大小限制、worktree cap 的所有创建路径需补齐 |
@@ -62,7 +62,7 @@
 | Invoke-Replan / Stop-Worker | Recovery.ps1 的 Invoke-TeamReplan / Stop-TeamOwnedProcesses |
 | Resume-TeamRun / Remove-Worktree | Integration.ps1 的 Resume-TeamRun / Remove-TeamWorktrees |
 
-MVP A–T 的证据层级：A–D 路由为本地真实函数；E/O 合并冲突为真实 Git + 替身 Worker；
+MVP A–T 的证据层级：A–D 路由为本地真实函数；E/O 含真实 Git + 替身 Worker，以及 ROLES-NATIVE-006 的真实 DSH 集成 Worker；
 F 生产删除只注入声明并验证硬停，不执行生产删除；G/T 错误路由/版本为替身 preflight；
 H 进程 timeout 有机械测试，完整超时→replan 仍待验；I 已实际终止 coordinator，保留替身 Worker，验证存活时拒绝恢复、结束后接续且无重复派发；
 J 子 Agent 越权由静态/机械 guard 与 Git 审计测试覆盖，未宣称对抗式 OS 安全；

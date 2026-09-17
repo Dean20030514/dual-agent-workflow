@@ -10,6 +10,7 @@ $guard = @($patch | Where-Object { $_.ContainsKey('insert') })[0].insert[0].conf
 $prompt = $args[-1]
 $packet = ($prompt -split 'Task packet:',2)[1] -split 'Result schema:',2
 $task = $packet[0] | ConvertFrom-Json -AsHashtable
+if (-not $task.role.definition -or $task.role.definition.role_id -cne $task.role.id) { exit 7 }
 if ($task.role.id -eq 'integration') {
     $sourceCommit = [regex]::Match($task.objective[0], '[a-f0-9]{40}').Value
     git merge --no-ff --no-edit $sourceCommit 2>$null | Out-Null

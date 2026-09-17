@@ -1,10 +1,14 @@
 schema_version: 1
 role_id: devops
-display_name: devops Worker
-capabilities: [devops]
+display_name: 开发运维
+capabilities: ["devops","build","ci","deployment-config"]
 default_permissions: {shell: true, network: false, secrets: false, production: false}
-default_read_scope: ["src/**", "tests/**", "docs/**"]
-default_write_scope: ["src/**", "tests/**", "docs/**"]
+default_read_scope: ["tools/**","scripts/**",".github/**","docs/**","tests/**"]
+default_write_scope: ["tools/**","scripts/**",".github/**","docs/**"]
+verification:
+  preferred: ["config-validation","build","deployment-rehearsal"]
 subagents: {allowed: false, max_depth: 0}
-critical_triggers: [auth_boundary_change]
-escalation_triggers: [production_access_required, real_secret_required]
+critical_triggers: ["deployment_boundary_change"]
+escalation_triggers: [production_access_required, real_secret_required, destructive_operation, mutually_exclusive_business_decision]
+guidance:
+  - "Make configuration failures diagnosable and reversible; do not infer authorization for deployment, service restarts, or global settings."

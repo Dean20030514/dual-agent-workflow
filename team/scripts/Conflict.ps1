@@ -22,7 +22,7 @@ function New-TeamIntegrationRepair($State, $Plan, $Manifest, [string]$Directory,
         subagents=@{allowed=$false;max_depth=0}
     }
     $next = $Plan | ConvertTo-Json -Depth 80 | ConvertFrom-Json -AsHashtable
-    $next.run.revision++; $next.mode='L2'; $next.tasks += $task
+    $next.run.revision++; if ($next.mode -eq 'L1') { $next.mode='L2' }; $next.tasks += $task
     $order = @(Test-TeamPlan $next $Manifest)
     # Preserve the failed merge's file list before aborting only our own integration merge.
     $null = Invoke-TeamGit $State.integration_worktree @('merge','--abort')
@@ -30,7 +30,7 @@ function New-TeamIntegrationRepair($State, $Plan, $Manifest, [string]$Directory,
     Write-TeamData (Join-Path $Directory "plan-revision-$($State.revision).yaml") $Plan
     Write-TeamData (Join-Path $Directory 'plan.yaml') $next
     if (-not $State.Contains('repairs')) { $State['repairs']=@{} }
-    $State.repairs[$id]=@{source_task=$sourceTask.id;source_commit=$source.commit}
+    $State.repairs[$id]=@{source_task=$sourceTask.id;source_commit=$source.commit;write_scope=$scope}
     $State.tasks[$id]=@{status='READY';attempts=0;commit='';pid=0;process_start='';directory='';worktree='';branch='';base_sha=''}
     $source.status='REPAIRING'; $State.revision=$next.run.revision; $State.replans++; $State.order=$order
     $State.plan_hash=Get-TeamHash (Join-Path $Directory 'plan.yaml'); $State.status='PAUSED'

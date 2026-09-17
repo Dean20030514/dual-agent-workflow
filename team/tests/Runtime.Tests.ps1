@@ -144,8 +144,9 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
             $r.code | Should -Be 0 -Because $r.raw; $r.data.status | Should -Be 'QUEUED'
             $r=Invoke-Cli @('report-cost','-Repo',$f.repo,'-Run','FIXTURE','-Amount',"$Amount",'-Evidence',$evidence,'-Json')
             $r.code | Should -Be 10 -Because $r.raw
-            Wait-TeamProcess $handle 25 | Should -Be 0
+            $workerExit=Wait-TeamProcess $handle 25
             $handle=$null
+            $workerExit | Should -Be 0 -Because ((Get-Content (Join-Path $TestDrive "cost-$Limit-out") -Raw) + (Get-Content (Join-Path $TestDrive "cost-$Limit-err") -Raw))
             $s=State $f; $s.status | Should -Be 'PAUSED'; $s.known_cost | Should -Be $Amount
             $s.tasks.T1.status | Should -Be 'REVIEW'; $s.tasks.T1.attempts | Should -Be 1
             $s.tasks.T2.status | Should -Be 'READY'; $s.tasks.T2.attempts | Should -Be 0
@@ -201,6 +202,12 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $r = Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
         $r.code | Should -Be 0 -Because $r.raw
         $s = State $f; $s.tasks.T1.status | Should -Be 'REVIEW'; $s.tasks.T2.status | Should -Be 'REVIEW'; $s.tasks.T3.status | Should -Be 'READY'
+        $packet=Read-TeamData (Join-Path $s.tasks.T1.directory 'task.yaml')
+        $packet.role.definition.capabilities | Should -Contain 'sql'
+        $packet.role.definition.verification.preferred | Should -Contain 'integration'
+        # Role defaults do not overwrite the task's exact assigned file or its L2 delegation limit.
+        $packet.write_scope | Should -Be @('files/T1.txt'); $packet.subagents.allowed | Should -BeFalse
+        (Read-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/roles/database.yaml')).role_id | Should -Be 'database'
         $s.tasks.T1.base_sha | Should -Be $f.base; $s.tasks.T2.base_sha | Should -Be $f.base
         (Invoke-TeamGit $f.repo @('rev-parse','main')) | Should -Be $f.base
         $r = Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 20
@@ -271,8 +278,10 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         (State $f).tasks.T2.status | Should -Be 'ACCEPTED'; (State $f).tasks.T2.commit | Should -Be $accepted
         (State $f).tasks.T1.status | Should -Be 'READY'
     }
-    It 'creates a bounded integration worker for a real merge conflict' {
+    It 'creates a bounded integration worker for a real merge conflict in <Mode>' -ForEach @(@{Mode='L2'},@{Mode='L3'}) {
         $f=New-RuntimeFixture 2
+        $f.plan.mode=$Mode
+        if ($Mode -eq 'L3') { $f.plan.tasks[0].subagents=@{allowed=$true;max_depth=2} }
         foreach ($task in $f.plan.tasks) {
             $task.write_scope=@('files/shared.txt')
             $task.verification[0].args=@('-NoProfile','-Command',"if (-not (Test-Path files/shared.txt)) { exit 1 }")
@@ -284,7 +293,13 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 81 -Because $r.raw
         $r=Invoke-Cli @('repair-integration','-Repo',$f.repo,'-Run','FIXTURE','-Reason','Resolve shared file against accepted contracts','-Json')
         $r.code | Should -Be 0 -Because $r.raw
+        (Read-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/plan.yaml')).mode | Should -Be $Mode
         $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $repair=(State $f).tasks['INTEGRATION-1']
+        $packet=Read-TeamData (Join-Path $repair.directory 'task.yaml')
+        $packet.role.definition.may_change_interfaces | Should -BeFalse
+        $packet.role.definition.may_change_acceptance | Should -BeFalse
+        $packet.role.definition.may_change_tests.only_if | Should -Contain 'adaptation_to_approved_contract'
         Accept-All $f
         $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
         $r.data.status | Should -Be 'COMPLETED'

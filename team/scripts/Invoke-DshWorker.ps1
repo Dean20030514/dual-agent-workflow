@@ -10,14 +10,21 @@ param(
     [int]$TimeoutSeconds = 3600
 )
 . (Join-Path $PSScriptRoot 'Core.ps1')
+. (Join-Path $PSScriptRoot 'Contracts.ps1')
 $directory = Split-Path $OutputFile -Parent
 $code = 30
 try {
     $task = Read-TeamData $TaskFile
-    Test-TeamSchema $task 'task'
+    Test-TeamTask $task
     $prompt = @"
 Execute the attached task packet using the DSH native harness. Read the target
 repository AGENTS.md first. The packet is the exact scope of this assignment.
+Use role.definition for domain guidance and preferred verification. Its default scopes
+and permissions are planning suggestions, never authorization to expand this packet's
+effective write_scope, permissions, acceptance, verification, or subagent limits.
+Integration role restrictions are mandatory: preserve approved interfaces and acceptance;
+adapt a test only for an integration break or an already-approved contract, never to
+hide a defect. Escalate a new business or architecture decision to the Lead.
 Do not modify main, other worktrees, runtime files, profiles, or credentials.
 Native subagents are permitted only if task.subagents.allowed is true. When allowed,
 use only native subagent/subagent_fork, at most two children total across this worker,
@@ -41,9 +48,9 @@ $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.js
     }
     $code = Wait-TeamProcess $handle $TimeoutSeconds
     if ($code -eq 0) {
-        $result = Read-TeamData (Join-Path $directory 'worker.stdout')
-        Test-TeamSchema $result 'result'
-        Write-TeamData $OutputFile $result
+        $parsed = Read-TeamWorkerOutput (Join-Path $directory 'worker.stdout')
+        Write-TeamData (Join-Path $directory 'result-source.json') @{format=$parsed.format;stdout_sha256=$parsed.stdout_sha256}
+        Write-TeamData $OutputFile $parsed.packet
     }
 } catch {
     $code = if ($_.Exception.Data.Contains('TeamExitCode')) { [int]$_.Exception.Data['TeamExitCode'] } else { 30 }

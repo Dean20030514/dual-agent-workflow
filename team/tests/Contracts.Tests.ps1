@@ -20,6 +20,25 @@ BeforeAll {
 }
 
 Describe 'Plan and routing contracts' {
+    It 'loads all role contracts and rejects integration authority expansion' {
+        $roles=@(Get-ChildItem (Join-Path $script:TeamPath 'roles') -Filter '*.yaml')
+        $roles.Count | Should -Be 19
+        foreach ($file in $roles) { $null = Get-TeamRole $file.BaseName }
+        $role=Get-TeamRole 'integration'; $role.may_change_interfaces=$true
+        Assert-Code { Test-TeamSchema $role 'role' } 10
+        $p=New-Plan; $p.tasks[0].role='integration'; $p.tasks[0].permissions.network=$true
+        Assert-Code { Test-TeamPlan $p $script:ManifestData } 10
+        Assert-Code { Start-TeamWorker @{repairs=@{}} @{id='UNOWNED';role='integration'} @{} $TestDrive } 10
+    }
+    It 'rejects a packet whose domain contract differs from the assigned role' {
+        $plan=New-Plan; $task=$plan.tasks[0]
+        $packet=@{schema_version=1;run_id=$plan.run.id;task_id=$task.id;role=@{id='database';definition=(Get-TeamRole 'backend')};objective=$task.objective;
+            dependencies=$task.dependencies;permissions=$task.permissions;write_scope=$task.write_scope;acceptance=$task.acceptance;
+            subagents=$task.subagents;base_sha=('a'*40);result_schema='result.schema.json';verification=$task.verification}
+        Assert-Code { Test-TeamTask $packet } 10
+        $packet.role.definition=Get-TeamRole 'database'
+        Test-TeamTask $packet
+    }
     It 'accepts the real YAML fixture' {
         @(Test-TeamPlan (New-Plan) $script:ManifestData) | Should -Be @('SQL-001')
     }
@@ -101,7 +120,18 @@ Describe 'Persistence, process and repository guards' {
         Set-Content -LiteralPath $scriptPath -Value 'param([string]$Value) Write-Output $Value; exit 7'
         $handle = New-TeamProcess $scriptPath @('-Value','spaces $() ` quotes " 中文') $TestDrive (Join-Path $TestDrive 'out') (Join-Path $TestDrive 'err')
         Wait-TeamProcess $handle 10 | Should -Be 7
+        Close-TeamProcess $handle -Terminate | Should -Be 7
         (Get-Content -LiteralPath (Join-Path $TestDrive 'out') -Raw).Trim() | Should -Be 'spaces $() ` quotes " 中文'
+    }
+    It 'retains the original document when a reader persistently denies replacement' {
+        $path=Join-Path $TestDrive 'held-state.json'; Write-TeamData $path @{value='before'}
+        $reader=[IO.File]::Open($path,'Open','Read','Read')
+        try { { Write-TeamData $path @{value='after'} } | Should -Throw }
+        finally { $reader.Dispose() }
+        (Read-TeamData $path).value | Should -Be 'before'
+        Write-TeamData $path @{value='after'}
+        (Read-TeamData $path).value | Should -Be 'after'
+        @(Get-ChildItem -LiteralPath $TestDrive -Filter '.atomic-*').Count | Should -Be 0
     }
     It 'maps a real external verification failure to 40' {
         $command = @{id='red';executable='pwsh';args=@('-NoProfile','-Command','exit 9');timeout_seconds=10}
@@ -144,6 +174,21 @@ Describe 'Git-backed result audit' {
     }
     It 'accepts a result bound to real clean Git changes' {
         (Read-WorkerResult $script:Item $script:TaskData 'R1').commit | Should -Be $script:Head
+    }
+    It 'extracts one terminal Result Packet from plain stdout while rejecting ambiguous or invalid output' {
+        $path=Join-Path $script:ResultDir 'worker.stdout'
+        $json=$script:ResultData | ConvertTo-Json -Depth 30
+        [IO.File]::WriteAllText($path,"Checks completed.`n`n$json")
+        $parsed=Read-TeamWorkerOutput $path
+        $parsed.format | Should -Be 'plain-prefix-final-json'
+        $parsed.packet.git.commit | Should -Be $script:Head
+        $parsed.stdout_sha256 | Should -Be (Get-TeamHash $path)
+        [IO.File]::WriteAllText($path,"$json`n$json")
+        Assert-Code { Read-TeamWorkerOutput $path } 10
+        [IO.File]::WriteAllText($path,"Checks completed.`n{bad json}")
+        Assert-Code { Read-TeamWorkerOutput $path } 10
+        [IO.File]::WriteAllText($path,"Checks completed.`n{`"status`":`"completed`"}")
+        Assert-Code { Read-TeamWorkerOutput $path } 10
     }
     It 'detects out-of-scope committed files even if omitted from result' {
         Set-Content -LiteralPath (Join-Path $script:Fixture 'secret.txt') -Value 'fixture-only'
