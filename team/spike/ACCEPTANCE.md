@@ -120,3 +120,25 @@ Team 完整回归 **78 passed / 0 failed**，exit 0（468.21 秒）；检查点�
 run=COMPLETED、failure=resolved；main 不变，T2 commit/attempt 不变，原失败证据哈希不变。
 这是原生修复链路验收，不声称初始 Author 为真实模型或业务质量已保证。
 具体 SHA、session、证据哈希见 VERIFIED_VERSIONS。漂移门 17 对/292 行、git diff --check 均通过。
+
+# 第九批：有界进程输出、启动重试及 worktree 配额
+
+Team 完整回归 **97 passed / 0 failed**，exit 0（575.29 秒）。随后补齐未显式传 manifest 的
+集成调用读取冻结配置，以及 post-start 错误的进程启动事实，受影响进程/CLI 测试重新执行
+**20 passed / 0 failed**，exit 0。最后把启动状态未知的 launch 收据明确存为 null（禁止重试），
+进程测试再次执行 **15 passed / 0 failed**，exit 0。分次结果不合称一次最终全量运行。
+native guard **5 passed / 0 failed**、派生漂移门 17 对/292 行、git diff --check 均 exit 0。
+
+真实本地子进程覆盖：第二个日志文件打不开时子进程未启动；快速结束和持续输出均保留有界前缀；
+stdout/stderr 分别截断；静默与大 stdin 不读取的超时；verdict 直接文件超限拒绝；
+验证未启动时实际进程退出码为 null。注入的首次未启动错误只重试一次，已启动和未知状态不重试；
+实际 adapter 在仅对该子进程隐藏 DSH 的 PATH 下写出两次失败收据，升级并释放未使用的 Agent 预留。
+CLI 反例覆盖 Worker、外部验证、9P、final 的 1 MiB 限制，均拒绝结果且保留日志；
+第 13 个 Worker/集成 worktree 在分支创建和 attempt 递增前拒绝。
+
+真实 `BOUNDED-NATIVE-010` 完成：一个 DSH Worker 只实现指定标签函数，包含空值/空白/中文的
+六条原合同由外部进程验证，Lead 检查真实 diff 并按 SHA 验收，随后集成和 final 均 exit 0。
+单日志上限设为 1 MiB，Worker stdout 1218 bytes、stderr 9631 bytes，启动一次且无重试，
+run=COMPLETED、main 不变且干净。真实模型证明正常传输链路，超限/重试故障仍由前述进程及替身测试证明。
+未重复调用 Codex 模型；独立审查限额本批为替身 CLI 接线验收。
+直接 verdict 文件只受轮询检查；退出父进程的后代持有管道时的收尾边界仍在 SPEC_COVERAGE 中保留。

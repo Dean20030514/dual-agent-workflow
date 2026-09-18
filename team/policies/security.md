@@ -3,6 +3,16 @@
 强制：schema、DAG、版本 pin、实际 native 创建模型路由、Agent 数量/深度/cwd、
 Git 范围审计、Result 身份、进程超时、单 Run 锁、SHA 验收、外部验证、fresh 审查。
 
+Worker、adapter、外部验证及 Reviewer 的 stdout/stderr 在写入时按 manifest 的
+`max_single_log_mb` 截断（默认每个文件 50 MiB）；超限不接受结果，保留已写前缀。
+Reviewer 自行写出的 verdict 文件按相同上限轮询检查，超限拒绝审查；轮询期间可短暂超过上限，
+这不是直接文件写入的磁盘配额。验证/审查失败收据分别记录控制器结果、进程是否启动和实际退出码。
+stdin 异步发送，子进程不读输入也不能阻止控制器开始计时。
+
+启动器先创建日志，再启动进程。仅确认 DSH 从未启动时重试一次，每次写独立 launch 收据；
+进程已启动、已退出非零或启动结果不明确均不自动重启。两次未启动返回 30 并建立
+`worker_start_failure` 升级，释放未使用的 Agent 预留，等待显式决定和 replan。
+
 声明：Worker 的 shell/network/secrets/production 布尔值与细粒度 write_scope 不是 OS 沙箱。
 Worktree 只隔离 Git。DSH 原生子 Agent 继承父权限；guard 不能阻止同权限恶意 shell 访问其他目录。
 Git 审计会拒绝已提交越界、未提交和未跟踪改动，不能恢复已发生的外部副作用。

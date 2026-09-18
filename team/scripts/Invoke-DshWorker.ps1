@@ -7,12 +7,15 @@ param(
     [Parameter(Mandatory)][string]$OutputFile,
     [Parameter(Mandatory)][string]$Patch,
     [string]$Profile = 'headless',
-    [int]$TimeoutSeconds = 3600
+    [int]$TimeoutSeconds = 3600,
+    [int]$IdleTimeoutSeconds = 900,
+    [int]$MaxSingleLogMb = 50
 )
 . (Join-Path $PSScriptRoot 'Core.ps1')
 . (Join-Path $PSScriptRoot 'Contracts.ps1')
 $directory = Split-Path $OutputFile -Parent
 $code = 30
+$handle=$null; $startupExhausted=$false; $launchAttempts=0
 try {
     $task = Read-TeamData $TaskFile
     Test-TeamTask $task
@@ -41,12 +44,12 @@ $(Get-Content -LiteralPath $TaskFile -Raw)
 Result schema:
 $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.json') -Raw)
 "@
-    $dsh = (Get-Command dsh -ErrorAction Stop).Source
-    $handle = New-TeamProcess $dsh @('--profile',$Profile,'--patch',$Patch,$prompt) $Worktree (Join-Path $directory 'worker.stdout') (Join-Path $directory 'worker.stderr')
+    $handle = Start-TeamDshProcess $directory $Worktree @('--profile',$Profile,'--patch',$Patch,$prompt) ($MaxSingleLogMb * 1MB)
+    $launchAttempts=$handle.launch_attempts
     Write-TeamData (Join-Path $directory 'native-process.json') @{
         pid = $handle.process.Id; start = $handle.process.StartTime.ToUniversalTime().ToString('o')
     }
-    $code = Wait-TeamProcess $handle $TimeoutSeconds
+    $code = Wait-TeamProcess $handle $TimeoutSeconds $IdleTimeoutSeconds
     if ($code -eq 0) {
         $parsed = Read-TeamWorkerOutput (Join-Path $directory 'worker.stdout')
         Write-TeamData (Join-Path $directory 'result-source.json') @{format=$parsed.format;stdout_sha256=$parsed.stdout_sha256}
@@ -54,8 +57,11 @@ $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.js
     }
 } catch {
     $code = if ($_.Exception.Data.Contains('TeamExitCode')) { [int]$_.Exception.Data['TeamExitCode'] } else { 30 }
+    $startupExhausted=$_.Exception.Data['StartupExhausted'] -eq $true
+    if ($_.Exception.Data.Contains('LaunchAttempts')) { $launchAttempts=[int]$_.Exception.Data['LaunchAttempts'] }
     [Console]::Error.WriteLine($_.Exception.Message)
 } finally {
-    Write-TeamData (Join-Path $directory 'exit.json') @{ exit_code = $code; finished_at = [DateTime]::UtcNow.ToString('o') }
+    try { if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate } }
+    finally { Write-TeamData (Join-Path $directory 'exit.json') @{ exit_code=$code;startup_exhausted=$startupExhausted;launch_attempts=$launchAttempts;finished_at=[DateTime]::UtcNow.ToString('o') } }
 }
 exit $code

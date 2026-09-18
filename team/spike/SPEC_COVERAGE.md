@@ -18,7 +18,7 @@
 | 20 Integration 约束 | 完整角色合同进入 schema/packet；必须来自已记录冲突或回归，scope 绑定 conflict+显式 glue 决定；真实 Integration Worker 保留合同 | 接口/测试的语义判断由 Lead 审核，机械门负责范围和源提交祖先关系 |
 | 21–22 子 Agent 权限/深度/三种限额 | native guard 准入、实际创建记录、Result/Git 审计 | 权限为声明+原生继承，非 OS 沙箱；全局并发采取家族保守预留，尚无真实多 Worker+子 Agent 联合验收 |
 | 23–25 worktree/base/cleanup | 冻结 base、依赖从集成 SHA、MERGED 清理；Git fixture | DISCARDED 生命周期/清理尚缺 |
-| 26–30 Packet、范围、启动 | schemas、adapter、Git diff 范围审计、`scope_violation` 事件；真实 L1 | DSH 启动前失败重试一次尚缺 |
+| 26–30 Packet、范围、启动 | schemas、adapter、Git diff 范围审计、`scope_violation` 事件；真实 L1；确认未启动才重试一次，逐次 launch 收据及二次失败升级 | 重试为本地真实进程/故障注入验收，不声称模拟了原生服务端故障 |
 | 31–32 状态机、原子持久化 | State、Core 原子替换；state schema 约束任务状态、SHA、计数、恢复必填字段 | 各持久化步骤间的中断点尚未逐一注入 |
 | 33 恢复 | PID+UTC ticks、native PID、exit receipt、Result、Git、events、集成 checkpoint；实际终止 coordinator 后恢复通过 | 原生模型在 coordinator 崩溃后的长任务恢复尚未验收；checkpoint 落盘窗口自动协调尚待补齐 |
 | 34–35 受影响子图、修订、保留 ACCEPTED | Contracts/Recovery；fixture 保留无关 ACCEPTED | glob overlap 的候选集需补充交叉/传递边界测试 |
@@ -26,7 +26,7 @@
 | 39 硬停 | hard_stop、ESCALATED、禁止下游；连续两轮 yes 硬停优先于轮次出口；CLI 反例覆盖 | 硬停后新任务的重拆/架构批准仍属于人类决策，不自动清除 hard_stop |
 | 40 验证顺序 | self-check→Git→外部命令→review→accept | 无 |
 | 41–43 集成/定位/rollback | DAG merge、task/attempt/SHA 检查点历史；按受影响子图倒序/连续 revert；原失败与 probe 保留；生成 Regression Task 并接入 Integration Worker；隔离 CLI 和真实 DSH 修复验收 | probe 是定位线索，失败可能来自缺失功能；V1 不自动宣称因果或运行完整 git bisect |
-| 44 失败目录 | Worker escalated Result 经 Git 审计后升级，真实 ESCALATE-NATIVE-007 验收；跨 attempt 相同验证失败证据二次升级由 CLI fixture 覆盖 | 启动重试一次、Critical/重复 scope 违规升级尚缺；不同输出是否同因仍由 Lead 判断 |
+| 44 失败目录 | Worker escalated Result 经 Git 审计后升级，真实 ESCALATE-NATIVE-007 验收；跨 attempt 相同验证失败证据二次升级由 CLI fixture 覆盖；启动二次失败升级且不消费 Agent 计数 | Critical/重复 scope 违规升级尚缺；不同输出是否同因仍由 Lead 判断 |
 | 45 返回码 | team.ps1 统一 0/10/20/30/31/40/50/60/70/80/81/82/90 | 需确保异常恢复分支不会把可诊断错误误记 90 |
 | 46、71 费用软/硬限制 | Controls 收据队列；dispatch 与 native guard 动态读取 | 原生账单仍未知，人工录入有时间差；不得把 unknown usage 宣称为金额硬上限保证 |
 | 47–48 观察命令/watch | status/watch/escalations/cost/logs，Json、Since、Task、Follow | 终止/过滤语义仍需专门 CLI 验收 |
@@ -37,7 +37,7 @@
 | 58–59 QUICKSTART/首条链路 | QUICKSTART 含能力矩阵、Task/Result 示例及操作链路，真实 SQL-SMOKE-001 | 无 |
 | 60–69 Phase 0–8 | 单/双 Worker、worktree、验证、fresh/fork 子 Agent、Critical 有真实证据；coordinator crash 为真实进程+替身模型；doctor.route 含 input/output/exit axes | 真实多 Worker 的依赖串接、真实模型 crash/replan 组合仍待验 |
 | 70 A–T 验收矩阵 | 见下方明细 | 未完成项不得用相邻测试替代 |
-| 72 资源约束 | 4/6/10、timeout/idle/log、worktree 12 | 验证/审查日志大小限制、worktree cap 的所有创建路径需补齐 |
+| 72 资源约束 | 4/6/10；Worker/验证/审查 stdout 与 stderr 写入时有界；异步 stdin、timeout/idle；所有 Team worktree 创建路径共享 12 目录限制；真实进程与隔离 CLI 反例 | 直接 verdict 文件仅轮询上限；父进程退出后后代持有管道的 drain/清理边界仍需补齐，不宣称任意子进程树均已受控 |
 | 73–74 Claude 定位、Windows | 核心无 Claude；PowerShell 7，安装器保持 5.1 | 无 |
 | 75–77 目录、CLI、manifest | 文件/命令见下方映射 | 示例未逐字照搬：原生模型 ID 为已实测 deepseek-flash；脚本按职责合并 |
 | 78 风险登记 | security、OPEN_GAPS 和本表明确已知边界 | R4/R8/R11/R13 等随待办补验收 |

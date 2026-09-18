@@ -48,6 +48,68 @@ BeforeAll {
 AfterAll { $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'enforces the configured log cap through the <Surface> entry point' -ForEach @(@{Surface='worker'},@{Surface='verification'},@{Surface='review'},@{Surface='final'}) {
+        $f=New-RuntimeFixture
+        $config=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml'); $config.runtime.max_single_log_mb=1
+        $configPath=Join-Path $TestDrive 'bounded-manifest.json'; Write-TeamData $configPath $config
+        $flood=@('-NoProfile','-Command','[Console]::Out.Write("x" * 2MB)')
+        if ($Surface -eq 'worker') { $f.plan.tasks[0].objective=@('FLOOD') }
+        if ($Surface -eq 'verification') { $f.plan.tasks[0].verification[0].args=$flood }
+        if ($Surface -eq 'final') { $f.plan.verification.final[0].args=$flood }
+        if ($Surface -eq 'review') {
+            $f.plan.classification.level='critical'; $f.plan.review.require_9p=$true; $f.plan.review.require_fresh_9b=$true
+            $f.plan.tasks[0].objective=@('FIXTURE_REVIEW_FLOOD')
+        }
+        Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$configPath,'-Json')
+        if ($Surface -eq 'final') {
+            $r.code | Should -Be 0 -Because $r.raw
+            Accept-All $f
+            $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json')
+        }
+        $expected=switch ($Surface) {'worker' {31};'review' {50};default {40}}
+        $r.code | Should -Be $expected -Because $r.raw
+        $s=State $f
+        $s.status | Should -Not -Be 'COMPLETED'
+        if ($Surface -eq 'review') {
+            $attempt=Get-ChildItem (Join-Path $f.repo 'team/runtime/FIXTURE/reviews') -Filter 'attempt-*.json' | Select-Object -First 1
+            $receipt=Read-TeamData $attempt.FullName; $receipt.exit_code | Should -Be 31
+            $receipt.error | Should -Match 'output limit'
+            (Get-Item (Join-Path $receipt.holding 'events.jsonl')).Length | Should -Be 1MB
+            Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/reviews/9P.json') | Should -BeFalse
+            $s.tasks.T1.attempts | Should -Be 0
+        } else {
+            $log=switch ($Surface) {
+                'worker' {Join-Path $s.tasks.T1.directory 'worker.stdout'}
+                'verification' {Join-Path $s.tasks.T1.directory 'verification-exists.stdout'}
+                'final' {Join-Path $s.final_evidence_directory 'final-all.stdout'}
+            }
+            (Get-Item $log).Length | Should -Be 1MB
+            if ($Surface -eq 'worker') {
+                $exitReceipt=Read-TeamData (Join-Path $s.tasks.T1.directory 'exit.json')
+                $exitReceipt.exit_code | Should -Be 31; $exitReceipt.launch_attempts | Should -Be 1
+                $exitReceipt.startup_exhausted | Should -BeFalse
+            }
+        }
+        (Invoke-TeamGit $f.repo @('rev-parse','main')) | Should -Be $f.base
+    }
+    It 'applies the twelve-directory worktree cap before worker attempts or integration branches are created' {
+        $f=New-RuntimeFixture
+        foreach ($i in 1..12) { [IO.Directory]::CreateDirectory((Join-Path $f.repo ".worktrees/reserved-$i")) | Out-Null }
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 20 -Because $r.raw
+        (State $f).tasks.T1.attempts | Should -Be 0
+        (Invoke-TeamGit $f.repo @('branch','--list','codex/team/*')) | Should -BeNullOrEmpty
+        $g=New-RuntimeFixture
+        $r=Invoke-Cli @('run','-Repo',$g.repo,'-Plan',$g.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        Accept-All $g
+        foreach ($i in 1..11) { [IO.Directory]::CreateDirectory((Join-Path $g.repo ".worktrees/reserved-$i")) | Out-Null }
+        $r=Invoke-Cli @('integrate','-Repo',$g.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 20 -Because $r.raw
+        $s=State $g; $s.integration_worktree | Should -BeNullOrEmpty
+        $s.tasks.T1.status | Should -Be 'ACCEPTED'
+        $s.tasks.T1.attempts | Should -Be 1
+        (Invoke-TeamGit $g.repo @('branch','--list',$s.integration_branch)) | Should -BeNullOrEmpty
+        @(Get-ChildItem (Join-Path $g.repo '.worktrees') -Directory).Count | Should -Be 12
+    }
     It 'recovers after an actual coordinator process crash without duplicating its orphan worker' {
         $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('WAIT_FOR_RELEASE'); Write-TeamData $f.path $f.plan
         $handle=New-TeamProcess 'pwsh' @('-NoProfile','-File',(Join-Path $script:TeamPath 'scripts/team.ps1'),'run','-Repo',$f.repo,'-Plan',$f.path,'-Json') $f.repo (Join-Path $TestDrive 'crash-out') (Join-Path $TestDrive 'crash-err')

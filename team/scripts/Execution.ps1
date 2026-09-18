@@ -1,8 +1,13 @@
+function Assert-TeamWorktreeCapacity([string]$Repo) {
+    $root = Get-TeamChild $Repo '.worktrees'
+    if ((Test-Path -LiteralPath $root) -and @(Get-ChildItem -LiteralPath $root -Directory).Count -ge 12) { Stop-TeamError 20 'Worktree count limit reached' }
+}
+
 function New-TeamWorktree([string]$Repo, [string]$RunId, [string]$TaskId, [string]$Role, [string]$Base, [string]$Suffix = '') {
     foreach ($id in @($RunId,$TaskId,$Role)) { Assert-TeamId $id }
+    Assert-TeamWorktreeCapacity $Repo
     $root = Get-TeamChild $Repo '.worktrees'
     [IO.Directory]::CreateDirectory($root) | Out-Null
-    if (@(Get-ChildItem -LiteralPath $root -Directory).Count -ge 12) { Stop-TeamError 20 'Worktree count limit reached' }
     $path = Get-TeamChild $root "$RunId-$TaskId-$Role$Suffix"
     $branch = "codex/team/$RunId/$TaskId/$Role$Suffix"
     $null = Invoke-TeamGit $Repo @('worktree','add','-b',$branch,$path,$Base)
@@ -32,8 +37,9 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory) {
             if ($State.tasks[$dependency].status -notin @('MERGED','CLEANED')) { Stop-TeamError 80 'Dependency not integrated' }
         }
     }
-    $item.attempts++
-    $worktree = New-TeamWorktree $State.repo $State.run_id $Task.id $Task.role $base "-a$($item.attempts)"
+    $nextAttempt=$item.attempts+1
+    $worktree = New-TeamWorktree $State.repo $State.run_id $Task.id $Task.role $base "-a$nextAttempt"
+    $item.attempts=$nextAttempt
     $item.worktree = $worktree.path; $item.branch = $worktree.branch; $item.base_sha = $base
     $item['worktree_removed']=$false
     $item.directory = Get-TeamChild $Directory "tasks/$($Task.id)/attempt-$($item.attempts)"
@@ -59,24 +65,37 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory) {
     Save-TeamState $State $Directory
     $args = @('-TaskFile',$taskPath,'-Worktree',$item.worktree,'-OutputFile',(Join-Path $item.directory 'result.yaml'),
         '-Patch',$patchPath,'-Profile',$Manifest.runtime.profile,
-        '-TimeoutSeconds',[string]$Manifest.runtime.timeout_seconds)
-    $handle = New-TeamProcess (Join-Path $PSScriptRoot 'Invoke-DshWorker.ps1') $args $item.worktree (Join-Path $item.directory 'adapter.stdout') (Join-Path $item.directory 'adapter.stderr')
+        '-TimeoutSeconds',[string]$Manifest.runtime.timeout_seconds,
+        '-IdleTimeoutSeconds',[string]$Manifest.runtime.idle_timeout_seconds,'-MaxSingleLogMb',[string]$Manifest.runtime.max_single_log_mb)
+    $handle = New-TeamProcess (Join-Path $PSScriptRoot 'Invoke-DshWorker.ps1') $args $item.worktree (Join-Path $item.directory 'adapter.stdout') (Join-Path $item.directory 'adapter.stderr') -MaxOutputBytes ($Manifest.runtime.max_single_log_mb * 1MB)
     $item.pid = $handle.process.Id; $item.process_start = $handle.process.StartTime.ToUniversalTime().ToString('o')
     Save-TeamState $State $Directory
     Add-TeamEvent $Directory 'worker_started' @{ task_id = $Task.id; pid = $item.pid; base_sha = $base }
     return $handle
 }
 
-function Invoke-TeamVerification($Commands, [string]$Worktree, [string]$Directory, [string]$Prefix) {
+function Invoke-TeamVerification($Commands, [string]$Worktree, [string]$Directory, [string]$Prefix, $Runtime = $null) {
     $evidence = @()
+    $limit=if ($Runtime) { [long]$Runtime.max_single_log_mb * 1MB } else { 50MB }
+    $idle=if ($Runtime) { [int]$Runtime.idle_timeout_seconds } else { 900 }
     foreach ($command in $Commands) {
         Assert-TeamId $command.id
         $out = Join-Path $Directory "$Prefix-$($command.id).stdout"
         $err = Join-Path $Directory "$Prefix-$($command.id).stderr"
-        $handle = New-TeamProcess $command.executable @($command.args) $Worktree $out $err
-        try { $exitCode = Wait-TeamProcess $handle $command.timeout_seconds }
-        catch { $exitCode = 31 }
-        $evidence += @{ id = $command.id; executable = $command.executable; args = $command.args; exit_code = $exitCode; stdout_sha256 = Get-TeamHash $out; stderr_sha256 = Get-TeamHash $err }
+        $handle=$null; $errorText=$null; $processStarted=$false
+        try {
+            $handle = New-TeamProcess $command.executable @($command.args) $Worktree $out $err -MaxOutputBytes $limit
+            $processStarted=$true
+            $exitCode = Wait-TeamProcess $handle $command.timeout_seconds $idle
+        } catch {
+            $errorText=$_.Exception.Message
+            if ($_.Exception.Data.Contains('ProcessStarted')) { $processStarted=[bool]$_.Exception.Data['ProcessStarted'] }
+            $exitCode=if ($_.Exception.Data.Contains('TeamExitCode')) {[int]$_.Exception.Data['TeamExitCode']} else {30}
+        } finally { if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate } }
+        $evidence += @{ id=$command.id;executable=$command.executable;args=$command.args;exit_code=$exitCode
+            process_started=$processStarted;process_exit_code=$(if ($handle) {$handle.exit_code} else {$null});error=$errorText
+            stdout_sha256=$(if (Test-Path -LiteralPath $out -PathType Leaf) {Get-TeamHash $out} else {$null})
+            stderr_sha256=$(if (Test-Path -LiteralPath $err -PathType Leaf) {Get-TeamHash $err} else {$null}) }
         Write-TeamData (Join-Path $Directory "$Prefix-evidence.json") $evidence
         if ($exitCode -ne 0) { Stop-TeamError 40 "Verification failed: $($command.id), exit $exitCode" }
     }
@@ -88,6 +107,14 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
     $receiptPath = Join-Path $item.directory 'exit.json'
     if (-not (Test-Path -LiteralPath $receiptPath)) { Stop-TeamError 80 'Worker process ended without exit receipt; evidence retained' }
     $receipt = Read-TeamData $receiptPath
+    if ($receipt['startup_exhausted']) {
+        # Both launch attempts are known not to have created a native process.
+        $State.agents_reserved -= $item.reserved; $item.reserved=0; $item.status='ESCALATED'
+        New-TeamEscalation $State $Directory 'worker_start_failure' 'DSH did not start after two launch attempts' @{
+            task_id=$Task.id;attempt=$item.attempts;launch_attempts=$receipt.launch_attempts
+        }
+        Stop-TeamError 30 'DSH startup retry exhausted; owner decision required'
+    }
     if ($receipt.exit_code -ne 0) {
         $mapped = if ($receipt.exit_code -in @(10,31)) { $receipt.exit_code } else { 30 }
         Stop-TeamError $mapped "Worker $($Task.id) exited $($receipt.exit_code)"
@@ -118,7 +145,8 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
     }
     $item.commit = $audit.commit; $item.status = 'VERIFYING'
     Save-TeamState $State $Directory
-    $null = Invoke-TeamVerification $Task.verification $item.worktree $item.directory 'verification'
+    $runtime=if ($Manifest) {$Manifest.runtime} else {$null}
+    $null = Invoke-TeamVerification $Task.verification $item.worktree $item.directory 'verification' $runtime
     if ($State['verification_failures']) { $State.verification_failures.Remove($Task.id) }
     # Verification may generate files, but must not change tracked source or HEAD.
     if ((Invoke-TeamGit $item.worktree @('rev-parse','HEAD')) -cne $item.commit -or
@@ -187,7 +215,7 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
                 if ($size -ne $handle.last_size) { $handle.last_activity = [DateTime]::UtcNow; $handle.last_size = $size }
                 $timeout = ([DateTime]::UtcNow - $handle.started).TotalSeconds -gt ($Manifest.runtime.timeout_seconds + 10)
                 $idle = ([DateTime]::UtcNow - $handle.last_activity).TotalSeconds -gt $Manifest.runtime.idle_timeout_seconds
-                $overLog = @($logs | Where-Object { $_.Length -gt ($Manifest.runtime.max_single_log_mb * 1MB) }).Count -gt 0
+                $overLog = (Test-TeamProcessOutputLimit $handle) -or @($logs | Where-Object { $_.Length -gt ($Manifest.runtime.max_single_log_mb * 1MB) }).Count -gt 0
                 if ($timeout -or $idle -or $overLog) {
                     $null = Close-TeamProcess $handle -Terminate; $handles.Remove($taskId)
                     $State.agents_created += $item.reserved; $State.agents_reserved -= $item.reserved; $item.reserved=0

@@ -78,7 +78,8 @@ function Record-TeamRollbackProbe($State, $Plan, [string]$Directory, [string[]]$
     $probePath=Join-Path $failure.directory ('probe-' + $head)
     [IO.Directory]::CreateDirectory($probePath) | Out-Null
     $result='passes_after_rollback'
-    try { $null=Invoke-TeamVerification $Plan.verification.final $State.integration_worktree $probePath 'final' }
+    $manifest=Read-TeamData (Join-Path $Directory 'manifest.yaml')
+    try { $null=Invoke-TeamVerification $Plan.verification.final $State.integration_worktree $probePath 'final' $manifest.runtime }
     catch {
         if ($_.Exception.Data['TeamExitCode'] -ne 40) { throw }
         $result='inconclusive_still_fails'

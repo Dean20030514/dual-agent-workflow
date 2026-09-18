@@ -119,14 +119,23 @@ $repairContext
     $resultPath = Join-Path $holding 'verdict.json'
     $attemptId = [IO.Path]::GetFileName($holding)
     Write-TeamData (Join-Path $Directory "reviews/attempt-$attemptId.json") @{stage=$Stage;task_id=$TaskId;holding=$holding;status='started';tip=$Tip;plan_hash=$State.plan_hash}
-    $codex = (Get-Command codex -ErrorAction Stop).Source
     # Stdin carries the exact allowlisted input without granting access outside the read-only worktree.
     $args = @('exec','--ephemeral','--ignore-user-config','-m',$Manifest.models.lead.runtime_model,
         '-s','read-only','-C',$Worktree,'--output-schema',(Join-Path $script:TeamRoot 'schemas/review.schema.json'),
         '-o',$resultPath,'--json','-')
-    $handle = New-TeamProcess $codex $args $Worktree (Join-Path $holding 'events.jsonl') (Join-Path $holding 'stderr.log') $prompt
-    $code = Wait-TeamProcess $handle $Manifest.runtime.timeout_seconds
-    Write-TeamData (Join-Path $Directory "reviews/attempt-$attemptId.json") @{stage=$Stage;task_id=$TaskId;holding=$holding;status='exited';exit_code=$code;tip=$Tip;plan_hash=$State.plan_hash}
+    $handle=$null; $errorText=$null; $processStarted=$false
+    try {
+        $codex = (Get-Command codex -ErrorAction Stop).Source
+        $handle = New-TeamProcess $codex $args $Worktree (Join-Path $holding 'events.jsonl') (Join-Path $holding 'stderr.log') $prompt -MaxOutputBytes ($Manifest.runtime.max_single_log_mb * 1MB)
+        $processStarted=$true
+        $code = Wait-TeamProcess $handle $Manifest.runtime.timeout_seconds $Manifest.runtime.idle_timeout_seconds @($resultPath)
+    } catch {
+        $errorText=$_.Exception.Message
+        if ($_.Exception.Data.Contains('ProcessStarted')) { $processStarted=[bool]$_.Exception.Data['ProcessStarted'] }
+        $code=if ($_.Exception.Data.Contains('TeamExitCode')) {[int]$_.Exception.Data['TeamExitCode']} else {30}
+    } finally { if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate } }
+    Write-TeamData (Join-Path $Directory "reviews/attempt-$attemptId.json") @{stage=$Stage;task_id=$TaskId;holding=$holding;status='exited';exit_code=$code
+        process_started=$processStarted;process_exit_code=$(if ($handle) {$handle.exit_code} else {$null});error=$errorText;tip=$Tip;plan_hash=$State.plan_hash}
     if ($code -ne 0 -or -not (Test-Path -LiteralPath $resultPath)) { Stop-TeamError 50 'Fresh reviewer failed to return a verdict' }
     $verdict = Read-TeamData $resultPath
     Test-TeamSchema $verdict 'review'
@@ -161,7 +170,8 @@ function Resolve-TeamReview($State, $Plan, [string]$Directory, [string]$Stage, [
         }
         $seen[[int]$entry.index]=$true
         if ($entry.action -eq 'verify') {
-            $null = Invoke-TeamVerification @($entry.command) $record.worktree $Directory "VN-$label-$($entry.index)"
+            $manifest=Read-TeamData (Join-Path $Directory 'manifest.yaml')
+            $null = Invoke-TeamVerification @($entry.command) $record.worktree $Directory "VN-$label-$($entry.index)" $manifest.runtime
         } elseif ($entry.action -ne 'decline') { Stop-TeamError 10 'Disposition action must be verify or decline' }
     }
     if ((Invoke-TeamGit $record.worktree @('rev-parse','HEAD')) -cne $record.tip -or

@@ -107,7 +107,9 @@ function Test-TeamSchema($Value, [string]$Name) {
     if (-not $valid) { Stop-TeamError 10 "Invalid $Name document" }
 }
 
-function New-TeamProcess([string]$Executable, [string[]]$Arguments, [string]$Directory, [string]$Stdout, [string]$Stderr, [string]$InputText = '') {
+function New-TeamProcess([string]$Executable, [string[]]$Arguments, [string]$Directory, [string]$Stdout, [string]$Stderr, [string]$InputText = '', [long]$MaxOutputBytes = 50MB) {
+    if ($MaxOutputBytes -lt 1) { Stop-TeamError 10 'Output limit must be positive' }
+    if (-not ('TeamRuntime.BoundedCopy' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'ProcessStreams.cs') }
     # ArgumentList passes literal arguments; never build a command shell string.
     $info = [Diagnostics.ProcessStartInfo]::new()
     if ([IO.Path]::GetExtension($Executable) -eq '.ps1') {
@@ -125,18 +127,30 @@ function New-TeamProcess([string]$Executable, [string[]]$Arguments, [string]$Dir
     $info.RedirectStandardError = $true
     $process = [Diagnostics.Process]::new()
     $process.StartInfo = $info
-    if (-not $process.Start()) { Stop-TeamError 30 'Process did not start' }
-    $outStream = [IO.File]::Create($Stdout)
-    $errStream = [IO.File]::Create($Stderr)
-    $handle = @{
-        process = $process; started = [DateTime]::UtcNow; last_activity = [DateTime]::UtcNow; last_size = 0L
-        stdout = $Stdout; stderr = $Stderr; out_stream = $outStream; err_stream = $errStream
-        out_copy = $process.StandardOutput.BaseStream.CopyToAsync($outStream)
-        err_copy = $process.StandardError.BaseStream.CopyToAsync($errStream)
+    $started=$false; $outStream=$null; $errStream=$null
+    try {
+        # A log creation failure must never leave a process behind.
+        $outStream = [IO.File]::Create($Stdout)
+        $errStream = [IO.File]::Create($Stderr)
+        $started=$process.Start()
+        if (-not $started) { Stop-TeamError 30 'Process did not start' }
+        $outCopy=[TeamRuntime.BoundedCopy]::Start($process.StandardOutput.BaseStream,$outStream,$MaxOutputBytes)
+        $errCopy=[TeamRuntime.BoundedCopy]::Start($process.StandardError.BaseStream,$errStream,$MaxOutputBytes)
+        return @{
+            process=$process;started=[DateTime]::UtcNow;elapsed=[Diagnostics.Stopwatch]::StartNew();last_activity=[DateTime]::UtcNow;last_size=0L
+            stdout=$Stdout;stderr=$Stderr;out_stream=$outStream;err_stream=$errStream;max_output_bytes=$MaxOutputBytes
+            out_copy=$outCopy.Completion;err_copy=$errCopy.Completion;out_capture=$outCopy;err_capture=$errCopy
+            input_write=[TeamRuntime.BoundedCopy]::WriteInputAsync($process.StandardInput,$InputText)
+        }
+    } catch {
+        $failure=[InvalidOperationException]::new("Process launch failed: $($_.Exception.Message)",$_.Exception)
+        $failure.Data['TeamExitCode']=30; $failure.Data['ProcessStarted']=$started
+        try { if ($started -and -not $process.HasExited) { $process.Kill($true); $process.WaitForExit() } }
+        finally {
+            if ($outStream) { $outStream.Dispose() }; if ($errStream) { $errStream.Dispose() }; $process.Dispose()
+        }
+        throw $failure
     }
-    if ($InputText) { $process.StandardInput.Write($InputText) }
-    $process.StandardInput.Close()
-    return $handle
 }
 
 function Close-TeamProcess($Handle, [switch]$Terminate) {
@@ -144,7 +158,11 @@ function Close-TeamProcess($Handle, [switch]$Terminate) {
     if ($Terminate -and -not $Handle.process.HasExited) { $Handle.process.Kill($true) }
     $Handle.process.WaitForExit()
     $code = $Handle.process.ExitCode
-    try { $null = $Handle.out_copy.GetAwaiter().GetResult(); $null = $Handle.err_copy.GetAwaiter().GetResult() }
+    try {
+        $null = $Handle.out_copy.GetAwaiter().GetResult(); $null = $Handle.err_copy.GetAwaiter().GetResult()
+        try { $null=$Handle.input_write.GetAwaiter().GetResult() }
+        catch { if ($code -eq 0) { Stop-TeamError 30 'Process exited before its full input was delivered' } }
+    }
     finally {
         $Handle.out_stream.Dispose(); $Handle.err_stream.Dispose()
         $Handle['exit_code']=$code; $Handle['closed']=$true; $Handle.process.Dispose()
@@ -152,12 +170,58 @@ function Close-TeamProcess($Handle, [switch]$Terminate) {
     return $code
 }
 
-function Wait-TeamProcess($Handle, [int]$TimeoutSeconds = 60) {
-    if (-not $Handle.process.WaitForExit($TimeoutSeconds * 1000)) {
-        $null = Close-TeamProcess $Handle -Terminate
-        Stop-TeamError 31 "Process exceeded $TimeoutSeconds seconds"
+function Test-TeamProcessOutputLimit($Handle, [string[]]$AdditionalFiles = @()) {
+    if ($Handle.out_capture.Exceeded -or $Handle.err_capture.Exceeded) { return $true }
+    foreach ($path in $AdditionalFiles) {
+        if ((Test-Path -LiteralPath $path -PathType Leaf) -and (Get-Item -LiteralPath $path).Length -gt $Handle.max_output_bytes) { return $true }
     }
-    return Close-TeamProcess $Handle
+    return $false
+}
+
+function Wait-TeamProcess($Handle, [int]$TimeoutSeconds = 60, [int]$IdleTimeoutSeconds = 0, [string[]]$AdditionalFiles = @()) {
+    $lastBytes=0L; $lastActivity=$Handle.elapsed.Elapsed.TotalSeconds
+    while ($true) {
+        $bytes=$Handle.out_capture.BytesRead+$Handle.err_capture.BytesRead
+        if ($bytes -ne $lastBytes) { $lastActivity=$Handle.elapsed.Elapsed.TotalSeconds; $lastBytes=$bytes }
+        $reason=if (Test-TeamProcessOutputLimit $Handle $AdditionalFiles) {'output limit'}
+            elseif ($Handle.elapsed.Elapsed.TotalSeconds -ge $TimeoutSeconds) {'timeout'}
+            elseif ($IdleTimeoutSeconds -gt 0 -and ($Handle.elapsed.Elapsed.TotalSeconds-$lastActivity) -ge $IdleTimeoutSeconds) {'idle timeout'}
+            else {''}
+        if ($reason) {
+            $null=Close-TeamProcess $Handle -Terminate
+            Stop-TeamError 31 "Process exceeded its $reason; partial output preserved"
+        }
+        if ($Handle.process.HasExited) {
+            $code=Close-TeamProcess $Handle
+            if (Test-TeamProcessOutputLimit $Handle $AdditionalFiles) { Stop-TeamError 31 'Process exceeded its output limit; partial output preserved' }
+            return $code
+        }
+        $null=$Handle.process.WaitForExit(100)
+    }
+}
+
+function Start-TeamDshProcess([string]$Directory, [string]$Worktree, [string[]]$Arguments, [long]$MaxOutputBytes) {
+    for ($attempt=1; $attempt -le 2; $attempt++) {
+        $resolved=$false; $handle=$null
+        try {
+            $command=(Get-Command dsh -ErrorAction Stop).Source; $resolved=$true
+            $handle=New-TeamProcess $command $Arguments $Worktree (Join-Path $Directory 'worker.stdout') (Join-Path $Directory 'worker.stderr') -MaxOutputBytes $MaxOutputBytes
+            Write-TeamData (Join-Path $Directory "launch-$attempt.json") @{attempt=$attempt;started=$true;pid=$handle.process.Id;timestamp=[DateTime]::UtcNow.ToString('o')}
+            $handle['launch_attempts']=$attempt
+            return $handle
+        } catch {
+            $failure=$_.Exception
+            $started=if (-not $resolved) {$false} elseif ($failure.Data.Contains('ProcessStarted')) {[bool]$failure.Data['ProcessStarted']} else {$null}
+            if ($handle) { $null=Close-TeamProcess $handle -Terminate; $started=$true }
+            $notStarted=$started -eq $false
+            Write-TeamData (Join-Path $Directory "launch-$attempt.json") @{attempt=$attempt;started=$started;retryable=$notStarted;error=$failure.Message;timestamp=[DateTime]::UtcNow.ToString('o')}
+            if (-not $notStarted -or $attempt -eq 2) {
+                $failure.Data['StartupExhausted']=$notStarted; $failure.Data['LaunchAttempts']=$attempt
+                throw $failure
+            }
+            Start-Sleep -Milliseconds 200
+        }
+    }
 }
 
 function Get-TeamRoute([string]$TaskText) {

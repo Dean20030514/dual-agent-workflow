@@ -25,7 +25,9 @@ function Accept-TeamTask($State, $Plan, [string]$Directory, [string]$TaskId, [st
 
 function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $null) {
     if ($State.status -in @('CANCELLED','COMPLETED','ESCALATED')) { Stop-TeamError 80 'Run is not available for integration' }
+    if (-not $Manifest) { $Manifest=Read-TeamData (Join-Path $Directory 'manifest.yaml') }
     if (-not $State.integration_worktree) {
+        Assert-TeamWorktreeCapacity $State.repo
         $path = Get-TeamChild $State.repo ".worktrees/$($State.run_id)-integration"
         $null = Invoke-TeamGit $State.repo @('worktree','add','-b',$State.integration_branch,$path,$State.run_base_sha)
         $State.integration_worktree = $path
@@ -66,7 +68,7 @@ function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $
         Save-TeamCheckpoint $Directory $checkpointRecord
         $verificationDirectory=Join-Path $Directory "integration-evidence/$taskId-a$($item.attempts)-$mergedHead"
         [IO.Directory]::CreateDirectory($verificationDirectory) | Out-Null
-        try { $null = Invoke-TeamVerification $task.verification $tree $verificationDirectory 'verification' }
+        try { $null = Invoke-TeamVerification $task.verification $tree $verificationDirectory 'verification' $Manifest.runtime }
         catch { $State.status = 'PAUSED'; Save-TeamState $State $Directory; throw }
         $checkpoint = Invoke-TeamGit $tree @('rev-parse','HEAD')
         if ((Invoke-TeamGit $tree @('diff','HEAD','--name-only')) -or $checkpoint -cne $mergedHead) { Stop-TeamError 82 'Integration verification modified source or HEAD' }
@@ -91,7 +93,7 @@ function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $
         $State['final_evidence_directory']=Join-Path $Directory "final-evidence/$($State.revision)-$finalHead"
         [IO.Directory]::CreateDirectory($State.final_evidence_directory) | Out-Null
         Save-TeamState $State $Directory
-        try { $null = Invoke-TeamVerification $Plan.verification.final $tree $State.final_evidence_directory 'final' }
+        try { $null = Invoke-TeamVerification $Plan.verification.final $tree $State.final_evidence_directory 'final' $Manifest.runtime }
         catch {
             if ($_.Exception.Data['TeamExitCode'] -eq 40) { Record-TeamIntegrationFailure $State $Plan $Directory }
             throw

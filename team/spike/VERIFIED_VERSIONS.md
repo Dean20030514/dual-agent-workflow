@@ -100,3 +100,17 @@ Worker 只把 `files/T1.txt` 恢复为已批准的 `42`，T2 原样保留；repa
 最终 integration `1111af407973c76699f2661344e49dc38620c296`，run=COMPLETED、failure=resolved；
 final stdout SHA-256 `b46cc5e6634d0e0b8bd41c963947a14f218b811ca29d373f22a081727205e497`。
 原失败证据哈希不变、main 未变、调用者工作树干净；这证明恢复协议与原生修复执行，不是业务项目验收。
+
+真实有界传输 `BOUNDED-NATIVE-010`（临时根 `team-bounded-live-be507af01b`，仓库位于其 `repo/`）：
+本批仍使用固定 DSH 0.1.5-rc.1、deepseek-official/deepseek-flash。
+base/main `8c5ffbcf570e352fa009c224d1eca5f1ac391fa3`；原生 session
+`session-58047019-0ff0-4350-9316-8ccf8d1b0e17`，depth 0，仅一个 Worker，无子 Agent。
+Worker commit `901155698dde1cfeb79f20587b8242906fc80ad4`，实际 diff 只有 `src/label.ps1`。
+外部验证六条固定合同（null、空串、纯空白、英文、中文、制表符与换行），实际 exit 0；原测试未改变。
+Result SHA-256 `8aaa570e15ce25e6b6b9b09d8bc52af4bdd253dc659a5f7befe076eb878c1317`。
+配置单日志上限 1 MiB，实际 worker.stdout=1218 bytes、worker.stderr=9631 bytes；
+launch_attempts=1、startup_exhausted=false、native exit 0。正常路径未触发截断，不称为真实模型洪泛试验。
+Lead 绑定真实 commit 接受后，最终 integration `7121b4a9f40255f6dc05602d9474e9f6977229e4`，
+run=COMPLETED、final exit/process_exit_code 均为 0，stdout SHA-256
+`fb25915d727b421175a83b10d8f7892b2c64d0b79a9df1e2100288667dbbc61f`。
+main 仍为原 base 且干净；临时根 `acceptance.json` 保留精简断言结果，原 runtime 日志留在本机。

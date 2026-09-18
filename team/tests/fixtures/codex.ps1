@@ -3,6 +3,7 @@ if ($args -contains '--version') { Write-Output 'codex-cli 0.153.3'; exit 0 }
 $index = [array]::IndexOf($args, '-o')
 if ($index -lt 0) { exit 2 }
 $prompt=[Console]::In.ReadToEnd()
+if ($prompt -match 'FIXTURE_REVIEW_FLOOD') { [Console]::Out.Write('x' * 2MB) }
 $stage=[regex]::Match($prompt,'(?m)^Stage: (9[APB])').Groups[1].Value
 $issues=@()
 if ($stage -eq '9A') {
