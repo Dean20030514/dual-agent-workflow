@@ -1,7 +1,7 @@
 #requires -Version 7.4
 [CmdletBinding()]
 param(
-    [Parameter(Position=0,Mandatory)][ValidateSet('doctor','route','validate','run','status','watch','escalations','resolve','result','logs','cost','stop','resume','cleanup','accept','integrate','affected','replan','rollback','report-cost','record-route','repair-integration','resolve-review')][string]$Command,
+    [Parameter(Position=0,Mandatory)][ValidateSet('doctor','route','validate','run','status','watch','escalations','resolve','result','logs','cost','stop','resume','cleanup','accept','integrate','affected','replan','rollback','report-cost','record-route','revalidate-route','repair-integration','resolve-review')][string]$Command,
     [string]$Plan, [string]$Repo = (Get-Location).Path, [string]$Manifest,
     [string]$Run, [string]$Task, [string]$TaskText, [string]$Commit, [string]$Reason,
     [string]$Escalation, [ValidateSet('approve','reject','modify-plan')][string]$Decision,
@@ -34,7 +34,7 @@ try {
             if (-not $output.success) { $exitCode = 20 }
         }
         'route' {
-            $output = if ($config.team.enabled) { Get-TeamRoute $TaskText } else { @{ recommended_mode = 'L0'; confidence = 1.0; reasons = @('team disabled'); source = 'configuration' } }
+            $output = Get-TeamRoute $TaskText $Repo $config
         }
         'validate' {
             $order = Test-TeamPlan (Read-TeamPlanInput $Plan) $config
@@ -42,6 +42,10 @@ try {
         }
         'affected' { $output = @{ affected = @(Get-TeamAffected (Read-TeamData $Plan) $Task $ChangedPaths) } }
         'record-route' { $output = Record-TeamRoute $config $Repo $TaskText $ExpectedMode }
+        'revalidate-route' {
+            $output = Reset-TeamRoutingHealth $config $Repo $Reason
+            if (-not $output.success) { $exitCode = 20 }
+        }
         'run' {
             if (-not $config.team.enabled) { Stop-TeamError 20 'Team disabled; use normal Codex mode' }
             $document = Read-TeamPlanInput $Plan
@@ -49,10 +53,12 @@ try {
             Assert-TeamRunRoot $Repo
             $doctor = Test-TeamDoctor $config $Repo -AllowUnverifiedRuntime:$AllowUnverifiedRuntime
             if (-not $doctor.success) { Stop-TeamError 20 ($doctor.problems -join '; ') }
+            Assert-TeamCapability $document $doctor
             $null = Invoke-TeamGit $Repo @('rev-parse','--show-toplevel')
             if (Test-Path -LiteralPath (Get-TeamChild $Repo "team/runtime/$($document.run.id)")) { Stop-TeamError 20 'Run already exists; use resume' }
             $lock = Lock-TeamRepo $Repo $document.run.id
             $runData = New-TeamRun $document $config $Repo $order $doctor.runtime_status
+            Write-TeamData (Join-Path $runData.directory 'preflight.json') $doctor
             $null = Test-DshRoute $config $Repo (Join-Path $runData.directory 'worker.patch.yaml')
             Assert-TeamActionApproval $runData.state $document $runData.directory
             if ($document.classification.level -eq 'critical') {
@@ -153,6 +159,8 @@ try {
                 'resume' {
                     $doctor = Test-TeamDoctor $config $Repo -AllowUnverifiedRuntime:$AllowUnverifiedRuntime
                     if (-not $doctor.success) { Stop-TeamError 20 ($doctor.problems -join '; ') }
+                    Assert-TeamCapability $document $doctor
+                    Write-TeamData (Join-Path $directory 'preflight-latest.json') $doctor
                     $output = Resume-TeamRun $state $document $config $directory
                 }
                 'cleanup' { $output = Remove-TeamWorktrees $state $directory }
@@ -162,6 +170,11 @@ try {
                 }
             }
         }
+    }
+    if ($Command -in @('run','resume') -and $output -is [Collections.IDictionary]) {
+        $health=Get-TeamRoute '' $Repo $config
+        $output['routing_health']=@{auto_route=$health.auto_route;notice=$health.notice;lead_action=$health.lead_action}
+        if ($health.auto_route -eq 'degraded') { Add-TeamEvent $runData.directory 'routing_degraded' $output.routing_health }
     }
     $output | ConvertTo-Json -Depth 100 -Compress:$Json
 } catch {

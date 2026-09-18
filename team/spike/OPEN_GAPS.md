@@ -15,6 +15,7 @@ schema/DAG/范围/锁/进程超时的机械测试；使用替身 CLI 的 L2 DAG 
 - Worktree 不是 OS 沙箱；声明的网络/凭据权限不等于操作系统阻断。
 - CLI headless 不给出完整金额账单。cost 明确 unknown_usage=true，外部账单通过唯一 evidence hash 录入；不把未知费用记作零。
 - 版本 pin 是已测试单版本，不代表整个语义版本区间都兼容。
-- 原生 fork 工具调用与空前缀行为已实测；非空父回合历史的继承尚未行为验收。
+- 原生 fork 的空前缀与非空已完成父回合继承均已实测；正常 headless Worker 仍为单回合，
+  不自动获得此前会话。双回合探针只验证原生继承行为，不扩张 Reviewer 的 fresh 规则。
 - 替身 Critical 接线测试不代表真实模型审查质量，更不等于用户项目的业务验收。
 - runtime/原生会话/仓外 holding 是本地证据，不随仓库部署；不要将其中的推理与私有数据公开。

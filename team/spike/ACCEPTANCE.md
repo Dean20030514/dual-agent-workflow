@@ -166,3 +166,29 @@ integrate、replan 拒绝 80，stop 仍可重试。测试证明的普通 Windows
 Lead 按实际 SHA 接受，最终集成和 final exit 0，run=COMPLETED；main 不变且干净。
 这是实际模型进程崩溃恢复验收，没有用替身 Worker 替代，也没有覆盖全部 checkpoint 崩溃窗口。
 具体身份时间、SHA 与哈希见 VERIFIED_VERSIONS；原始 runtime 及简要断言留在临时目录。
+
+2026-09-17 能力与路由收尾：
+
+纯本地 route 增加固定领域路径 metadata 与风险标记，模糊实现建议保持低置信度；
+README typo 不因仓库存在前后端就升级。三次误判后持续 degraded，后续一次匹配不会清除；
+route/doctor/run/resume 对 Lead 显示通知，显式 revalidate-route 重放四个固定示例与已记录任务，
+失败 exit 20、保留降级，全部通过才恢复。合同与独立 Git CLI 覆盖元数据修正前后、旧计数缺样本、
+共享更新锁及真实任务回放；替身 Worker 的接线测试不等于真实模型质量验收。
+
+按人类明确选择保留 L3 适配器扩展；矩阵原生 I1/O2/E2 仍列 L1/L2，doctor 单独标记扩展。
+run/resume 实际使用 capability 决策；原生子 Agent 服务缺失时在创建 worktree 前拒绝 L3，
+恢复时再次拒绝且不增加 attempt，L1 仍可执行。未知版本显式 override 保留 UNVERIFIED_RUNTIME
+的 L1/L2 路径，不授予已验证 L3。L2/L3 冲突修复串接继续通过定向测试。
+
+真实本机 doctor exit 0，四个路由示例全通过，PINNED_RUNTIME，原生工具 available、guard observable，
+matrix_modes=L0/L1/L2、allowed_modes=L0/L1/L2/L3、adapter_l3_extension=true。
+`Test-NativeFork.ps1` 的真实 DSH 双回合 probe exit 0 / passed=true：已完成父回合的 19 条事件
+进入子 seed，新子提示没有随机标记，子不调用工具仍准确回忆标记。事实与哈希见 FORK-INHERIT-012。
+此 probe 使用临时 overlay 驱动原生 Agent，不是裸模型 API，也不把普通单回合 Worker 改成长期会话。
+
+本批完整 Team Pester 回归 **127 passed / 0 failed**，exit 0，672.46 秒；
+native guard **5 passed / 0 failed**、派生漂移门 17 对/292 行、git diff --check 均 exit 0。
+完整回归后补上原生 provider 服务准入检查：只有工具名而 provider disabled 不允许 L3；
+本机真实 doctor 再次 exit 0，五个必要服务均在启用列表。
+该补充之后运行 provider 负例、L3 准入/恢复和 L2/L3 冲突集成定向回归，
+**4 passed / 0 failed**，exit 0，72.54 秒。分次测试不合称一次完整 128 项回归。

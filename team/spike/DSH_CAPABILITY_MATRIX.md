@@ -11,7 +11,7 @@
 | model route | composed config + settings；native guard 记录实际创建的 provider/model | deepseek-official / deepseek-flash |
 | cwd / worktree | SQL Worker 在独立 temp worktree 提交，main SHA 未变 | 已实测 |
 | subagent | 真实 fresh/foreground 子 Agent 返回 TEAM_CHILD_OK，父子 receipt 路由一致 | 已实测 |
-| subagent_fork | 安装源码和 overlay 可用；不是 fresh reviewer | 源码核验，未单独实跑 |
+| subagent_fork | FORK-NATIVE-005 空前缀；FORK-INHERIT-012 原生双回合探针，19 条已完成父事件继承，子提示不含标记仍正确回忆 | 空/非空前缀均有实测；不是 fresh reviewer |
 | workflow | Team V1 overlay 禁用，防止另一套 fan-out 入口 | 有意不开放 |
 | 深度/数量/cwd/路由拒绝 | 原生 registry 创建前 guard；Node 负向测试 | 已测机械拒绝 |
 | 权限继承 | DSH subagent native delegatedPolicies / parent composition | 原生机制；非 OS 沙箱 |
@@ -20,3 +20,8 @@
 
 真实证据的摘要、提交和运行目录见 `VERIFIED_VERSIONS.md` 与 `OPEN_GAPS.md`。
 stderr 可能有模型推理，不进入 Reviewer 输入、不复制到仓库。
+
+2026-09-17 准入接线：doctor 从实际版本与 composed config 返回 native_available、
+matrix_modes、allowed_modes、adapter_l3_extension。L3 适配器扩展已获人类明确保留，
+条件和原文差异见 INTEGRATION_DECISION。配置探针不是再次调用模型，既有真实模型证据
+仍来自 VERIFIED_VERSIONS；未知版本的 override 不扩张这份 L3 认证。

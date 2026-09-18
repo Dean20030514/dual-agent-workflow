@@ -1,7 +1,15 @@
 # Deterministic native-CLI stand-in, used ONLY by isolated runtime tests.
-if ($args -contains '--version') { Write-Output '0.1.5-rc.1'; exit 0 }
+if ($args -contains '--version') { Write-Output $(if ($env:TEAM_FIXTURE_VERSION) {$env:TEAM_FIXTURE_VERSION} else {'0.1.5-rc.1'}); exit 0 }
 if ($args -contains '--dump-config') {
-    Write-Output '[{"id":"agent-default-model","config":{"provider":"deepseek-official","model":"deepseek-flash"}},{"id":"llm-deepseek"},{"id":"headless-startup"},{"id":"headless-runner"}]'
+    $nodes=@(@{id='agent-default-model';config=@{provider='deepseek-official';model='deepseek-flash'}},@{id='llm-deepseek'},@{id='headless-startup'},@{id='headless-runner'})
+    foreach ($id in @('subagent','subagent-spawn-in-process','subagent-fork-in-process')) { $nodes+=@{id=$id} }
+    $patchIndex=[array]::IndexOf($args,'--patch')
+    $patch=if ($patchIndex -ge 0) {Get-Content -LiteralPath $args[$patchIndex+1] -Raw | ConvertFrom-Json -AsHashtable} else {@()}
+    foreach ($id in @('tool-subagent','tool-subagent-fork')) {
+        $override=@($patch | Where-Object { $_['id'] -eq $id })
+        $nodes+=@{id=$id;disabled=($env:TEAM_FIXTURE_NO_NATIVE -eq '1' -or ($override.Count -gt 0 -and $override[0].disabled))}
+    }
+    $nodes | ConvertTo-Json -Depth 10 -Compress
     exit 0
 }
 $patchIndex = [array]::IndexOf($args, '--patch')

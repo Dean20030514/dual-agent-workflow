@@ -48,7 +48,22 @@ root `session-452a4934-cf5b-4196-8b3b-ecc2f96a5c69`；child `e8c66848-b030-432b-
 会话文件 SHA-256 `4073de0a3a5e8cea04154a5e3421e8bc1724775df606b40f3c7800b3c07a2b59`。
 只导出工具名/ID和 session metadata，未导出推理或工具参数；证据在该 run 的 `native-fork-evidence.json`。
 边界：首次 headless 回合没有已完成的父回合前缀，native fork 按其实现创建 isSeeded=false 的子会话；
-此验收证明 fork 工具和交付链路可用，不证明非空历史继承。非空前缀行为仍需单独验收。
+此验收证明 fork 工具和交付链路可用，不证明非空历史继承。非空前缀现另见 FORK-INHERIT-012。
+
+真实非空继承 `FORK-INHERIT-012`（2026-09-17）：
+执行仓库内 `pwsh -NoProfile -File team/spike/Test-NativeFork.ps1`，exit 0；
+独立证据目录 `C:/Users/16097/AppData/Local/Temp/team-fork-inheritance-cc7832c1bc`。
+探针 overlay 只驱动原生 Agent 完成一个额外父回合并记录事实，不直接调用模型 API，
+不替换原生 fork provider。测试自身的预热文本为随机合成标记，不涉及用户文件。
+父 session `session-9156e0c5-128f-492c-901b-d40758c14711` 完成首轮、无工具调用；
+子 `cb39a708-b998-4399-9d02-4109a9655824` 深度 1、同为 deepseek-official/deepseek-flash。
+子创建参数包含 19 条真实父事件，末条为 turn/end；seed 含标记，子任务新提示不含标记。
+子自己的回合无工具调用、完成并准确返回标记；native guard 记录恰好两个 Agent。
+这证明已完成非空前缀的行为继承；不声称普通单回合 Worker 自带历史，也不用于 fresh Reviewer。
+`inheritance.json` SHA-256 `77fbc8e4ad72c08925dcdba498c53a5a9841c36668b963f148e5b098c0454158`；
+`agents.json` SHA-256 `1b71c7060b08a84fa1847721ec293b3f62fd7f2781041c12b0c8f6a28985639a`；
+`worker.stdout` SHA-256 `6ea5ef4e860c324705d514cf5e65d88e2a8aa3c32caab323d9a94bf455f797dd`。
+摘要仅包含布尔断言、计数、会话 ID 和哈希，stderr/原生推理不复制到仓库。
 
 真实角色/冲突集成 `ROLES-NATIVE-006`（同一临时仓库/base，最终 revision 3）：
 backend commit `0e44879bcddf4a23880b3dbdd5cc0403a5798764`，frontend commit `3d0237fb430024ad7bfe9b78380613c18b1b6b57`。

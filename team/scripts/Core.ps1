@@ -296,8 +296,28 @@ function Start-TeamDshProcess([string]$Directory, [string]$Worktree, [string[]]$
     }
 }
 
-function Get-TeamRoute([string]$TaskText) {
+function Get-TeamRoute([string]$TaskText, [string]$Repo = '', $Manifest = $null) {
     $mode = 'UNKNOWN'; $confidence = 0.3; $reasons = @('insufficient local signals')
+    $metadata = @{ frontend = $false; backend = $false; database = $false; markers = @() }
+    # Only inspect a fixed set of path names. Never read package scripts, credentials,
+    # instructions or arbitrary project contents to make a routing recommendation.
+    if ($Repo) {
+        $markers = @{
+            frontend = @('frontend','web','client','src/components','app/components','apps/web')
+            backend = @('backend','server','api','src/api','apps/api')
+            database = @('prisma/schema.prisma','db/migrations','migrations','database')
+        }
+        foreach ($domain in $markers.Keys) {
+            foreach ($marker in $markers[$domain]) {
+                if (Test-Path -LiteralPath (Join-Path $Repo $marker)) {
+                    $metadata[$domain] = $true; $metadata.markers += $marker
+                }
+            }
+        }
+    }
+    $riskFlags = @()
+    if ($TaskText -match '(?i)(production|生产|credentials?|凭据|secrets?|密钥|irreversible|不可逆|drop\s+table|删除.*数据)') { $riskFlags += 'owner_decision_required' }
+    if ($TaskText -match '(?i)(auth|认证|鉴权|authorization|权限|security|安全)') { $riskFlags += 'security_sensitive' }
     if ($TaskText -match '(?i)(auth.*redesign|redesign.*auth|认证.*重构|重构.*认证)') {
         $mode = 'L3'; $confidence = 0.9; $reasons = @('authentication architecture change')
     } elseif ($TaskText -match '(?i)(avatar.*upload|upload.*avatar|头像.*上传|上传.*头像|frontend.*backend|前端.*后端)') {
@@ -307,5 +327,31 @@ function Get-TeamRoute([string]$TaskText) {
     } elseif ($TaskText -match '(?i)(typo|readme|错别字|拼写)') {
         $mode = 'L0'; $confidence = 0.95; $reasons = @('localized documentation edit')
     }
-    return @{ recommended_mode = $mode; confidence = $confidence; reasons = $reasons; source = 'local_heuristic' }
+    # Metadata refines ambiguous implementation tasks, never promotes a small edit
+    # merely because it happens to live in a large repository.
+    if ($mode -eq 'UNKNOWN' -and $TaskText -match '(?i)(implement|build|add|feature|实现|新增|添加|功能)') {
+        if ($metadata.frontend -and $metadata.backend) {
+            $mode = 'L2'; $confidence = 0.65; $reasons = @('implementation request in a repository with frontend and backend markers')
+        } elseif ($metadata.frontend -or $metadata.backend -or $metadata.database) {
+            $mode = 'L1'; $confidence = 0.6; $reasons = @('implementation request with one local domain signal')
+        }
+    }
+    if ($riskFlags.Count -and $mode -eq 'L0') {
+        $mode = 'UNKNOWN'; $confidence = 0.4; $reasons = @('risk signals require Lead assessment despite small-edit keywords')
+    }
+    $health = @{auto_route='normal';consecutive_misroutes=0}
+    if ($Repo) {
+        $healthPath = Get-TeamChild $Repo 'team/runtime/routing.json'
+        if (Test-Path -LiteralPath $healthPath) { $health = Read-TeamData $healthPath }
+    }
+    $disabled = $Manifest -and -not $Manifest.team.enabled
+    if ($disabled) { $mode = 'L0'; $confidence = 1.0; $reasons = @('team disabled') }
+    $degraded = $health.auto_route -eq 'degraded'
+    $leadAction = if ($disabled) {'use_normal_codex'} elseif ($degraded) {'explicit_route_for_each_complex_task_until_revalidated'}
+        elseif ($riskFlags -contains 'owner_decision_required') {'assess_owner_escalation'}
+        elseif ($confidence -lt 0.8) {'lead_assessment_required'} else {'consider_recommendation'}
+    return @{ recommended_mode = $mode; confidence = $confidence; reasons = $reasons; source = $(if ($disabled) {'configuration'} else {'local_heuristic'})
+        repo_metadata = $metadata; risk_flags = $riskFlags; auto_route = $health.auto_route
+        consecutive_misroutes = $health.consecutive_misroutes; lead_action = $leadAction
+        notice = $(if ($degraded) {'Automatic routing is degraded. Call route explicitly for every complex task; use revalidate-route after correcting the observed mismatches.'} else {$null}) }
 }

@@ -48,6 +48,75 @@ BeforeAll {
 AfterAll { $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'admits the observed L3 extension and rejects missing native tools before worktree creation and resume' {
+        $f=New-RuntimeFixture; $f.plan.mode='L3'; $f.plan.tasks[0].subagents=@{allowed=$true;max_depth=2}; Write-TeamData $f.path $f.plan
+        $old=$env:TEAM_FIXTURE_NO_NATIVE
+        try {
+            $env:TEAM_FIXTURE_NO_NATIVE='1'
+            $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
+            $r.code | Should -Be 20 -Because $r.raw
+            Test-Path (Join-Path $f.repo '.worktrees') | Should -BeFalse
+            Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE') | Should -BeFalse
+            $env:TEAM_FIXTURE_NO_NATIVE=$null
+            $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+            $proof=Read-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/preflight.json')
+            $proof.capabilities.input | Should -Be 'I1'
+            $proof.capabilities.matrix_modes | Should -Not -Contain 'L3'
+            $proof.capabilities.allowed_modes | Should -Contain 'L3'
+            $proof.capabilities.adapter_l3_extension | Should -BeTrue
+            $env:TEAM_FIXTURE_NO_NATIVE='1'
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 20 -Because $r.raw
+            (State $f).tasks.T1.attempts | Should -Be 1
+            $g=New-RuntimeFixture
+            $r=Invoke-Cli @('run','-Repo',$g.repo,'-Plan',$g.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        } finally { $env:TEAM_FIXTURE_NO_NATIVE=$old }
+    }
+    It 'keeps explicit runtime override available for L1 but never labels an unknown version as verified L3' {
+        $f=New-RuntimeFixture; $old=$env:TEAM_FIXTURE_VERSION
+        try {
+            $env:TEAM_FIXTURE_VERSION='0.1.5-unknown'
+            $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 20
+            $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-AllowUnverifiedRuntime','-Json'); $r.code | Should -Be 0 -Because $r.raw
+            (State $f).runtime_status | Should -Be 'UNVERIFIED_RUNTIME'
+            $proof=Read-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/preflight.json')
+            $proof.capabilities.unverified_transport_override | Should -BeTrue
+            $proof.capabilities.input | Should -Be 'UNKNOWN'
+            $proof.capabilities.allowed_modes | Should -Not -Contain 'L3'
+            $g=New-RuntimeFixture; $g.plan.mode='L3'; $g.plan.tasks[0].subagents=@{allowed=$true;max_depth=2}; Write-TeamData $g.path $g.plan
+            $r=Invoke-Cli @('run','-Repo',$g.repo,'-Plan',$g.path,'-AllowUnverifiedRuntime','-Json'); $r.code | Should -Be 20 -Because $r.raw
+            Test-Path (Join-Path $g.repo '.worktrees') | Should -BeFalse
+        } finally { $env:TEAM_FIXTURE_VERSION=$old }
+    }
+    It 'exposes degraded routing to the Lead and requires explicit replay before recovery' {
+        $f=New-RuntimeFixture
+        foreach ($i in 1..3) {
+            $r=Invoke-Cli @('record-route','-Repo',$f.repo,'-TaskText','新增搜索功能','-ExpectedMode','L2','-Json')
+            $r.code | Should -Be 0 -Because $r.raw
+        }
+        $r=Invoke-Cli @('route','-Repo',$f.repo,'-TaskText','avatar upload','-Json')
+        $r.data.auto_route | Should -Be 'degraded'
+        $r.data.notice | Should -Match 'revalidate-route'
+        $r=Invoke-Cli @('doctor','-Repo',$f.repo,'-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $r.data.routing_health.auto_route | Should -Be 'degraded'
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $r.data.routing_health.auto_route | Should -Be 'degraded'
+        $r=Invoke-Cli @('logs','-Repo',$f.repo,'-Run','FIXTURE','-Json')
+        @($r.data | Where-Object event -eq 'routing_degraded').Count | Should -Be 1
+        $r=Invoke-Cli @('revalidate-route','-Repo',$f.repo,'-Reason','Check actual routing failure','-Json')
+        $r.code | Should -Be 20 -Because $r.raw
+        $r.data.success | Should -BeFalse
+        foreach ($name in @('frontend','backend')) { New-Item -ItemType Directory (Join-Path $f.repo $name) | Out-Null }
+        $r=Invoke-Cli @('revalidate-route','-Repo',$f.repo,'-Reason','Restore missing domain markers','-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $r.data.auto_route | Should -Be 'normal'
+        $r.data.checks.Count | Should -Be 5
+        $r=Invoke-Cli @('route','-Repo',$f.repo,'-TaskText','新增搜索功能','-Json')
+        $r.data.recommended_mode | Should -Be 'L2'
+        $r.data.auto_route | Should -Be 'normal'
+        (Invoke-TeamGit $f.repo @('rev-parse','main')) | Should -Be $f.base
+    }
     It 'blocks execution while process cleanup is pending and allows stop to clear it' {
         $f=New-RuntimeFixture
         $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw

@@ -15,20 +15,37 @@ Phase 0 的准入决策（I=输入，O=输出，E=退出码）：
 |---|---|---|
 | I3/I2 文件输入 + O4/O3 结构化输出 + E2 | L1/L2/L3 | 另核验原生子 Agent |
 | I3/I2 + O2 正文 + E2 | L1/L2 | Adapter 校验 Result |
-| I1 参数/stdin + O3/O2 + E2 | L1/L2 | Adapter 封装 Task/Result，L3 需补原生子 Agent 实测 |
+| I1 参数/stdin + O3/O2 + E2 | L1/L2 | 原文矩阵；已认证组合的 L3 扩展另见下文 |
 | I1 + O1 可解析 TUI + E1/E2 | 实验 L1 | 先稳定 Adapter |
 | I0 仅交互或 O0/E0 不稳定 | L0 | 不进入正式 Team |
 | 路由不可验证 | 无派发 | fail closed |
 | 子 Agent 不可用 | L1/L2 | 禁止 L3 |
 
-本机额外通过了 native fresh/fork 入口探针；fork 非空上下文继承尚未验证。
+本机已通过 native fresh/fork 入口和非空已完成父回合继承探针；普通 headless Worker
+仍是单回合，fork 不继承正在进行中的不完整回合，也不能用于 fresh Reviewer。
 完整能力证据和边界见 `spike/DSH_CAPABILITY_MATRIX.md`、`spike/VERIFIED_VERSIONS.md`。
+按 2026-09-17 人类裁决保留 L3 适配器扩展，见 `spike/INTEGRATION_DECISION.md`。
+doctor 同时返回原文 `matrix_modes` 与实际 `allowed_modes`；L3 要求已验证的 DSH 版本/
+profile/模型组合、子 Agent 开关、原生工具及其 provider 可用和 guard 存在。run/resume 重新检查，
+不满足返回 20，不静默改计划。`-AllowUnverifiedRuntime` 不授予未知版本的 L3 扩展。
 
 ```powershell
 pwsh -NoProfile -File ./team/scripts/team.ps1 doctor -Json
 pwsh -NoProfile -File ./team/scripts/team.ps1 route -TaskText 'SQL optimization' -Json
 pwsh -NoProfile -File ./team/scripts/team.ps1 validate -Plan ./team/tests/plans/L1-sql.yaml -Json
 ```
+
+`route -Repo ...` 会参考固定领域路径标记，并返回 `repo_metadata`、`risk_flags` 和
+`lead_action`。模糊任务的 L1/L2 建议仍需 Lead 判断，不因仓库大而把小改动升级。
+连续误判进入 degraded 后，doctor 与 run/resume 也会返回通知；单次匹配不解除降级。
+修正启发式、仓库元数据或有事实依据的任务期望后，显式重放已记录任务：
+
+```powershell
+pwsh -NoProfile -File ./team/scripts/team.ps1 record-route -Repo C:/path/to/test-repo -TaskText '新增搜索功能' -ExpectedMode L2 -Json
+pwsh -NoProfile -File ./team/scripts/team.ps1 revalidate-route -Repo C:/path/to/test-repo -Reason '修正了导致误判的原因' -Json
+```
+
+重新验证还包含四个固定路由示例；任何一项仍不匹配均返回 20 并保留降级。
 
 先用独立测试仓库作为 `-Repo`；其中应有初始 commit，Git 提交身份已配置，
 `.gitignore` 忽略 `/team/runtime/` 与 `/.worktrees/`。计划和验证命令必须按实际项目填写。

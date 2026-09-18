@@ -20,6 +20,58 @@ BeforeAll {
 }
 
 Describe 'Plan and routing contracts' {
+    It 'does not admit L3 when tools exist but a native provider is disabled' {
+        Mock Invoke-TeamCapture {
+            @(@{id='agent-default-model';config=@{provider='deepseek-official';model='deepseek-flash'}},
+                @{id='llm-deepseek'},@{id='headless-startup'},@{id='headless-runner'},@{id='subagent'},
+                @{id='subagent-spawn-in-process'},@{id='subagent-fork-in-process';disabled=$true},
+                @{id='tool-subagent'},@{id='tool-subagent-fork'}) | ConvertTo-Json -Depth 8
+        }
+        $old=$env:DSH_HOME; $env:DSH_HOME=Join-Path $TestDrive 'provider-probe-home'
+        try {
+            $route=Test-DshRoute $script:ManifestData $TestDrive
+            $route.verified | Should -BeTrue
+            $route.native_available | Should -BeFalse
+            $route.native_services | Should -Contain 'tool-subagent-fork'
+            $route.native_services | Should -Not -Contain 'subagent-fork-in-process'
+            $cap=Get-TeamCapabilityDecision 'I1' 'O2' 'E2' $route.verified $route.native_available $true $true
+            Assert-Code { Assert-TeamCapability @{mode='L3'} @{capabilities=$cap} } 20
+        } finally { $env:DSH_HOME=$old }
+    }
+    It 'applies the capability matrix to <InputAxis>/<OutputAxis>/<ExitAxis>' -ForEach @(
+        @{InputAxis='I3';OutputAxis='O4';ExitAxis='E2';Modes=@('L0','L1','L2','L3')},
+        @{InputAxis='I2';OutputAxis='O3';ExitAxis='E2';Modes=@('L0','L1','L2','L3')},
+        @{InputAxis='I2';OutputAxis='O2';ExitAxis='E2';Modes=@('L0','L1','L2')},
+        @{InputAxis='I1';OutputAxis='O3';ExitAxis='E2';Modes=@('L0','L1','L2')},
+        @{InputAxis='I1';OutputAxis='O2';ExitAxis='E2';Modes=@('L0','L1','L2')},
+        @{InputAxis='I1';OutputAxis='O1';ExitAxis='E1';Modes=@('L0')},
+        @{InputAxis='I0';OutputAxis='O2';ExitAxis='E1';Modes=@('L0')},
+        @{InputAxis='I0';OutputAxis='O0';ExitAxis='E0';Modes=@('L0')}
+    ) {
+        $cap=Get-TeamCapabilityDecision $InputAxis $OutputAxis $ExitAxis $true $true $true
+        $cap.allowed_modes | Should -Be $Modes
+        $cap.adapter_l3_extension | Should -BeFalse
+        if ($InputAxis -eq 'I1' -and $OutputAxis -eq 'O1') { $cap.experimental_modes | Should -Contain 'L1' }
+    }
+    It 'requires verified route and native tools even for structured transports' {
+        (Get-TeamCapabilityDecision 'I3' 'O4' 'E2' $false $true $true).allowed_modes | Should -Be @('L0')
+        (Get-TeamCapabilityDecision 'I3' 'O4' 'E2' $true $false $true).allowed_modes | Should -Be @('L0','L1','L2')
+        $cap=Get-TeamCapabilityDecision 'I3' 'O4' 'E2' $true $true $false
+        $cap.l3_limited | Should -BeTrue
+        $cap.result_child_summary_required | Should -BeTrue
+    }
+    It 'keeps the verified adapter extension distinct and fails closed when a prerequisite disappears' {
+        $cap=Get-TeamCapabilityDecision 'I1' 'O2' 'E2' $true $true $true $true
+        $cap.matrix_modes | Should -Be @('L0','L1','L2')
+        $cap.allowed_modes | Should -Contain 'L3'
+        $cap.adapter_l3_extension | Should -BeTrue
+        Assert-TeamCapability @{mode='L3'} @{capabilities=$cap}
+        foreach ($flags in @(@($false,$true,$true),@($true,$false,$true),@($true,$true,$false))) {
+            $cap=Get-TeamCapabilityDecision 'I1' 'O2' 'E2' $flags[0] $flags[1] $flags[2] $true
+            $cap.allowed_modes | Should -Not -Contain 'L3'
+            Assert-Code { Assert-TeamCapability @{mode='L3'} @{capabilities=$cap} } 20
+        }
+    }
     It 'loads all role contracts and rejects integration authority expansion' {
         $roles=@(Get-ChildItem (Join-Path $script:TeamPath 'roles') -Filter '*.yaml')
         $roles.Count | Should -Be 19
@@ -46,6 +98,32 @@ Describe 'Plan and routing contracts' {
         @{Text='README typo';Mode='L0'}, @{Text='SQL optimization';Mode='L1'},
         @{Text='avatar upload';Mode='L2'}, @{Text='auth redesign';Mode='L3'}, @{Text='hello';Mode='UNKNOWN'}
     ) { (Get-TeamRoute $Text).recommended_mode | Should -Be $Mode }
+    It 'uses bounded repository markers only for ambiguous implementation tasks' {
+        $repo=Join-Path $TestDrive 'routing-metadata'
+        New-Item -ItemType Directory (Join-Path $repo 'frontend') -Force | Out-Null
+        (Get-TeamRoute '实现搜索功能' $repo).recommended_mode | Should -Be 'L1'
+        New-Item -ItemType Directory (Join-Path $repo 'backend') | Out-Null
+        $route=Get-TeamRoute '实现搜索功能' $repo
+        $route.recommended_mode | Should -Be 'L2'
+        $route.confidence | Should -BeLessThan 0.8
+        $route.lead_action | Should -Be 'lead_assessment_required'
+        $route.repo_metadata.markers | Should -Contain 'frontend'
+        $route.repo_metadata.markers | Should -Contain 'backend'
+        (Get-TeamRoute 'README typo' $repo).recommended_mode | Should -Be 'L0'
+        (Get-TeamRoute 'hello' $repo).recommended_mode | Should -Be 'UNKNOWN'
+        Test-Path (Join-Path $repo 'team/runtime') | Should -BeFalse
+    }
+    It 'reports risk flags independently of mode and the enabled switch' {
+        $route=Get-TeamRoute 'README production credentials'
+        $route.recommended_mode | Should -Be 'UNKNOWN'
+        $route.risk_flags | Should -Contain 'owner_decision_required'
+        $route.lead_action | Should -Be 'assess_owner_escalation'
+        $config=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml'); $config.team.enabled=$false
+        $route=Get-TeamRoute 'auth redesign production' '' $config
+        $route.recommended_mode | Should -Be 'L0'
+        $route.risk_flags | Should -Contain 'security_sensitive'
+        $route.lead_action | Should -Be 'use_normal_codex'
+    }
     It 'rejects a cyclic DAG before dispatch' {
         $p = New-Plan; $p.tasks[0].dependencies = @('SQL-001')
         Assert-Code { Test-TeamPlan $p $script:ManifestData } 10
@@ -103,8 +181,50 @@ Describe 'Persistence, process and repository guards' {
         $repo=Join-Path $TestDrive 'routing-only'; New-Item -ItemType Directory $repo | Out-Null
         1..3 | ForEach-Object { $null=Record-TeamRoute $script:ManifestData $repo 'README typo' 'L2' }
         (Read-TeamData (Join-Path $repo 'team/runtime/routing.json')).auto_route | Should -Be 'degraded'
-        (Record-TeamRoute $script:ManifestData $repo 'SQL optimization' 'L1').auto_route | Should -Be 'normal'
+        # A new passing example is not evidence that the earlier regression was fixed.
+        (Record-TeamRoute $script:ManifestData $repo 'SQL optimization' 'L1').auto_route | Should -Be 'degraded'
+        $route=Get-TeamRoute 'avatar upload' $repo $script:ManifestData
+        $route.auto_route | Should -Be 'degraded'
+        $route.notice | Should -Match 'revalidate-route'
+        $route.lead_action | Should -Be 'explicit_route_for_each_complex_task_until_revalidated'
+        $check=Reset-TeamRoutingHealth $script:ManifestData $repo 'Check known regression'
+        $check.success | Should -BeFalse
+        $check.auto_route | Should -Be 'degraded'
+        @($check.checks | Where-Object status -eq 'ROUTING_MISMATCH').Count | Should -Be 1
+        $null=Record-TeamRoute $script:ManifestData $repo 'README typo' 'L0'
+        (Get-TeamRoute '' $repo).auto_route | Should -Be 'degraded'
+        $check=Reset-TeamRoutingHealth $script:ManifestData $repo 'Corrected the explicit task expectation after inspection'
+        $check.success | Should -BeTrue
+        $check.auto_route | Should -Be 'normal'
+        $saved=Read-TeamData (Join-Path $repo 'team/runtime/routing.json')
+        $saved.last_revalidation.checks.Count | Should -Be 6
+        $saved.consecutive_misroutes | Should -Be 0
         Test-Path (Join-Path $repo 'team/runtime/.team-lock') | Should -BeFalse
+    }
+    It 'revalidates real mismatches against current repository metadata' {
+        $repo=Join-Path $TestDrive 'routing-revalidate'
+        New-Item -ItemType Directory $repo | Out-Null
+        1..3 | ForEach-Object { $null=Record-TeamRoute $script:ManifestData $repo '新增搜索功能' 'L2' }
+        (Reset-TeamRoutingHealth $script:ManifestData $repo 'Before metadata correction').success | Should -BeFalse
+        foreach ($name in @('frontend','backend')) { New-Item -ItemType Directory (Join-Path $repo $name) | Out-Null }
+        (Reset-TeamRoutingHealth $script:ManifestData $repo 'Repository domain markers are now available').success | Should -BeTrue
+    }
+    It 'does not clear legacy degradation with only the fixed examples or accept an empty reason' {
+        $repo=Join-Path $TestDrive 'routing-legacy'; $path=Join-Path $repo 'team/runtime/routing.json'
+        Write-TeamData $path @{auto_route='degraded';consecutive_misroutes=3}
+        Assert-Code { Reset-TeamRoutingHealth $script:ManifestData $repo 'Fixed examples only' } 20
+        Assert-Code { Reset-TeamRoutingHealth $script:ManifestData $repo '' } 10
+        (Read-TeamData $path).auto_route | Should -Be 'degraded'
+    }
+    It 'serializes route observations and revalidation using the same lock' {
+        $repo=Join-Path $TestDrive 'routing-locked'; $root=Join-Path $repo 'team/runtime'
+        New-Item -ItemType Directory $root -Force | Out-Null
+        $handle=[IO.File]::Open((Join-Path $root '.routing-lock'),'OpenOrCreate','ReadWrite','None')
+        try {
+            Assert-Code { Record-TeamRoute $script:ManifestData $repo 'README typo' 'L0' } 20
+            Assert-Code { Reset-TeamRoutingHealth $script:ManifestData $repo 'Test lock' } 20
+        } finally { $handle.Dispose() }
+        Test-Path (Join-Path $root 'routing.json') | Should -BeFalse
     }
     It 'keeps a paused run locked and rejects a second coordinator' {
         $repo = Join-Path $TestDrive 'lock-repo'; New-Item -ItemType Directory $repo | Out-Null

@@ -10,8 +10,8 @@
 | 0–4 架构、自治、Ground Truth、角色 | 原生 Codex/DSH、PS 控制面、Git/外部验证、SHA 验收 | 图中的 DSH Local Review 尚无独立执行阶段 |
 | 5 逻辑别名、版本 pin、override | manifest、Preflight；真实 doctor 与错误版本 fixture | 当前只认证精确版本，未宣称更宽区间 |
 | 6 复用质量规则 | ReviewRounds 按已审 revision 聚合 9A/9B；逐问题归因/去重、争议裁决、streak/三轮上限/early-stop；真实两次 9A 失败→修复通过 | Team 两阶段映射不替代目标项目旧双审同 SHA 等额外要求；活动旧计数拒绝静默重置 |
-| 7–9 能力 Spike、降级矩阵 | 8 份 Spike 文档；L1/L2、fresh child、fork 入口、Critical 真实验收 | fork 非空上下文继承、能力矩阵与 L3 准入对应关系仍需补齐 |
-| 10–13 L0–L3、纯本地 route、misroute | Core/Preflight、4 固定路由 fixture、连续 3 次降级 | route 尚未结合仓库 metadata；降级状态对 Lead 的通知及重新验证入口需复核 |
+| 7–9 能力 Spike、降级矩阵 | 8 份 Spike 文档；L1/L2、fresh child、fork 空/非空前缀、Critical 真实验收；doctor 矩阵与 run/resume 准入接线；人类裁决保留明确标记的 L3 适配器扩展 | 原生 I1/O2 未改称 I3/O4；非空 fork 为专门双回合探针，不把普通单回合 Worker 声称为自动继承历史 |
+| 10–13 L0–L3、纯本地 route、misroute | Core/Preflight、固定领域路径 metadata 与风险标记、4 固定路由 fixture、连续 3 次降级；route/doctor/run/resume 通知；revalidate-route 重放固定与真实任务 | 本地启发式不替代 Lead 判断；验证结果见 ACCEPTANCE |
 | 14–16 计划与分阶段上下文发现 | Lead policy 明确顺序和最多 2 次修复；无效计划 exit 10 + `plan_invalid`，无 run 时只返回 JSON | 无 |
 | 17 Team Plan、DAG | team-plan schema、Contracts、真实 Git 的 DAG fixture | 无 |
 | 18–19 19 种角色与 role schema | 19 种领域能力/验证建议/指导；run 冻结定义，Task Packet 携带；真实 backend/frontend Worker 已验收 | 默认值是规划建议，不扩张具体 Task 的有效权限 |
@@ -42,10 +42,10 @@
 | 75–77 目录、CLI、manifest | 文件/命令见下方映射 | 示例未逐字照搬：原生模型 ID 为已实测 deepseek-flash；脚本按职责合并 |
 | 78 风险登记 | security、OPEN_GAPS 和本表明确已知边界 | R4/R8/R11/R13 等随待办补验收 |
 | 79 长期演进 | V2+ 明确排除 | 不实现 MCP facade、常驻服务、远程沙箱或多机器调度 |
-| 80–83 不变原则、实施顺序、总结 | 首条真实链路已先验证；不裸 API、不跳 Critical、不伪造证据；原则 24 跨 worktree 锁旁路已关闭 | 原则 15/30 对应能力降级与 preflight 缺口仍未闭合 |
+| 80–83 不变原则、实施顺序、总结 | 首条真实链路已先验证；不裸 API、不跳 Critical、不伪造证据；原则 24 跨 worktree 锁旁路已关闭；原则 15/30 的矩阵与 preflight 准入已接线 | L3 扩展遵守此次人类裁决，不将局部验收表述为整份规范完成 |
 
 所有原文 CLI 入口已存在：`doctor route validate run status watch escalations resolve result logs cost stop resume cleanup`。
-新增决策入口：`accept integrate affected replan rollback report-cost record-route repair-integration resolve-review`。
+新增决策入口：`accept integrate affected replan rollback report-cost record-route revalidate-route repair-integration resolve-review`。
 
 原文按函数拆分的脚本在此实现中按职责合并；统一 CLI 不变，不添加空包装文件：
 

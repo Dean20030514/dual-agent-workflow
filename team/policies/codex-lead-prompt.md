@@ -15,3 +15,6 @@ scope、验收、接口变更必须更新 plan revision 并写 Decision Log。
 
 schema 失败最多两次有针对性的重生成；仍失败报告实现错误。无理由不得降级。
 路由连续三次不匹配时，每个复杂任务显式调用 route，直到重新验证。
+读取 route/doctor/run/resume 的 routing_health 或 auto_route/notice。degraded 不能靠一次匹配解除；
+修正原因后用 revalidate-route -Reason 重放固定示例和已记录真实任务，全部通过才恢复。
+repo_metadata 仅是路径标记，不能替代实际上下文发现；risk_flags 不代表人类已授权。
