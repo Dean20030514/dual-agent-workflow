@@ -50,6 +50,34 @@ BeforeAll {
 AfterAll { Restore-TeamLeadFixture $script:LeadEnvironment; $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'refuses rejected plan setup before executing any prerequisite' {
+        $f = New-RuntimeFixture
+        $marker = Join-Path $f.repo 'setup-ran.txt'
+        $f.plan.classification.level = 'critical'
+        $f.plan.review.require_9p = $true; $f.plan.review.require_fresh_9b = $true
+        $f.plan.tasks[0].objective = @('FIXTURE_PLAN_REJECT')
+        $f.plan['prerequisites'] = @(@{ id = 'setup'; executable = 'pwsh'; timeout_seconds = 30
+            args = @('-NoProfile','-Command',"Set-Content -LiteralPath '$marker' ran") })
+        Write-TeamData $f.path $f.plan
+        $r = Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
+        $r.code | Should -Be 50 -Because $r.raw
+        (Test-Path -LiteralPath $marker) | Should -BeFalse
+        (Test-Path -LiteralPath (Join-Path $f.repo 'team/runtime/FIXTURE/prerequisites.json')) | Should -BeFalse
+        (State $f).tasks.T1.attempts | Should -Be 0
+    }
+    It 'refuses unauthorized setup before executing any prerequisite' {
+        $f = New-RuntimeFixture
+        $marker = Join-Path $f.repo 'setup-ran.txt'
+        $f.plan['risk_flags'] = @('destructive')
+        $f.plan['prerequisites'] = @(@{ id = 'setup'; executable = 'pwsh'; timeout_seconds = 30
+            args = @('-NoProfile','-Command',"Set-Content -LiteralPath '$marker' ran") })
+        Write-TeamData $f.path $f.plan
+        $r = Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
+        $r.code | Should -Be 60 -Because $r.raw
+        (Test-Path -LiteralPath $marker) | Should -BeFalse
+        (Test-Path -LiteralPath (Join-Path $f.repo 'team/runtime/FIXTURE/prerequisites.json')) | Should -BeFalse
+        (State $f).tasks.T1.attempts | Should -Be 0
+    }
     It 'keeps an optional ancestor of a required task runnable at the soft limit' {
         $f=New-RuntimeFixture 2; $f.plan.tasks[0]['optional']=$true; $f.plan.tasks[1].dependencies=@('T1'); Write-TeamData $f.path $f.plan
         $manifest=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml'); $manifest.budget.ledgers.deepseek.soft_limit=0

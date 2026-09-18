@@ -277,3 +277,174 @@ function Undo-TeamIntegration($State, [string]$Directory, [string]$TaskId, [stri
     }
     return Restore-TeamRollback $State $Directory
 }
+
+function Sync-TeamTerminalReservations($State, [string]$Directory, $Manifest) {
+    $settled=0; $unknown=0; $held=0
+    foreach ($taskId in @($State.tasks.Keys)) {
+        $item=$State.tasks[$taskId]
+        if (-not $item['reserved']) { continue }
+        if ($item.status -notin @('FAILED','FAILED_SCOPE','ESCALATED','CANCELLED')) { continue }
+        # Budget is only ever moved on positive quiescence evidence. A live owner, an
+        # unprovable PID/start pair or an unresolved child cleanup keeps the reservation
+        # exactly where it is: unknown usage stays unknown instead of being released.
+        $ownership = Get-TeamOwnedProcessState $item
+        if (-not $ownership.settled) {
+            $unknown++; $held += [int]$item.reserved
+            Add-TeamEvent $Directory 'reservation_reconciliation_held' @{ task_id=$taskId; reserved=[int]$item.reserved
+                live=@($ownership.live | ForEach-Object { $_.pid }); unknown=@($ownership.unknown | ForEach-Object { $_.pid })
+                unresolved=@($ownership.unresolved | ForEach-Object { $_.detail }) }
+            continue
+        }
+        $receiptPath=Join-Path $item.directory 'exit.json'
+        if (-not $item.directory -or -not (Test-Path -LiteralPath $receiptPath)) { $unknown++; continue }
+        $receipt=Read-TeamData $receiptPath
+        $nativePath=Join-Path $item.directory 'native-process.json'
+        if ($receipt['startup_exhausted'] -eq $true -and -not (Test-Path -LiteralPath $nativePath)) {
+            # Durable proof that no native process was created: release without charging.
+            $released=[int]$item.reserved
+            $State.agents_reserved-=$item.reserved; $item.reserved=0; $settled++
+            Add-TeamEvent $Directory 'reservation_reconciled' @{task_id=$taskId;result='never_started';released=$released}
+            continue
+        }
+        $settledStreams=[bool]($receipt['transport_cleanup'] -and $receipt.transport_cleanup['streams_settled'])
+        if (-not $settledStreams) { $unknown++; continue }
+        $created=$null
+        if (Test-Path -LiteralPath (Join-Path $item.directory 'agents.json')) {
+            try { $created=@((Read-TeamData (Join-Path $item.directory 'agents.json')).agents).Count } catch { $created=$null }
+        }
+        if ($null -eq $created) { $unknown++; continue }
+        # Charge only what the native receipt proves; release the rest.
+        $charge=[Math]::Min([int]$item.reserved,[int]$created)
+        $State.agents_created+=$charge; $State.agents_reserved-=$item.reserved; $item.reserved=0; $settled++
+        Add-TeamEvent $Directory 'reservation_reconciled' @{task_id=$taskId;result='native_receipt';created=$charge;released=([int]$charge -eq 0)}
+    }
+    return @{settled=$settled;unknown=$unknown;held=$held}
+}
+
+function Test-TeamInfrastructureFailure($State, [string]$Directory, [string]$TaskId, $Manifest) {
+    $item=$State.tasks[$TaskId]
+    if (-not $item -or [int]$item['attempts'] -lt 1) { return @{eligible=$false;reason='task has no failed attempt'} }
+    if ($item.status -notin @('FAILED','ESCALATED')) { return @{eligible=$false;reason="task status $($item.status) is not an infrastructure failure state"} }
+    if ($item.status -eq 'ESCALATED') {
+        $pending=@(Get-ChildItem -LiteralPath (Join-Path $Directory 'escalations') -Filter '*.yaml' -ErrorAction SilentlyContinue |
+            ForEach-Object { Read-TeamData $_.FullName } | Where-Object { $_.status -eq 'pending' -and $_.context['task_id'] -eq $TaskId })
+        if ($pending.Count) { return @{eligible=$false;reason='a pending escalation must be resolved before infrastructure recovery'} }
+    }
+    $ownership = Get-TeamOwnedProcessState $item
+    if (@($ownership.live).Count) { return @{eligible=$false;reason='a run-owned process is still active; wait for its durable receipt'} }
+    if (@($ownership.unknown).Count) {
+        $sources = @($ownership.unknown | ForEach-Object { "$($_.source):$($_.pid)" }) -join ', '
+        return @{eligible=$false;reason="run-owned process ownership cannot be proven ($sources); usage stays unknown"}
+    }
+    if (@($ownership.unresolved).Count) {
+        $details = @($ownership.unresolved | ForEach-Object { "$($_.source): $($_.detail)" }) -join '; '
+        return @{eligible=$false;reason="owned process cleanup is not settled ($details)"}
+    }
+    $nativePath=Join-Path $item.directory 'native-process.json'
+    $receiptPath=Join-Path $item.directory 'exit.json'
+    if (-not (Test-Path -LiteralPath $receiptPath)) { return @{eligible=$false;reason='no durable adapter exit receipt; usage stays unknown'} }
+    $receipt=Read-TeamData $receiptPath
+    if ($receipt['input_too_large'] -eq $true) { return @{eligible=$false;reason='input capacity failure requires an explicit replan/split'} }
+    $startupExhausted=$receipt['startup_exhausted'] -eq $true
+    $settledStreams=[bool]($receipt['transport_cleanup'] -and $receipt.transport_cleanup['streams_settled'])
+    if (-not $settledStreams -and -not $startupExhausted) { return @{eligible=$false;reason='adapter streams are not settled; unknown usage is retained'} }
+    # A successful author exit cannot explain a later verification/review failure.
+    if (-not $receipt.Contains('exit_code') -or [int]$receipt.exit_code -eq 0) {
+        return @{eligible=$false;reason='no failed adapter exit for this attempt; verification and review failures require a replan'}
+    }
+    $failures=@()
+    if ($State['worker_failures']) {
+        foreach ($key in @($State.worker_failures.Keys)) {
+            $record=$State.worker_failures[$key]
+            if ($key.StartsWith("$TaskId/",[StringComparison]::Ordinal) -and
+                [int]$record['attempt'] -eq [int]$item.attempts -and $record['directory'] -and
+                [IO.Path]::GetFullPath($record.directory) -ieq [IO.Path]::GetFullPath($item.directory)) { $failures+=$record }
+        }
+    }
+    if (@($failures | Where-Object { $_['infra_kind'] -notin @('idle','start','transport','hard','output') }).Count) {
+        return @{eligible=$false;reason='this attempt has a non-infrastructure failure; preserve its counters and replan'}
+    }
+    $kinds=@($failures | ForEach-Object { $_.infra_kind } | Sort-Object -Unique)
+    if ($kinds.Count -gt 1) { return @{eligible=$false;reason='conflicting infrastructure evidence for this attempt'} }
+    $failure=if ($failures.Count) {$failures[0]} else {$null}
+    $kind=$null
+    if ($startupExhausted) { $kind='start' }
+    elseif ($failure -and $failure['infra_kind'] -in @('idle','start','transport')) { $kind=[string]$failure['infra_kind'] }
+    elseif ($receipt['timeout_kind'] -eq 'idle') { $kind='idle' }
+    elseif ($receipt['exit_code'] -eq 30 -and -not (Test-Path -LiteralPath $nativePath)) { $kind='transport' }
+    if (-not $kind) {
+        # A hard total timeout or an output overflow is still an infrastructure-class attempt
+        # (it is never relabelled as a semantic failure), but it is deliberately not
+        # auto-recoverable: the bound was reached, so an owner decision is required.
+        $recordedKind = if ($failure) {[string]$failure['infra_kind']} else {[string]$receipt['timeout_kind']}
+        if ($recordedKind -in @('hard','output')) {
+            return @{eligible=$false;reason="recorded '$recordedKind' termination is bounded but not auto-recoverable; hard timeouts and output overflows keep their counters pending an owner decision";failure=$failure}
+        }
+        $recorded=if ($failure) {$failure['kind']} else {"exit $($receipt['exit_code'])"}
+        return @{eligible=$false;reason="recorded failure ($recorded) is not transport/start/idle; verification, business, review and scope failures keep their counters";failure=$failure}
+    }
+    return @{eligible=$true;infra_kind=$kind;failure=$failure;receipt=$receipt;settled=$true}
+}
+
+function Invoke-TeamInfrastructureRecovery($State, $Plan, $Manifest, [string]$Directory, [string]$TaskId, [string]$Reason) {
+    Assert-TeamId $TaskId
+    if (-not $Reason -or -not $Reason.Trim()) { Stop-TeamError 10 'Infrastructure recovery requires a -Reason' }
+    if (-not $State.tasks.Contains($TaskId)) { Stop-TeamError 10 'Unknown task' }
+    if ($State.status -in @('COMPLETED','CANCELLED')) { Stop-TeamError 80 'Terminal run cannot recover a task' }
+    Assert-TeamCleanupSettled $State
+    # Eligibility is decided from durable evidence before anything can move the budget: a
+    # rejected recovery must leave reservations exactly as they were.
+    $eligibility=Test-TeamInfrastructureFailure $State $Directory $TaskId $Manifest
+    if (-not $eligibility.eligible) { Stop-TeamError 10 "Task $TaskId is not eligible for infrastructure recovery: $($eligibility.reason)" }
+    $item=$State.tasks[$TaskId]
+    $null=Sync-TeamTerminalReservations $State $Directory $Manifest
+    if ([int]$item['reserved']) {
+        Stop-TeamError 10 "Reservation usage for $TaskId cannot be proven settled; unknown usage is retained and a retry would double count it"
+    }
+    if ([int]$item.attempts -gt [int]$Manifest.budget.max_worker_retries) {
+        New-TeamEscalation $State $Directory 'infra_retry_limit' 'Worker attempt cap reached; infrastructure recovery does not bypass it.' @{task_id=$TaskId;attempts=$item.attempts}
+        Stop-TeamError 60 'Worker attempt cap reached; owner decision required'
+    }
+    if ([int]$State['infra_retries'] -ge [int]$Manifest.budget.max_worker_retries) { Stop-TeamError 60 'Infrastructure recovery cap reached; owner decision required' }
+    $task=@($Plan.tasks | Where-Object { $_.id -eq $TaskId })[0]
+    if (-not $task) { Stop-TeamError 10 'Task is not part of the frozen plan' }
+    # Retire the failed attempt as evidence, never as a new baseline: the replacement starts
+    # from the original base and the prior worktree, branch and dirty content stay on disk.
+    $worktreeExists=$item['worktree'] -and (Test-Path -LiteralPath $item['worktree'] -PathType Container)
+    $head=if ($worktreeExists) { Invoke-TeamGit $item.worktree @('rev-parse','HEAD') } else { '' }
+    $dirty=if ($worktreeExists) { Invoke-TeamGit $item.worktree @('status','--porcelain','--untracked-files=all') } else { '' }
+    $retired=$item | ConvertTo-Json -Depth 60 | ConvertFrom-Json -AsHashtable
+    $retired['task_id']=$TaskId; $retired['retired_from']=$item.status; $retired.status='DISCARDED'
+    $retired['discard_reason']="infrastructure recovery ($($eligibility.infra_kind)): $Reason"
+    $retired['discard_revision']=[int]$State.revision
+    $retired['discard_commit']=$(if ($item['commit']) {$item['commit']} else {$head})
+    $retired['retire_kind']='infrastructure'; $retired['infra_kind']=$eligibility.infra_kind
+    $retired['retired_head']=$head; $retired['retired_dirty']=[bool]$dirty; $retired['retired_dirty_sha256']=Get-TeamTextHash $dirty
+    $retired['retired_base_sha']=$item['base_sha']
+    if (-not $State['discarded_tasks']) { $State['discarded_tasks']=@{} }
+    $key="$TaskId-a$($item.attempts)-i$([int]$State.revision)"
+    while ($State.discarded_tasks.ContainsKey($key)) { $key+='-b' }
+    $State.discarded_tasks[$key]=$retired
+    $State['infra_retries']=[int]$State['infra_retries']+1
+    $nextAttempt=[int]$item.attempts+1
+    $item.status='READY'; $item.commit=''; $item.pid=0; $item.process_start=''
+    $State.status='PAUSED'
+    $id='REC-'+[guid]::NewGuid().ToString('N').Substring(0,12)
+    Write-TeamData (Join-Path $Directory "recovery/$id.json") @{ id=$id; run_id=$State.run_id; task_id=$TaskId
+        plan_hash=$State.plan_hash; revision=[int]$State.revision; kind=$eligibility.infra_kind; reason=$Reason
+        retired_key=$key; retired_head=$head; retired_dirty=[bool]$dirty; attempt=[int]$item.attempts
+        next_attempt=$nextAttempt; base_sha=$item['base_sha']; semantic_replans=[int]$State.replans
+        infra_retries=[int]$State['infra_retries']
+        evidence=@{ receipt=(Get-TeamRootRelativePath $Directory (Join-Path $item.directory 'exit.json'))
+            startup_exhausted=[bool]$eligibility.receipt['startup_exhausted']; timeout_kind=$eligibility.receipt['timeout_kind']
+            settled=$eligibility.settled; run_owned_processes='none active' }
+        created_at=[DateTime]::UtcNow.ToString('o') }
+    Save-TeamState $State $Directory
+    Add-TeamEvent $Directory 'infrastructure_recovery_recorded' @{task_id=$TaskId;kind=$eligibility.infra_kind;recovery_id=$id
+        retired_key=$key;next_attempt=$nextAttempt;semantic_replans=[int]$State.replans;infra_retries=[int]$State['infra_retries']}
+    return @{ status='PAUSED'; task_id=$TaskId; recovery_id=$id; infra_kind=$eligibility.infra_kind; retired_key=$key
+        attempt=[int]$item.attempts; next_attempt=$nextAttempt; base_sha=$item['base_sha']
+        semantic_replans=[int]$State.replans; infra_retries=[int]$State['infra_retries']
+        retired_dirty=[bool]$dirty
+        next='resume; the retired attempt keeps its worktree, branch and evidence and is never silently baselined.' }
+}

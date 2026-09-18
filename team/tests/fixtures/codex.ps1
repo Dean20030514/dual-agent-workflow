@@ -7,6 +7,9 @@ $prompt=[Console]::In.ReadToEnd()
 if ($prompt -match 'FIXTURE_REVIEW_FLOOD') { [Console]::Out.Write('x' * 2MB) }
 $stage=[regex]::Match($prompt,'(?m)^Stage: (9[APB])').Groups[1].Value
 $issues=@()
+if ($stage -eq '9P' -and $prompt -match 'FIXTURE_PLAN_REJECT') {
+    $issues=@(@{id='fixture-plan';consequence='Synthetic unsafe plan';evidence='Fixture plan rejection';caused_by_last_fix='no'})
+}
 if ($stage -eq '9A') {
     if ($prompt -match 'FIXTURE_REVIEW_MIXED') { $causes=@('yes','no') }
     elseif ($prompt -match 'FIXTURE_REVIEW_YES') { $causes=@('yes') }

@@ -15,6 +15,21 @@ function Get-TeamRole([string]$Id, [string]$Directory = '', $Plan = $null) {
     return $role
 }
 
+function Assert-TeamIssueAcceptanceMap($Value) {
+    if (-not $Value['issue_acceptance_map']) { return }
+    $objectiveCount=@($Value.objective).Count; $acceptanceCount=@($Value.acceptance).Count
+    $seen=@{}
+    foreach ($entry in @($Value.issue_acceptance_map)) {
+        $index=[int]$entry.objective_index
+        if ($index -lt 0 -or $index -ge $objectiveCount) { Stop-TeamError 10 'issue_acceptance_map objective index is out of range' }
+        if ($seen.ContainsKey($index)) { Stop-TeamError 10 'issue_acceptance_map repeats an objective index' }
+        $seen[$index]=$true
+        foreach ($acceptanceIndex in @($entry.acceptance_indexes)) {
+            if ([int]$acceptanceIndex -lt 0 -or [int]$acceptanceIndex -ge $acceptanceCount) { Stop-TeamError 10 'issue_acceptance_map acceptance index is out of range' }
+        }
+    }
+}
+
 function Test-TeamTask($Packet) {
     Test-TeamSchema $Packet 'task'
     if ($Packet['result_schema_sha256'] -and $Packet.result_schema -cne 'result-v1') { Stop-TeamError 10 'A hashed Result schema must use its logical result-v1 identity' }
@@ -23,6 +38,7 @@ function Test-TeamTask($Packet) {
         Test-TeamSchema $Packet.role.definition 'role'
         if ($Packet.role.definition.role_id -cne $Packet.role.id) { Stop-TeamError 10 'Task role definition identity mismatch' }
     }
+    Assert-TeamIssueAcceptanceMap $Packet
 }
 
 function Read-TeamWorkerOutput([string]$Path, [ValidateSet('result','review')][string]$Schema = 'result') {
@@ -124,6 +140,7 @@ function Test-TeamPlanContent($Plan, $Manifest) {
     foreach ($task in $Plan.tasks) {
         if ($ids.ContainsKey($task.id)) { Stop-TeamError 10 "Duplicate task: $($task.id)" }
         $ids[$task.id] = $task
+        Assert-TeamIssueAcceptanceMap $task
         $role = Get-TeamRole $task.role -Plan $Plan
         if ($task.role -eq 'integration' -and ($task.permissions.network -or $task.permissions.secrets -or $task.permissions.production)) {
             Stop-TeamError 10 'Integration role cannot request network, secrets, or production access'

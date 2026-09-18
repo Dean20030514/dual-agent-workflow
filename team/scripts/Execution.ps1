@@ -72,32 +72,91 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory, $Plan = 
         '-MaxPromptBytes',[string]$(if ($Manifest.runtime['max_review_input_bytes']) {$Manifest.runtime.max_review_input_bytes} else {4000000}))
     $handle = New-TeamProcess (Join-Path $PSScriptRoot 'Invoke-DshWorker.ps1') $args $item.worktree (Join-Path $item.directory 'adapter.stdout') (Join-Path $item.directory 'adapter.stderr') -MaxOutputBytes ($Manifest.runtime.max_single_log_mb * 1MB)
     $item.pid = $handle.process.Id; $item.process_start = $handle.process.StartTime.ToUniversalTime().ToString('o')
+    # Observe real worktree/HEAD changes and native activity so a quiet author that is
+    # really editing is not killed by a stdout-only idle deadline.
+    $handle['activity_probe'] = New-TeamActivityProbe -Worktree $item.worktree -RootPid $handle.process.Id -ReceiptPath (Join-Path $item.directory 'activity.json')
+    $handle['activity_probe_at'] = 0L; $handle['activity_probe_interval'] = 1000
     Save-TeamState $State $Directory
     Add-TeamEvent $Directory 'worker_started' @{ task_id = $Task.id; pid = $item.pid; base_sha = $base }
     return $handle
 }
 
-function Invoke-TeamVerification($Commands, [string]$Worktree, [string]$Directory, [string]$Prefix, $Runtime = $null) {
+function Get-TeamVerificationLogPath([string]$Directory, [string]$Prefix, [string]$CommandId, [string]$Stream) {
+    $plain = Join-Path $Directory "$Prefix-$CommandId.$Stream"
+    if (-not (Test-Path -LiteralPath $plain)) { return $plain }
+    # A superseded or resumed attempt keeps its previous logs; never overwrite evidence.
+    for ($index = 2; $index -le 99; $index++) {
+        $candidate = Join-Path $Directory "$Prefix-$CommandId-r$index.$Stream"
+        if (-not (Test-Path -LiteralPath $candidate)) { return $candidate }
+    }
+    return (Join-Path $Directory "$Prefix-$CommandId-$([guid]::NewGuid().ToString('N')).$Stream")
+}
+
+function Invoke-TeamVerification($Commands, [string]$Worktree, [string]$Directory, [string]$Prefix, $Runtime = $null, [switch]$Reuse, [string]$CacheDirectory = '') {
     $evidence = @()
     $limit=if ($Runtime) { [long]$Runtime.max_single_log_mb * 1MB } else { 50MB }
     $idle=if ($Runtime) { [int]$Runtime.idle_timeout_seconds } else { 900 }
     foreach ($command in $Commands) {
         Assert-TeamId $command.id
-        $out = Join-Path $Directory "$Prefix-$($command.id).stdout"
-        $err = Join-Path $Directory "$Prefix-$($command.id).stderr"
-        $handle=$null; $errorText=$null; $processStarted=$false
-        try {
-            $handle = New-TeamProcess $command.executable @($command.args) $Worktree $out $err -MaxOutputBytes $limit
-            $processStarted=$true
-            $exitCode = Wait-TeamProcess $handle $command.timeout_seconds $idle
-        } catch {
-            $errorText=$_.Exception.Message
-            if ($_.Exception.Data.Contains('ProcessStarted')) { $processStarted=[bool]$_.Exception.Data['ProcessStarted'] }
-            $exitCode=if ($_.Exception.Data.Contains('TeamExitCode')) {[int]$_.Exception.Data['TeamExitCode']} else {30}
-        } finally { if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate } }
+        $out = Get-TeamVerificationLogPath $Directory $Prefix $command.id 'stdout'
+        $err = Get-TeamVerificationLogPath $Directory $Prefix $command.id 'stderr'
+        $handle=$null; $errorText=$null; $processStarted=$false; $reused=$false; $reuseRejected=$null
+        $reuseKey=$null; $reuseSource=$null; $reuseHash=$null; $binding=$null; $timeoutKind=$null; $publishRejected=$null
+        $watch=[Diagnostics.Stopwatch]::StartNew()
+        if ($Reuse) {
+            $binding = Get-TeamVerificationKey $Worktree $command.executable @($command.args) $command
+            $lookup = Read-TeamVerificationCache $CacheDirectory $binding
+            if ($lookup.hit) {
+                foreach ($stream in @('stdout', 'stderr')) {
+                    $target = if ($stream -eq 'stdout') { $out } else { $err }
+                    $temporary = "$target.tmp-$([guid]::NewGuid().ToString('N'))"
+                    try { [IO.File]::Copy($lookup.logs[$stream], $temporary, $false); [IO.File]::Move($temporary, $target) }
+                    finally { if (Test-Path -LiteralPath $temporary) { [IO.File]::Delete($temporary) } }
+                }
+                $reused=$true; $reuseKey=$binding.key; $exitCode=0
+                $reuseSource=Get-TeamRootRelativePath $CacheDirectory $lookup.path
+                $reuseHash=Get-TeamHash $lookup.path
+            } else { $reuseRejected=$lookup.reason }
+        }
+        if (-not $reused) {
+            try {
+                $handle = New-TeamProcess $command.executable @($command.args) $Worktree $out $err -MaxOutputBytes $limit
+                $processStarted=$true
+                $exitCode = Wait-TeamProcess $handle $command.timeout_seconds $idle
+            } catch {
+                $errorText=$_.Exception.Message
+                if ($_.Exception.Data.Contains('ProcessStarted')) { $processStarted=[bool]$_.Exception.Data['ProcessStarted'] }
+                if ($_.Exception.Data.Contains('TimeoutKind')) { $timeoutKind=[string]$_.Exception.Data['TimeoutKind'] }
+                $exitCode=if ($_.Exception.Data.Contains('TeamExitCode')) {[int]$_.Exception.Data['TeamExitCode']} else {30}
+            } finally { if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate } }
+            $watch.Stop()
+            if ($exitCode -eq 0 -and $Reuse -and $binding -and $binding['key'] -and (Test-Path -LiteralPath $out) -and (Test-Path -LiteralPath $err)) {
+                # A successful exit is published only when the source tree, tool identity,
+                # declared inputs and environment fingerprint are byte-identical to the
+                # binding taken before the command. A command that edits tracked source (or
+                # the tool, or a declared input) therefore never becomes a reusable success.
+                try {
+                    $post = Get-TeamVerificationKey $Worktree $command.executable @($command.args) $command
+                    if (-not $post['key']) { $publishRejected = "binding_drift: $($post.reason)" }
+                    elseif ($post.key -cne $binding.key) { $publishRejected = 'binding_drift: key_changed' }
+                    else { $null=Write-TeamVerificationCache $CacheDirectory $binding $out $err }
+                }
+                catch { $publishRejected="cache_write_failed: $($_.Exception.Message)" }
+            }
+        } else { $watch.Stop() }
         $evidence += @{ id=$command.id;executable=$command.executable;args=$command.args;exit_code=$exitCode
             process_started=$processStarted;process_exit_code=$(if ($handle) {$handle.exit_code} else {$null});error=$errorText
+            timeout_kind=$timeoutKind;duration_seconds=[Math]::Round($watch.Elapsed.TotalSeconds,3)
             transport_cleanup=(Get-TeamProcessCleanupEvidence $handle)
+            cwd=[IO.Path]::GetFullPath($Worktree)
+            environment_fingerprint=$(if ($command['environment_fingerprint']) {[string]$command.environment_fingerprint} else {$null})
+            input_artifacts=@(@($command['input_artifacts']) | Where-Object { $_ })
+            tool_identity=$(if ($binding -and $binding['material']) {$binding.material.tool} else {$null})
+            reuse_opted_in=[bool]$Reuse;reused=$reused;reuse_key=$reuseKey;reuse_source=$reuseSource
+            reuse_receipt_sha256=$reuseHash;reuse_rejected=$reuseRejected;reuse_publish_rejected=$publishRejected
+            stdout_file=[IO.Path]::GetFileName($out);stderr_file=[IO.Path]::GetFileName($err)
+            stdout_bytes=$(if (Test-Path -LiteralPath $out -PathType Leaf) {(Get-Item -LiteralPath $out).Length} else {$null})
+            stderr_bytes=$(if (Test-Path -LiteralPath $err -PathType Leaf) {(Get-Item -LiteralPath $err).Length} else {$null})
             stdout_sha256=$(if (Test-Path -LiteralPath $out -PathType Leaf) {Get-TeamHash $out} else {$null})
             stderr_sha256=$(if (Test-Path -LiteralPath $err -PathType Leaf) {Get-TeamHash $err} else {$null}) }
         Write-TeamData (Join-Path $Directory "$Prefix-evidence.json") $evidence
@@ -155,7 +214,7 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
     $item.commit = $audit.commit; $item.status = 'VERIFYING'
     Save-TeamState $State $Directory
     $runtime=if ($Manifest) {$Manifest.runtime} else {$null}
-    $null = Invoke-TeamVerification $Task.verification $item.worktree $item.directory 'verification' $runtime
+    $null = Invoke-TeamVerification $Task.verification $item.worktree $item.directory 'verification' $runtime -Reuse:([bool]$State['verification_reuse']) -CacheDirectory $Directory
     if ($State['verification_failures']) { $State.verification_failures.Remove($Task.id) }
     # Verification may generate files, but must not change tracked source or HEAD.
     if ((Invoke-TeamGit $item.worktree @('rev-parse','HEAD')) -cne $item.commit -or
@@ -258,7 +317,19 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
                 $handle = $handles[$taskId]; $item = $State.tasks[$taskId]
                 $logs = @(Get-ChildItem -LiteralPath $item.directory -File | Where-Object { $_.Extension -in @('.stdout','.stderr') })
                 $size = ($logs | Measure-Object Length -Sum).Sum
-                if ($size -ne $handle.last_size) { $handle.last_activity = [DateTime]::UtcNow; $handle.last_size = $size }
+                if ($size -ne $handle.last_size) { $handle.last_activity = [DateTime]::UtcNow; $handle.last_size = $size; $item['last_activity_kind']='output' }
+                # Meaningful worktree/HEAD edits refresh the idle deadline; native process
+                # churn is reported through the probe but never counted as authored work.
+                if ($handle['activity_probe'] -and ($handle.elapsed.ElapsedMilliseconds - $handle['activity_probe_at']) -ge $handle['activity_probe_interval']) {
+                    $handle['activity_probe_at'] = $handle.elapsed.ElapsedMilliseconds
+                    try {
+                        $observed = Get-TeamActivityProbeResult $handle.activity_probe
+                        if ($observed -and $observed['active']) {
+                            $handle.last_activity = [DateTime]::UtcNow
+                            $item['last_activity_kind'] = $observed['kind']; $item['last_activity_at'] = $observed['at']
+                        }
+                    } catch { $handle['activity_probe_error'] = $_.Exception.Message }
+                }
                 $timeout = ([DateTime]::UtcNow - $handle.started).TotalSeconds -gt ($Manifest.runtime.timeout_seconds + 10)
                 $idle = ([DateTime]::UtcNow - $handle.last_activity).TotalSeconds -gt $Manifest.runtime.idle_timeout_seconds
                 $overLog = (Test-TeamProcessOutputLimit $handle) -or @($logs | Where-Object { $_.Length -gt ($Manifest.runtime.max_single_log_mb * 1MB) }).Count -gt 0
@@ -266,12 +337,15 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
                 # Its adapter already enforces native deadlines and persists the outcome;
                 # elapsed coordinator time must not turn an exited success into a timeout.
                 if ((-not $handle.process.HasExited -and ($timeout -or $idle)) -or $overLog) {
+                    $timeoutKind = if ($overLog) { 'output' } elseif ($timeout) { 'hard' } else { 'idle' }
                     $null = Close-TeamProcess $handle -Terminate; $handles.Remove($taskId)
                     $State.agents_created += $item.reserved; $State.agents_reserved -= $item.reserved; $item.reserved=0
-                    $item.status = 'FAILED'; Save-TeamState $State $Directory
-                    Record-TeamWorkerFailure $State $Plan $Directory $taskId 31 'Worker timeout, idle timeout, or output limit reached'
+                    $item.status = 'FAILED'; $item['timeout_kind']=$timeoutKind
+                    Add-TeamEvent $Directory 'worker_timeout' @{task_id=$taskId;kind=$timeoutKind;last_activity_kind=$item['last_activity_kind']}
                     Save-TeamState $State $Directory
-                    Stop-TeamError 31 'Worker timeout, idle timeout, or output limit reached'
+                    Record-TeamWorkerFailure $State $Plan $Directory $taskId 31 "Worker timeout ($timeoutKind); no blind automatic retry" -InfraKind $timeoutKind
+                    Save-TeamState $State $Directory
+                    Stop-TeamError 31 "Worker timeout ($timeoutKind); no blind automatic retry"
                 }
                 if ($handle.process.HasExited) {
                     $null = Close-TeamProcess $handle; $handles.Remove($taskId)

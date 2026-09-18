@@ -30,36 +30,20 @@ function Assert-TeamReviewOutcome($State, $Plan, [string]$Directory, [string]$La
     }
 }
 
-function Invoke-TeamReview($State, $Plan, $Manifest, [string]$Directory, [string]$Stage, [string]$Worktree, [string]$Base, [string]$Tip, [string]$TaskId = '') {
-    if ($Stage -notin @('9P','9A','9B')) { Stop-TeamError 50 'Unknown review stage' }
-    $label = if ($TaskId) { "$Stage-$TaskId" } else { $Stage }
-    Assert-TeamReviewRound $State $Plan $Directory
-    if (Test-TeamReviewAccepted $Directory $label $State.plan_hash $Tip) { return Read-TeamData (Join-Path $Directory "reviews/$label.json") }
-    $previous=$null
-    $reviewPath=Join-Path $Directory "reviews/$label.json"
-    if (Test-Path -LiteralPath $reviewPath) {
-        $previous=Read-TeamData $reviewPath
-        if ($previous.plan_hash -ceq $State.plan_hash -and $previous.tip -ceq $Tip) {
-            Assert-TeamReviewEvidence $previous $Directory
-            if (-not $previous.fresh_process) { Stop-TeamError 80 'Review evidence changed' }
-            Assert-TeamReviewOutcome $State $Plan $Directory $label $previous
-            return $previous
-        }
-    }
-    # Fresh process, no resume, no inherited chat, and an out-of-repository holding directory.
+function Get-TeamReviewMaterial($State, $Plan, $Manifest, [string]$Directory, [string]$Stage, [string]$Worktree, [string]$Base, [string]$Tip, [string]$TaskId = '', $Previous = $null) {
+    # Builds the complete reviewer material for 9P/9A/9B without launching a model, so the
+    # exact prompt path is testable. 9P legitimately has no implementation diff.
     $authority=Read-TeamAuthority $State $Directory
-    $holding = New-TeamReviewHolding $State $label
-    $before = Invoke-TeamGit $Worktree @('status','--porcelain','--untracked-files=all')
+    $snapshot=Invoke-TeamGit $Worktree @('status','--porcelain','--untracked-files=all')
     $head = Invoke-TeamGit $Worktree @('rev-parse','HEAD')
-    if ($before -or $head -cne $Tip) { Stop-TeamError 50 'Fresh review requires a clean, exact Git snapshot' }
     $agentsText=ConvertTo-Json $authority -Depth 20
     $diff = if ($Stage -eq '9P') { 'No implementation diff exists at plan stage.' } else {
         Invoke-TeamGit $Worktree @('diff',$Base,$Tip,'--', '.', ':(exclude)docs/ai/review_9*.md',':(exclude)docs/ai/archive/**',':(exclude)docs/ai/IMPLEMENTATION_PLAN.md')
     }
     $repairContext='No previous reviewed implementation snapshot is available. Do not claim fix-introduced defects without causal evidence.'
-    if ($Stage -ne '9P' -and $previous) {
-        $repairDiff=Invoke-TeamGit $Worktree @('diff',$previous.tip,$Tip,'--','.',':(exclude)docs/ai/review_9*.md',':(exclude)docs/ai/archive/**',':(exclude)docs/ai/IMPLEMENTATION_PLAN.md')
-        $repairContext="Previous reviewed tip: $($previous.tip)`nPrevious product findings: $($previous.verdict.blocking_issues | ConvertTo-Json -Depth 20)`nExact change since that snapshot:`n$repairDiff"
+    if ($Stage -ne '9P' -and $Previous) {
+        $repairDiff=Invoke-TeamGit $Worktree @('diff',$Previous.tip,$Tip,'--','.',':(exclude)docs/ai/review_9*.md',':(exclude)docs/ai/archive/**',':(exclude)docs/ai/IMPLEMENTATION_PLAN.md')
+        $repairContext="Previous reviewed tip: $($Previous.tip)`nPrevious product findings: $($Previous.verdict.blocking_issues | ConvertTo-Json -Depth 20)`nExact change since that snapshot:`n$repairDiff"
     }
     $evidence = @()
     $testOutput = ''; $workerRisks=@()
@@ -78,6 +62,10 @@ function Invoke-TeamReview($State, $Plan, $Manifest, [string]$Directory, [string
             $workerRisks=@(foreach ($id in $State.order) { $item=$State.tasks[$id]; if ($item.directory -and (Test-Path (Join-Path $item.directory 'result.yaml'))) { @{task_id=$id;claims=(Read-TeamData (Join-Path $item.directory 'result.yaml')).risks} } })
         }
     }
+    $changeSummary=if ($Stage -eq '9P') { @{ file_count=0; additions=0; deletions=0; files=@(); note='No implementation diff exists at plan stage.' } } else { Get-TeamChangeSummary $Worktree $Base $Tip }
+    $taskMap=@(foreach ($planTask in @($reviewPlan.tasks)) { @{ task_id=$planTask.id; mapping=(Get-TeamIssueAcceptanceMap $planTask) } })
+    $commandSummary=Get-TeamCommandSummary $evidence
+    $diffBytes=Get-TeamTextByteCount $diff
     $prompt = @"
 Perform a fresh $Stage Team Mode review. You are an independent reviewer, never an implementer.
 Read the frozen run-base authority supplied below. Do not write files, commit, execute tests, reinstall dependencies,
@@ -106,21 +94,52 @@ Base: $Base
 Tip: $Tip
 Observed snapshot evidence (commands completed with exit 0):
 git rev-parse HEAD: $head
-git status --porcelain --untracked-files=all: $(if ($before) {$before} else {'<empty>'})
+git status --porcelain --untracked-files=all: $(if ($snapshot) {$snapshot} else {'<empty>'})
 Plan:
 $($reviewPlan | ConvertTo-Json -Depth 60)
+Machine-derived change summary (git diff --numstat --no-renames):
+$($changeSummary | ConvertTo-Json -Depth 20)
+Task issue-to-acceptance mapping (author-declared; the runner never invents issue text):
+$($taskMap | ConvertTo-Json -Depth 25)
+Structured command result summary (every command, complete exit codes, never dropped):
+$($commandSummary | ConvertTo-Json -Depth 20)
 Verification:
 $($evidence | ConvertTo-Json -Depth 40)
-External test output:
+External test output (bounded BOTH head/tail excerpts per command, fair per-file budget, full size/hash/truncation metadata):
 $testOutput
-Diff:
+Diff (complete and counted; never truncated, never exempted): diff_bytes=$diffBytes
 $diff
 Related repair evidence (no conversation or internal reasoning):
 $repairContext
 "@
-    Assert-TeamReviewInput $diff $prompt $Manifest.runtime
+    return @{ prompt=$prompt; diff=$diff; diff_bytes=$diffBytes; authority=$authority; head=$head; snapshot_status=$snapshot
+        review_plan=$reviewPlan; change_summary=$changeSummary; issue_map=$taskMap; command_summary=$commandSummary
+        evidence=@($evidence); test_output=$testOutput; worker_risks=@($workerRisks) }
+}
+
+function Invoke-TeamReview($State, $Plan, $Manifest, [string]$Directory, [string]$Stage, [string]$Worktree, [string]$Base, [string]$Tip, [string]$TaskId = '') {
+    if ($Stage -notin @('9P','9A','9B')) { Stop-TeamError 50 'Unknown review stage' }
+    $label = if ($TaskId) { "$Stage-$TaskId" } else { $Stage }
+    Assert-TeamReviewRound $State $Plan $Directory
+    if (Test-TeamReviewAccepted $Directory $label $State.plan_hash $Tip) { return Read-TeamData (Join-Path $Directory "reviews/$label.json") }
+    $previous=$null
+    $reviewPath=Join-Path $Directory "reviews/$label.json"
+    if (Test-Path -LiteralPath $reviewPath) {
+        $previous=Read-TeamData $reviewPath
+        if ($previous.plan_hash -ceq $State.plan_hash -and $previous.tip -ceq $Tip) {
+            Assert-TeamReviewEvidence $previous $Directory
+            if (-not $previous.fresh_process) { Stop-TeamError 80 'Review evidence changed' }
+            Assert-TeamReviewOutcome $State $Plan $Directory $label $previous
+            return $previous
+        }
+    }
+    # Fresh process, no resume, no inherited chat, and an out-of-repository holding directory.
+    $holding = New-TeamReviewHolding $State $label
+    $material = Get-TeamReviewMaterial $State $Plan $Manifest $Directory $Stage $Worktree $Base $Tip $TaskId $previous
+    if ($material.snapshot_status -or $material.head -cne $Tip) { Stop-TeamError 50 'Fresh review requires a clean, exact Git snapshot' }
+    Assert-TeamReviewInput $material.diff $material.prompt $Manifest.runtime
     $promptPath = Join-Path $holding 'prompt.txt'
-    [IO.File]::WriteAllText($promptPath, $prompt, [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText($promptPath, $material.prompt, [Text.UTF8Encoding]::new($false))
     $resultPath = Join-Path $holding 'verdict.json'
     $attemptId = [IO.Path]::GetFileName($holding)
     Write-TeamData (Join-Path $Directory "reviews/attempt-$attemptId.json") @{stage=$Stage;task_id=$TaskId;holding=$holding;status='started';tip=$Tip;plan_hash=$State.plan_hash}
@@ -133,7 +152,7 @@ $repairContext
     $handle=$null; $errorText=$null; $processStarted=$false
     try {
         $codex = (Get-Command codex -ErrorAction Stop).Source
-        $handle = New-TeamProcess $codex $args $Worktree (Join-Path $holding 'events.jsonl') (Join-Path $holding 'stderr.log') $prompt -MaxOutputBytes ($Manifest.runtime.max_single_log_mb * 1MB)
+        $handle = New-TeamProcess $codex $args $Worktree (Join-Path $holding 'events.jsonl') (Join-Path $holding 'stderr.log') $material.prompt -MaxOutputBytes ($Manifest.runtime.max_single_log_mb * 1MB)
         $processStarted=$true
         $code = Wait-TeamProcess $handle $Manifest.runtime.timeout_seconds $Manifest.runtime.idle_timeout_seconds @($resultPath)
     } catch {

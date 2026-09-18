@@ -1,7 +1,7 @@
 #requires -Version 7.4
 [CmdletBinding()]
 param(
-    [Parameter(Position=0,Mandatory)][ValidateSet('doctor','route','validate','run','status','watch','escalations','resolve','result','logs','cost','stop','resume','cleanup','accept','integrate','affected','replan','rollback','report-cost','record-route','revalidate-route','repair-integration','resolve-review')][string]$Command,
+    [Parameter(Position=0,Mandatory)][ValidateSet('doctor','route','validate','run','status','watch','escalations','resolve','result','logs','cost','stop','resume','cleanup','accept','integrate','affected','replan','rollback','report-cost','record-route','revalidate-route','repair-integration','resolve-review','finalize','recover','prerequisites','preview')][string]$Command,
     [string]$Plan, [string]$Repo = (Get-Location).Path, [string]$Manifest,
     [string]$Run, [string]$Task, [string]$TaskText, [string]$Commit, [string]$Reason,
     [string]$Escalation, [ValidateSet('approve','reject','modify-plan')][string]$Decision,
@@ -9,9 +9,10 @@ param(
     [string]$Ledger, [string]$Unit, [string]$Source,
     [ValidateSet('9P','9A','9B','LOCAL')][string]$Stage, [string]$Disposition,
     [string[]]$ChangedPaths = @(), [string[]]$GlueScope = @(), [datetime]$Since = [datetime]::MinValue,
-    [switch]$Json, [switch]$Follow, [switch]$AllowUnverifiedRuntime, [switch]$RepairLock
+    [switch]$Json, [switch]$Follow, [switch]$AllowUnverifiedRuntime, [switch]$RepairLock,
+    [switch]$Apply, [switch]$ReuseVerification, [switch]$Restore
 )
-foreach ($module in @('Core','Lead','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Checkpoints','Revisions','Rollbacks','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
+foreach ($module in @('Core','Lead','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Checkpoints','Revisions','Rollbacks','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict','Activity','Reuse','Prerequisites','Archive','Report')) { . (Join-Path $PSScriptRoot "$module.ps1") }
 $lock = $null; $runData = $null; $exitCode = 0
 try {
     if ($PSBoundParameters.ContainsKey('Since')) { $Since=$Since.ToUniversalTime() }
@@ -19,7 +20,7 @@ try {
     if (-not $Manifest) { $Manifest = Join-Path $script:TeamRoot 'manifest.yaml' }
     $config = Read-TeamData $Manifest
     Test-TeamSchema $config 'manifest'
-    if ($Command -in @('run','resume','accept','integrate','replan','repair-integration','resolve-review','rollback','cleanup') -and -not $config.team.enabled) { Stop-TeamError 20 'Team disabled; use normal Codex mode' }
+    if ($Command -in @('run','resume','accept','integrate','replan','repair-integration','resolve-review','rollback','cleanup','recover') -and -not $config.team.enabled) { Stop-TeamError 20 'Team disabled; use normal Codex mode' }
     switch ($Command) {
         'doctor' {
             if ($RepairLock) {
@@ -43,6 +44,7 @@ try {
             $output = @{ valid = $true; order = @($order) }
         }
         'affected' { $output = @{ affected = @(Get-TeamAffected (Read-TeamData $Plan) $Task $ChangedPaths) } }
+        'preview' { $output = Get-TeamPlanPreview (Read-TeamPlanInput $Plan) $config $Repo }
         'record-route' { $output = Record-TeamRoute $config $Repo $TaskText $ExpectedMode }
         'revalidate-route' {
             $output = Reset-TeamRoutingHealth $config $Repo $Reason
@@ -62,23 +64,28 @@ try {
             $runData = New-TeamRun $document $config $Repo $order $doctor.runtime_status
             Write-TeamData (Join-Path $runData.directory 'preflight.json') $doctor
             $null = Test-DshRoute $config $Repo (Join-Path $runData.directory 'worker.patch.yaml')
+            if ($ReuseVerification) { $runData.state['verification_reuse']=$true; Save-TeamState $runData.state $runData.directory }
             Assert-TeamActionApproval $runData.state $document $runData.directory
             if ($document.classification.level -eq 'critical') {
                 $base = $runData.state.run_base_sha
                 $null = Invoke-TeamReview $runData.state $document $config $runData.directory '9P' $Repo $base $base
             }
+            # Setup may mutate the environment: require authorization and plan review first.
+            $null = Invoke-TeamPrerequisites $runData.state $document $config $runData.directory
             $output = Invoke-TeamDispatch $runData.state $document $config $runData.directory
         }
         default {
             if (-not $Run) { Stop-TeamError 10 '-Run is required' }
             $runData = Read-TeamRun $Repo $Run
             $state = $runData.state; $directory = $runData.directory
-            if ($state['hard_stop'] -and $Command -in @('resume','accept','integrate','replan','repair-integration')) { Stop-TeamError 60 'Run is hard-stopped; preserve evidence and return to the owner' }
+            if ($state['hard_stop'] -and $Command -in @('resume','accept','integrate','replan','repair-integration','recover')) { Stop-TeamError 60 'Run is hard-stopped; preserve evidence and return to the owner' }
             $document = Read-TeamData (Join-Path $directory 'plan.yaml')
             $config = Read-TeamData (Join-Path $directory 'manifest.yaml')
-            if ($Command -in @('resume','accept','integrate','replan','repair-integration','resolve-review','rollback')) {
-                $leadEvidence = Assert-TeamLead $config
-            }
+            # Reads never mutate a historical run; only explicit, listed commands may write.
+            $leadRequired = $Command -in @('resume','accept','integrate','replan','repair-integration','resolve-review','rollback','recover') -or ($Command -eq 'finalize' -and $Apply)
+            $lockRequired = $Command -in @('resume','resolve','cleanup','accept','integrate','replan','rollback','record-route','repair-integration','resolve-review','recover') -or
+                ($Command -eq 'finalize' -and $Apply) -or ($Command -eq 'prerequisites' -and $Restore)
+            if ($leadRequired) { $leadEvidence = Assert-TeamLead $config }
             if ($Command -eq 'stop') {
                 Write-TeamData (Join-Path $directory 'cancel.request.json') @{ run_id=$Run; requested_at=[DateTime]::UtcNow.ToString('o') }
                 try { $lock = Lock-TeamRepo $Repo $Run -Resume }
@@ -86,25 +93,26 @@ try {
                     @{ status='STOP_REQUESTED'; run_id=$Run } | ConvertTo-Json -Compress
                     exit 0
                 }
-            } elseif ($Command -in @('resume','resolve','cleanup','accept','integrate','replan','rollback','record-route','repair-integration','resolve-review')) { $lock = Lock-TeamRepo $Repo $Run -Resume }
+            } elseif ($lockRequired) { $lock = Lock-TeamRepo $Repo $Run -Resume }
             if ($lock) {
                 # Refresh after acquiring the coordinator lock, never mutate a pre-lock snapshot.
                 Restore-TeamPlanRevision $directory $Repo $Run
                 $runData = Read-TeamRun $Repo $Run; $state = $runData.state
                 $document = Read-TeamData (Join-Path $directory 'plan.yaml')
-                if ($Command -in @('resume','accept','integrate','replan','repair-integration','resolve-review','rollback')) {
-                    Add-TeamEvent $directory 'lead_verified' $leadEvidence
-                }
+                if ($leadRequired) { Add-TeamEvent $directory 'lead_verified' $leadEvidence }
                 if ($Command -in @('resume','accept','integrate','replan','rollback','repair-integration','resolve-review') -and
                     (Get-TeamHash (Join-Path $directory 'plan.yaml')) -cne $state.plan_hash) { Stop-TeamError 80 'Plan changed outside revision protocol' }
                 if ($Command -in @('resume','integrate','replan','repair-integration')) { $null=Restore-TeamRollback $state $directory }
             }
-            if ($Command -in @('resume','resolve','cleanup','accept','integrate','replan','rollback','repair-integration','resolve-review')) {
+            if ($Command -in @('resume','resolve','cleanup','accept','integrate','replan','rollback','repair-integration','resolve-review','recover','finalize')) {
                 Assert-TeamCleanupSettled $state
             }
             switch ($Command) {
-                'status' { $output = $state }
-                'cost' { $output = @{ schema_version = 2; run_id = $Run; ledgers = (Get-TeamBudgetSnapshot $state $config).ledgers; unknown_usage = $state.unknown_usage; agents_created = $state.agents_created; active_workers = @($state.tasks.Values | Where-Object { $_.status -eq 'RUNNING' }).Count }; Test-TeamSchema $output 'cost' }
+                'status' {
+                    $output = $state | ConvertTo-Json -Depth 100 | ConvertFrom-Json -AsHashtable
+                    $output['summary'] = Get-TeamRunSummary $state $directory
+                }
+                'cost' { $output = @{ schema_version = 3; run_id = $Run; ledgers = (Get-TeamBudgetSnapshot $state $config).ledgers; unknown_usage = $state.unknown_usage; agents_created = $state.agents_created; active_workers = @($state.tasks.Values | Where-Object { $_.status -eq 'RUNNING' }).Count; summary = (Get-TeamRunSummary $state $directory) }; Test-TeamSchema $output 'cost' }
                 'result' {
                     Assert-TeamId $Task
                     if (-not $state.tasks.Contains($Task)) { Stop-TeamError 10 'Unknown task' }
@@ -169,9 +177,20 @@ try {
                     if (-not $doctor.success) { Stop-TeamError 20 ($doctor.problems -join '; ') }
                     Assert-TeamCapability $document $doctor
                     Write-TeamData (Join-Path $directory 'preflight-latest.json') $doctor
+                    # Opt-in verification reuse is sticky per run once explicitly enabled.
+                    if ($PSBoundParameters.ContainsKey('ReuseVerification')) {
+                        $state['verification_reuse'] = [bool]$ReuseVerification
+                        Save-TeamState $state $directory
+                    }
                     $output = Resume-TeamRun $state $document $config $directory
                 }
                 'cleanup' { $output = Remove-TeamWorktrees $state $directory }
+                'finalize' { $output = Invoke-TeamFinalize $state $directory -Apply:$Apply }
+                'recover' { $output = Invoke-TeamInfrastructureRecovery $state $document $config $directory $Task $Reason }
+                'prerequisites' {
+                    $output = if ($Restore) { Invoke-TeamPrerequisites $state $document $config $directory -Restore -Reason $Reason }
+                        else { Get-TeamPrerequisiteSummary $directory }
+                }
                 'stop' {
                     Stop-TeamOwnedProcesses $state $directory
                     $output = @{ status = 'CANCELLED'; evidence_preserved = $true }

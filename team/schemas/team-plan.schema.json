@@ -129,6 +129,19 @@
                 "timeout_seconds": {
                   "type": "integer",
                   "minimum": 1
+                },
+                "environment_fingerprint": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Caller-declared environment identity (for example an isolated database fingerprint). Deterministic reuse requires it; declare 'none' only for hermetic commands."
+                },
+                "input_artifacts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": "Workspace-relative input files whose hashes are bound into a reuse key."
                 }
               },
               "required": [
@@ -185,6 +198,32 @@
           },
           "optional": {
             "type": "boolean"
+          },
+          "issue_acceptance_map": {
+            "type": "array",
+            "description": "Optional author-declared mapping from objective entries to acceptance entries. The runner never invents issue text.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "objective_index": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "acceptance_indexes": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "minItems": 1
+                }
+              },
+              "required": [
+                "objective_index",
+                "acceptance_indexes"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -267,6 +306,66 @@
       "items": {
         "type": "string",
         "minLength": 1
+      }
+    },
+    "prerequisites": {
+      "type": "array",
+      "description": "Plan-declared commands that must succeed before any worker or worktree is admitted. A failing prerequisite starts no author.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$"
+          },
+          "executable": {
+            "type": "string",
+            "minLength": 1
+          },
+          "args": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "timeout_seconds": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "restore": {
+            "type": "object",
+            "description": "Optional rollback command for a mutating prerequisite (for example a fixture delete).",
+            "properties": {
+              "executable": {
+                "type": "string",
+                "minLength": 1
+              },
+              "args": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "timeout_seconds": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "executable",
+              "args",
+              "timeout_seconds"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "executable",
+          "args",
+          "timeout_seconds"
+        ],
+        "additionalProperties": false
       }
     },
     "dynamic_roles": {

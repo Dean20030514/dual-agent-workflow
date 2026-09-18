@@ -170,3 +170,73 @@ Critical 审查按已审 plan revision 聚合 9A/9B；9P 不计入修复轮次�
 
 最小验收：result.status=completed、Worker 分支与 worktree 存在、main SHA 不变、
 外部验证 exit=0、Lead 验收绑定 commit、集成回归 exit=0、run.status=COMPLETED。
+
+## 收尾与恢复（2026-09-18 新增）
+
+只读预览计划规模与预算（不派发、不写运行目录）：
+
+```powershell
+pwsh -NoProfile -File ./team/scripts/team.ps1 preview -Plan ./team/tests/plans/L1-sql.yaml -Repo C:/path/to/test-repo -Json
+```
+
+显式开启验证复用（默认仍然全部真实执行；一旦设置即按 run 粘滞）：
+
+```powershell
+pwsh -NoProfile -File ./team/scripts/team.ps1 run -Plan <plan> -Repo <repo> -ReuseVerification -Json
+pwsh -NoProfile -File ./team/scripts/team.ps1 resume -Run <run-id> -Repo <repo> -Json
+```
+
+命中的前提是源码树/HEAD、完整命令与参数、工作目录、工具内容哈希、调用方声明的
+`environment_fingerprint` 与 `input_artifacts` 哈希、以及成功退出码与完好收据全部一致。
+命令在 Plan 里用 `environment_fingerprint` 和 `input_artifacts` 声明依赖；不声明就不复用。
+退出 0 之后还会**再核对一次绑定**：如果命令自己改动了 tracked 源码、声明输入或工具内容，
+证据里记为 `reuse_publish_rejected=binding_drift:*`，绝不写成缓存命中。
+
+计划可声明前置条件；失败时**不会启动任何作者**：
+
+```yaml
+prerequisites:
+  - id: fixture-db
+    executable: pwsh
+    args: [-NoProfile, -Command, "& ./tools/check-db.ps1"]
+    timeout_seconds: 60
+    restore: {executable: pwsh, args: [-NoProfile, -Command, "& ./tools/rollback-db.ps1"], timeout_seconds: 60}
+```
+
+```powershell
+pwsh -NoProfile -File ./team/scripts/team.ps1 prerequisites -Run <run-id> -Repo C:/path/to/test-repo -Json
+pwsh -NoProfile -File ./team/scripts/team.ps1 prerequisites -Run <run-id> -Repo C:/path/to/test-repo -Restore -Reason '回滚 fixture' -Json
+```
+
+run 结束后的归档与收尾：默认只预览，`-Apply` 才归档、证明可恢复并删除本 run 自己的
+worktree 与分支（`main`、无关 ref、run 证据都保留）：
+
+```powershell
+pwsh -NoProfile -File ./team/scripts/team.ps1 finalize -Run <run-id> -Repo C:/path/to/test-repo -Json
+pwsh -NoProfile -File ./team/scripts/team.ps1 finalize -Run <run-id> -Repo C:/path/to/test-repo -Apply -Json
+```
+
+真实 pnpm worktree 里的目录联接按描述符归档、绝不穿越；无法在界限内归档或在临时仓库中
+证明可恢复的目标会 `preserved=true` 保留并给出原因，**不会**被删。删除不是原子的：
+`directory_removal_pending=true` 表示目录尚未删净，下次 `-Apply` 继续。
+`git worktree remove` 先注销再删文件，Windows 上可能留下「目录在、Git 已注销」的残树
+（`cleanup` 命令或已退休 attempt 也会留下同形状目录）：它按本 run 的目录名/分支绑定收编，
+`origin_proven=false` 明示原始 Git 状态未知，只归档文件系统可见内容并在临时目录证明可恢复，
+然后**逐个比对哈希后删除**；哈希不符或未归档的内容保留并报告。一个目标无法安全处理时，
+`-Apply` 只跳过它（`outcome=partial` + `failed`），其他安全目标照常归档删除；只有目录被证实
+消失才报告 removed。
+
+只有 transport/start/idle 这类有持久证据的失败可走基础设施恢复；它不改任务语义、
+不消耗语义 replan 计数，且先前 attempt 会带 worktree、分支和脏内容原样退休归档：
+
+```powershell
+pwsh -NoProfile -File ./team/scripts/team.ps1 recover -Run <run-id> -Repo C:/path/to/test-repo -Task <task-id> -Reason 'DSH idle 期限，证据见 tasks/<id>/attempt-1/exit.json' -Json
+```
+
+`hard`（总超时）与 `output`（输出溢出）仍是基础设施类尝试但**不可自动恢复**；恢复被拒绝时
+不会改动预留，且要求该 attempt 的适配器/原生/审查者/子进程清理全部被证明静默，否则保留为未知。
+验证失败、业务失败、审查失败和范围违规**不会**被改标成基础设施；它们照旧占用各自的计数并升级。
+`status`/`cost` 只读，永远不会自动改写历史 run。`status.summary` 区分派发意图与观测到的原生
+创建收据：`authors_dispatched_intents` vs `authors_observed`/`author_agents_observed`，
+`local_reviewers_started`（只数有原生收据的）vs `local_reviewers_preparing`（PREPARING 不算已启动），
+以及 `attempts.infrastructure_recoverable` vs `attempts.infrastructure_nonrecoverable`。

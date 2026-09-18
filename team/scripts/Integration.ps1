@@ -75,7 +75,7 @@ function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $
         $State['final_evidence_directory']=Join-Path $Directory "final-evidence/$($State.revision)-$finalHead"
         [IO.Directory]::CreateDirectory($State.final_evidence_directory) | Out-Null
         Save-TeamState $State $Directory
-        try { $null = Invoke-TeamVerification $Plan.verification.final $tree $State.final_evidence_directory 'final' $Manifest.runtime }
+        try { $null = Invoke-TeamVerification $Plan.verification.final $tree $State.final_evidence_directory 'final' $Manifest.runtime -Reuse:([bool]$State['verification_reuse']) -CacheDirectory $Directory }
         catch {
             if ($_.Exception.Data['TeamExitCode'] -eq 40) { Record-TeamIntegrationFailure $State $Plan $Directory }
             throw
@@ -105,9 +105,13 @@ function Resume-TeamRun($State, $Plan, $Manifest, [string]$Directory) {
     if (-not $Manifest.team.enabled) { Stop-TeamError 20 'Team disabled' }
     if (Test-Path -LiteralPath (Join-Path $Directory 'cancel.request.json')) { Stop-TeamError 80 'Cancelled run cannot resume' }
     Restore-TeamIntegration $State $Plan $Manifest $Directory
+    # Settle terminal reservations from durable owned-process/native evidence before validating.
+    $null = Sync-TeamTerminalReservations $State $Directory $Manifest
     Assert-TeamRecovery $State $Plan $Directory
     Assert-TeamActionApproval $State $Plan $Directory
     Assert-TeamReviewRound $State $Plan $Directory
+    # Plan-declared prerequisites must hold before any new author is admitted.
+    $null = Invoke-TeamPrerequisites $State $Plan $Manifest $Directory
     if ($Plan.classification.level -eq 'critical') {
         if (-not (Test-TeamReviewAccepted $Directory '9P' $State.plan_hash $State.run_base_sha)) {
             $base = $State.run_base_sha
@@ -147,9 +151,18 @@ function Remove-TeamWorktrees($State, [string]$Directory) {
         if ($item.worktree -cne $expected) { Stop-TeamError 82 'Cleanup path mismatch' }
         if (Invoke-TeamGit $expected @('status','--porcelain','--untracked-files=all')) { Stop-TeamError 80 'Cleanup refuses a dirty worktree' }
         if ((Invoke-TeamGit $expected @('rev-parse','HEAD')) -cne $item.commit) { Stop-TeamError 80 'Cleanup refuses an altered worktree' }
-        $null = Invoke-TeamGit $State.repo @('worktree','remove',$expected)
-        $item.status = 'CLEANED'; $item['worktree_removed']=$true; $removed += $taskId
+        # Long paths are common once a worktree holds a real dependency tree; the flag is
+        # per command so no global Git configuration is changed.
+        $null = Invoke-TeamGit $State.repo @('-c','core.longpaths=true','worktree','remove',$expected)
+        # `git worktree remove` may unregister and still leave the directory behind; only a
+        # verified-gone path is reported as removed, so cleanup never claims a false success.
+        $directoryGone = -not (Test-Path -LiteralPath $expected -PathType Container)
+        $item.status = 'CLEANED'; $item['worktree_removed']=$directoryGone; $item['directory_removal_pending']=(-not $directoryGone)
+        $removed += $taskId
         Save-TeamState $State $Directory
+        if (-not $directoryGone) {
+            Add-TeamEvent $Directory 'cleanup_directory_removal_pending' @{task_id=$taskId;path=$expected}
+        }
     }
     $discarded=@()
     if ($State['discarded_tasks']) {
@@ -163,12 +176,14 @@ function Remove-TeamWorktrees($State, [string]$Directory) {
             if (Invoke-TeamGit $expected @('status','--porcelain','--untracked-files=all')) { Stop-TeamError 80 'Cleanup preserves dirty discarded worktree evidence' }
             if ((Invoke-TeamGit $expected @('branch','--show-current')) -cne $item.branch -or
                 (Invoke-TeamGit $expected @('rev-parse','HEAD')) -cne $item.discard_commit) { Stop-TeamError 80 'Discarded worktree changed after its retirement' }
-            $null=Invoke-TeamGit $State.repo @('worktree','remove',$expected)
-            $item['worktree_removed']=$true; $discarded+=$key
+            $null=Invoke-TeamGit $State.repo @('-c','core.longpaths=true','worktree','remove',$expected)
+            $directoryGone = -not (Test-Path -LiteralPath $expected -PathType Container)
+            $item['worktree_removed']=$directoryGone; $item['directory_removal_pending']=(-not $directoryGone)
+            $discarded+=$key
             # A replanned task may still point at its retired attempt until next dispatch.
-            if ($State.tasks.Contains($taskId) -and $State.tasks[$taskId].worktree -ceq $expected) { $State.tasks[$taskId]['worktree_removed']=$true }
+            if ($State.tasks.Contains($taskId) -and $State.tasks[$taskId].worktree -ceq $expected) { $State.tasks[$taskId]['worktree_removed']=$directoryGone }
             Save-TeamState $State $Directory
-            Add-TeamEvent $Directory 'discarded_worktree_cleaned' @{task_id=$taskId;attempt=$item.attempts;commit=$item.discard_commit}
+            Add-TeamEvent $Directory 'discarded_worktree_cleaned' @{task_id=$taskId;attempt=$item.attempts;commit=$item.discard_commit;directory_removed=$directoryGone}
         }
     }
     return @{ removed = $removed; discarded_removed=$discarded; integration_preserved = $true }

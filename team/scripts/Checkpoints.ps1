@@ -58,7 +58,10 @@ function Complete-TeamIntegrationCheckpoint($State, $Plan, $Manifest, [string]$D
         if (-not $checkpoint['evidence_hash'] -or -not (Test-Path -LiteralPath $evidencePath) -or (Get-TeamHash $evidencePath) -cne $checkpoint.evidence_hash) { Stop-TeamError 80 'Integration verification evidence changed or is missing' }
         foreach ($entry in @(Read-TeamData $evidencePath)) {
             foreach ($stream in @('stdout','stderr')) {
-                $streamPath=Join-Path $checkpoint.evidence_directory "verification-$($entry.id).$stream"
+                # Newer evidence records its own (possibly suffixed) log file; legacy evidence
+                # keeps the original derived name.
+                $name=if ($entry["${stream}_file"]) {[string]$entry["${stream}_file"]} else {"verification-$($entry.id).$stream"}
+                $streamPath=Get-TeamChild $checkpoint.evidence_directory $name
                 if (-not (Test-Path -LiteralPath $streamPath) -or (Get-TeamHash $streamPath) -cne $entry["${stream}_sha256"]) { Stop-TeamError 80 'Integration verification output changed or is missing' }
             }
         }

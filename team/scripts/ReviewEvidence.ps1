@@ -69,16 +69,121 @@ function Assert-TeamReviewEvidence($Record,[string]$Directory) {
         (Get-TeamHash (Join-Path $evidence 'prompt.txt')) -cne $Record.input_hash) { Stop-TeamError 80 'Durable review evidence changed' }
 }
 
+function Read-TeamLogExcerpt([string]$Path, [int]$HeadChars, [int]$TailChars) {
+    $length = (Get-Item -LiteralPath $Path).Length
+    if ($length -le ([int64]($HeadChars + $TailChars) * 4 + 8)) {
+        # Small log: decode once and split exactly by characters. The reported byte counts
+        # describe the excerpt that is actually returned, never the whole file.
+        $text = [IO.File]::ReadAllText($Path, [Text.Encoding]::UTF8)
+        $head = if ($text.Length -gt $HeadChars) { $text.Substring(0, $HeadChars) } else { $text }
+        $tail = if ($TailChars -gt 0 -and $text.Length -gt $HeadChars) {
+            if ($text.Length - $HeadChars -gt $TailChars) { $text.Substring($text.Length - $TailChars) } else { $text.Substring($HeadChars) }
+        } else { '' }
+        return (Get-TeamExcerptRecord $head $tail $length)
+    }
+    $head = ''; $tail = ''; $headBytes = 0L; $tailBytes = 0L
+    $stream = [IO.File]::Open($Path, 'Open', 'Read', ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+    try {
+        if ($HeadChars -gt 0) {
+            $buffer = [byte[]]::new([Math]::Min([int64]($HeadChars * 4 + 4), $length))
+            $headBytes = $stream.Read($buffer, 0, $buffer.Length)
+            $head = [Text.Encoding]::UTF8.GetString($buffer, 0, [int]$headBytes)
+            if ($head.Length -gt $HeadChars) { $head = $head.Substring(0, $HeadChars) }
+        }
+        if ($TailChars -gt 0 -and $length -gt $headBytes) {
+            $bytes = [Math]::Min([int64]($TailChars * 4 + 4), $length - $headBytes)
+            $null = $stream.Seek(-$bytes, [IO.SeekOrigin]::End)
+            $buffer = [byte[]]::new($bytes)
+            $read = $stream.Read($buffer, 0, [int]$bytes)
+            $tailBytes = [int64]$read
+            $tail = [Text.Encoding]::UTF8.GetString($buffer, 0, $read)
+            if ($tail.Length -gt $TailChars) { $tail = $tail.Substring($tail.Length - $TailChars) }
+        }
+    } finally { $stream.Dispose() }
+    return (Get-TeamExcerptRecord $head $tail $length)
+}
+
+function Get-TeamExcerptRecord([string]$Head, [string]$Tail, [long]$Length) {
+    # The metadata must agree with the returned excerpt: head/tail bytes are the UTF-8 size
+    # of the reported strings and the omitted bytes are what no excerpt covers.
+    $headBytes = Get-TeamTextByteCount $Head
+    $tailBytes = Get-TeamTextByteCount $Tail
+    $covered = $headBytes + $tailBytes
+    return @{ head = $Head; tail = $Tail; head_bytes = $headBytes; tail_bytes = $tailBytes
+        excerpt_chars = $Head.Length + $Tail.Length
+        omitted_bytes = [Math]::Max(0L, $Length - $covered); truncated = ($covered -lt $Length) }
+}
+
 function Get-TeamReviewOutput([string]$Directory,[string]$Prefix,[int]$MaxChars=4096) {
-    $parts=@(); $left=$MaxChars
-    foreach ($file in @(Get-ChildItem -LiteralPath $Directory -Filter "$Prefix-*.stdout" | Sort-Object Name)) {
-        $reader=[IO.File]::OpenText($file.FullName)
-        try { $buffer=[char[]]::new([Math]::Max(0,[Math]::Min(1024,$left))); $count=$reader.ReadBlock($buffer,0,$buffer.Length); $excerpt=[string]::new($buffer,0,$count); $truncated=-not $reader.EndOfStream }
-        finally {$reader.Dispose()}
-        $left-=$count
-        $parts+=@{file=$file.Name;bytes=$file.Length;sha256=(Get-TeamHash $file.FullName);excerpt=$excerpt;truncated=$truncated}
+    $files=@(Get-ChildItem -LiteralPath $Directory -Filter "$Prefix-*.stdout" -File -ErrorAction SilentlyContinue | Sort-Object Name)
+    $files+=@(Get-ChildItem -LiteralPath $Directory -Filter "$Prefix-*.stderr" -File -ErrorAction SilentlyContinue | Sort-Object Name)
+    if (-not $files.Count) { return '[]' }
+    # Fair allocation per file: one huge command log can no longer starve every command
+    # that follows it. The total excerpt budget stays bounded by MaxChars.
+    $perFile=[int][Math]::Floor($MaxChars/$files.Count)
+    $headChars=if ($perFile -ge 40) {[int][Math]::Floor($perFile/2)} else {$perFile}
+    $tailChars=if ($perFile -ge 40) {$perFile-$headChars} else {0}
+    $parts=@()
+    foreach ($file in $files) {
+        $window=Read-TeamLogExcerpt $file.FullName $headChars $tailChars
+        $parts+=@{ file=$file.Name; stream=$(if ($file.Extension -eq '.stderr') {'stderr'} else {'stdout'})
+            bytes=$file.Length; sha256=(Get-TeamHash $file.FullName)
+            head=$window.head; tail=$window.tail; excerpt=($window.head+$window.tail)
+            head_bytes=$window.head_bytes; tail_bytes=$window.tail_bytes
+            omitted_bytes=$window.omitted_bytes; truncated=$window.truncated
+            excerpt_chars=$window.excerpt_chars; excerpt_chars_budget=$perFile }
     }
     return ConvertTo-Json -InputObject $parts -Depth 8
+}
+
+function Get-TeamChangeSummary([string]$Worktree,[string]$Base,[string]$Tip) {
+    $numstat=@((Invoke-TeamGit $Worktree @('-c','core.quotePath=false','diff','--numstat','--no-renames',$Base,$Tip)) -split "`n" | Where-Object { $_ })
+    $files=@(); $additions=0; $deletions=0; $binary=0
+    foreach ($line in $numstat) {
+        $columns=$line -split "`t"
+        if ($columns.Count -lt 3) { continue }
+        $isBinary=($columns[0] -eq '-' -or $columns[1] -eq '-')
+        if ($isBinary) { $binary++ } else { $additions+=[int]$columns[0]; $deletions+=[int]$columns[1] }
+        $files+=@{ path=$columns[2]
+            additions=$(if ($isBinary) {$null} else {[int]$columns[0]})
+            deletions=$(if ($isBinary) {$null} else {[int]$columns[1]}); binary=$isBinary }
+    }
+    return @{ base=$Base; tip=$Tip; file_count=$files.Count; additions=$additions; deletions=$deletions
+        binary_files=$binary; files=$files; source='git diff --numstat --no-renames (machine-derived)' }
+}
+
+function Get-TeamIssueAcceptanceMap($Task) {
+    $objectives=@(Get-TeamOptionalList $Task['objective']); $acceptance=@(Get-TeamOptionalList $Task['acceptance'])
+    # An absent optional mapping must stay empty: @($null) would otherwise report one
+    # declared row and then fail while reading a property off $null.
+    $declared=@(Get-TeamOptionalList $Task['issue_acceptance_map']); $rows=@(); $mapped=@{}
+    foreach ($entry in $declared) {
+        $objectiveIndex=[int]$entry.objective_index
+        $items=@(foreach ($index in @(Get-TeamOptionalList $entry['acceptance_indexes'])) {
+            $mapped[[int]$index]=$true
+            @{ index=[int]$index; acceptance=$acceptance[[int]$index] }
+        })
+        $rows+=@{ objective_index=$objectiveIndex; issue=$objectives[$objectiveIndex]; acceptance=$items; declared=$true }
+    }
+    $unmapped=@(for ($index=0; $index -lt $acceptance.Count; $index++) {
+        if (-not $mapped.ContainsKey($index)) { @{ index=$index; acceptance=$acceptance[$index] } }
+    })
+    return @{ issues=@(for ($index=0; $index -lt $objectives.Count; $index++) { @{ index=$index; issue=$objectives[$index] } })
+        acceptance=@(for ($index=0; $index -lt $acceptance.Count; $index++) { @{ index=$index; acceptance=$acceptance[$index] } })
+        mapping=$rows; unmapped_acceptance=$unmapped; declared_count=$declared.Count
+        note='Mapping is author-declared. Original issue text stays in objective/acceptance; the runner never invents it.' }
+}
+
+function Get-TeamCommandSummary($Evidence) {
+    # Index access only: evidence written before a field existed must still be summarisable.
+    return @(foreach ($entry in @($Evidence)) {
+        @{ id=$entry['id']; executable=$entry['executable']
+            args_sha256=(Get-TeamTextHash ((@($entry['args'])) -join "`n")); exit_code=$entry['exit_code']
+            process_started=$entry['process_started']; timeout_kind=$entry['timeout_kind']
+            reused=[bool]$entry['reused']; duration_seconds=$entry['duration_seconds']
+            stdout_bytes=$entry['stdout_bytes']; stdout_sha256=$entry['stdout_sha256']
+            stderr_bytes=$entry['stderr_bytes']; stderr_sha256=$entry['stderr_sha256'] }
+    })
 }
 
 function Assert-TeamReviewInput([string]$Diff,[string]$Prompt,$Runtime) {

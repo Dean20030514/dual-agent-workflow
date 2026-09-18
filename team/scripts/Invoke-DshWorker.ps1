@@ -17,9 +17,10 @@ param(
 )
 . (Join-Path $PSScriptRoot 'Core.ps1')
 . (Join-Path $PSScriptRoot 'Contracts.ps1')
+. (Join-Path $PSScriptRoot 'Activity.ps1')
 $directory = Split-Path $OutputFile -Parent
 $code = 30
-$handle=$null; $startupExhausted=$false; $launchAttempts=0; $inputTooLarge=$false
+$handle=$null; $startupExhausted=$false; $launchAttempts=0; $inputTooLarge=$false; $timeoutKind=$null; $activityProbe=$null
 try {
     $task = Read-TeamData $TaskFile
     Test-TeamTask $task
@@ -92,7 +93,12 @@ $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.js
     Write-TeamData (Join-Path $directory 'native-process.json') @{
         pid = $handle.process.Id; start = $handle.process.StartTime.ToUniversalTime().ToString('o')
     }
-    $code = Wait-TeamProcess $handle $TimeoutSeconds $IdleTimeoutSeconds
+    # The adapter itself must not kill a quiet author that is really editing its worktree.
+    # A local reviewer is read-only, so only its native descendants are observed there.
+    # The adapter keeps its own receipt: the coordinator polls the same worktree from its
+    # own process, and two writers on one file could publish each other's stale kind.
+    $activityProbe=New-TeamActivityProbe -Worktree $(if ($Mode -eq 'local-review') {''} else {$Worktree}) -RootPid $handle.process.Id -ReceiptPath (Join-Path $directory 'activity-adapter.json')
+    $code = Wait-TeamProcess $handle $TimeoutSeconds $IdleTimeoutSeconds -ActivityProbe $activityProbe
     if ($code -eq 0) {
         $parsed = Read-TeamWorkerOutput (Join-Path $directory 'worker.stdout') -Schema $(if ($Mode -eq 'local-review') {'review'} else {'result'})
         Write-TeamData (Join-Path $directory 'result-source.json') @{format=$parsed.format;stdout_sha256=$parsed.stdout_sha256}
@@ -103,13 +109,23 @@ $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.js
     $inputTooLarge=$inputTooLarge -or $_.Exception.Data['InputTooLarge'] -eq $true
     $startupExhausted=$inputTooLarge -or $_.Exception.Data['StartupExhausted'] -eq $true
     if ($_.Exception.Data.Contains('LaunchAttempts')) { $launchAttempts=[int]$_.Exception.Data['LaunchAttempts'] }
+    if ($_.Exception.Data.Contains('TimeoutKind')) { $timeoutKind=[string]$_.Exception.Data['TimeoutKind'] }
     [Console]::Error.WriteLine($_.Exception.Message)
 } finally {
     try { if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate } }
     finally {
+        # Report this adapter's own observation instead of re-reading a file the coordinator
+        # may have rewritten with a different (equally valid) snapshot.
+        $activityKind=$null; $activityAt=$null; $nativeAt=$null
+        if ($activityProbe) { $activityKind=$activityProbe['last_kind']; $activityAt=$activityProbe['last_at']; $nativeAt=$activityProbe['native_at'] }
         Write-TeamData (Join-Path $directory 'exit.json') @{
             exit_code=$code;native_exit_code=$(if ($handle) {$handle['exit_code']} else {$null})
             startup_exhausted=$startupExhausted;input_too_large=$inputTooLarge;launch_attempts=$launchAttempts
+            timeout_kind=$timeoutKind
+            last_activity_kind=$activityKind
+            last_activity_at=$activityAt
+            native_activity_at=$nativeAt
+            activity_source=$(if ($activityProbe) {'adapter-probe'} else {$null})
             transport_cleanup=(Get-TeamProcessCleanupEvidence $handle);finished_at=[DateTime]::UtcNow.ToString('o')
         }
     }

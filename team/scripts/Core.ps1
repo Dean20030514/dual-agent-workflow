@@ -50,6 +50,25 @@ function Write-TeamTextAtomic([string]$Path, [string]$Text) {
 
 function Get-TeamHash([string]$Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
 
+function Get-TeamTextHash([string]$Text) {
+    return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes([string]$Text))).ToLowerInvariant()
+}
+
+function Get-TeamRootRelativePath([string]$Root, [string]$Path) {
+    $base = [IO.Path]::GetFullPath($Root).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+    $full = [IO.Path]::GetFullPath($Path)
+    if (-not $full.StartsWith($base, [StringComparison]::OrdinalIgnoreCase)) { Stop-TeamError 82 "Path is outside its root: $Path" }
+    return $full.Substring($base.Length).Replace('\', '/')
+}
+
+function Get-TeamOptionalList($Value) {
+    # A missing optional list must stay an empty list: PowerShell's @($null) is a
+    # one-element array, which silently turns "absent" into "one null entry".
+    # Old plans and old task packets therefore keep working unchanged.
+    if ($null -eq $Value) { return @() }
+    return @($Value)
+}
+
 function Read-TeamEventTail([string]$Path,$Cursor) {
     $stream=[IO.File]::Open($Path,'Open','Read',([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
     try {
@@ -93,6 +112,67 @@ function Get-TeamOwnedProcess([int]$ProcessId, $StartedAt) {
         if ($process.StartTime.ToUniversalTime().Ticks -eq ([datetime]$StartedAt).ToUniversalTime().Ticks) { return $process }
     } catch { return $null }
     return $null
+}
+
+function Get-TeamTextByteCount($Text) {
+    # UTF8.GetByteCount throws on $null; an absent diff or prompt is legitimately zero bytes.
+    if ($null -eq $Text) { return 0L }
+    return [long][Text.Encoding]::UTF8.GetByteCount([string]$Text)
+}
+
+function Get-TeamOwnerProcessRecords($Owner) {
+    # Ownership is read from the attempt that recorded it. A retired attempt must never
+    # borrow the PID that some task currently sharing its ID happens to hold.
+    if (-not $Owner) { return @() }
+    $records = @()
+    if ($Owner['pid']) { $records += @{ source = 'adapter'; pid = [int]$Owner['pid']; start = [string]$Owner['process_start']; directory = [string]$Owner['directory'] } }
+    $directories = @(Get-TeamOptionalList $Owner['directory'])
+    $review = $Owner['local_review']
+    if ($review -and $review['directory']) { $directories += [string]$review['directory'] }
+    foreach ($directory in $directories) {
+        if (-not $directory) { continue }
+        $isReview = ($review -and $review['directory'] -ceq $directory)
+        $nativePath = Join-Path $directory 'native-process.json'
+        if (-not (Test-Path -LiteralPath $nativePath -PathType Leaf)) { continue }
+        $source = if ($isReview) { 'local-review-native' } else { 'native' }
+        try {
+            foreach ($entry in @(Read-TeamData $nativePath)) {
+                if (-not $entry -or -not $entry['pid']) { continue }
+                $records += @{ source = $source; pid = [int]$entry['pid']; start = [string]$entry['start']; directory = $directory }
+            }
+        } catch { $records += @{ source = "$source-receipt"; pid = 0; start = ''; directory = $directory; unreadable = $true } }
+    }
+    if ($review -and $review['pid']) {
+        $records += @{ source = 'local-review'; pid = [int]$review['pid']; start = [string]$review['process_start']; directory = [string]$review['directory'] }
+    }
+    return @($records)
+}
+
+function Get-TeamOwnedProcessState($Owner) {
+    # Quiescence needs positive evidence: a live process, an unprovable PID/start pair or an
+    # unresolved child cleanup all keep the owner unsettled instead of being read as finished.
+    $live = @(); $unknown = @(); $unresolved = @()
+    foreach ($record in @(Get-TeamOwnerProcessRecords $Owner)) {
+        if ($record['unreadable']) { $unknown += $record; continue }
+        if (-not $record['pid']) { continue }
+        if (-not $record['start']) { $unknown += $record; continue }
+        $process = Get-TeamOwnedProcess $record.pid $record.start
+        if ($process) { $process.Dispose(); $live += $record }
+    }
+    if ($Owner -and $Owner['cleanup_pending']) { $unresolved += @{ source = 'cleanup_pending'; detail = 'owned process cleanup is pending' } }
+    $receiptPath = if ($Owner -and $Owner['directory']) { Join-Path $Owner['directory'] 'exit.json' } else { '' }
+    if ($receiptPath -and (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+        try {
+            $transport = (Read-TeamData $receiptPath)['transport_cleanup']
+            $children = if ($transport) { $transport['children'] } else { $null }
+            if ($children) {
+                if ([int]$children['unverified'] -gt 0) { $unresolved += @{ source = 'child_cleanup'; detail = "$([int]$children['unverified']) child process(es) could not be verified during cleanup" } }
+                if ($children['error']) { $unresolved += @{ source = 'child_cleanup'; detail = [string]$children['error'] } }
+            }
+        } catch { $unresolved += @{ source = 'adapter_receipt'; detail = $_.Exception.Message } }
+    }
+    return @{ live = @($live); unknown = @($unknown); unresolved = @($unresolved)
+        settled = ((@($live).Count + @($unknown).Count + @($unresolved).Count) -eq 0) }
 }
 
 function Assert-TeamId([string]$Value) {
@@ -304,22 +384,39 @@ function Test-TeamProcessOutputLimit($Handle, [string[]]$AdditionalFiles = @()) 
     return $false
 }
 
-function Wait-TeamProcess($Handle, [int]$TimeoutSeconds = 60, [int]$IdleTimeoutSeconds = 0, [string[]]$AdditionalFiles = @(), [scriptblock]$OnTick = $null) {
+function Wait-TeamProcess($Handle, [int]$TimeoutSeconds = 60, [int]$IdleTimeoutSeconds = 0, [string[]]$AdditionalFiles = @(), [scriptblock]$OnTick = $null, $ActivityProbe = $null, [int]$ProbeIntervalMilliseconds = 1000) {
     $lastBytes=0L; $lastActivity=$Handle.elapsed.Elapsed.TotalSeconds
-    $rootExitAt=$null
+    $rootExitAt=$null; $lastProbe=-1L
     while ($true) {
         if ($OnTick) { & $OnTick }
         $bytes=$Handle.out_capture.BytesRead+$Handle.err_capture.BytesRead
-        if ($bytes -ne $lastBytes) { $lastActivity=$Handle.elapsed.Elapsed.TotalSeconds; $lastBytes=$bytes }
+        if ($bytes -ne $lastBytes) { $lastActivity=$Handle.elapsed.Elapsed.TotalSeconds; $lastBytes=$bytes; $Handle['last_activity_kind']='output' }
+        # Only observed content changes extend the idle deadline. The probe itself reports
+        # native process churn for evidence but never claims it as authored activity.
+        if ($ActivityProbe -and ($Handle.elapsed.ElapsedMilliseconds-$lastProbe) -ge $ProbeIntervalMilliseconds) {
+            $lastProbe=$Handle.elapsed.ElapsedMilliseconds
+            try {
+                $observed = Get-TeamActivityProbeResult $ActivityProbe
+                if ($observed -and $observed['error']) { $Handle['activity_probe_error']=$observed['error'] }
+                if ($observed -and $observed['active']) {
+                    $lastActivity=$Handle.elapsed.Elapsed.TotalSeconds
+                    $Handle['last_activity_kind']=$observed['kind']; $Handle['last_activity_at']=$observed['at']
+                }
+            } catch { $Handle['activity_probe_error']=$_.Exception.Message }
+        }
         $reason=if (Test-TeamProcessOutputLimit $Handle $AdditionalFiles) {'output limit'}
             elseif ($Handle.elapsed.Elapsed.TotalSeconds -ge $TimeoutSeconds) {'timeout'}
             elseif ($IdleTimeoutSeconds -gt 0 -and ($Handle.elapsed.Elapsed.TotalSeconds-$lastActivity) -ge $IdleTimeoutSeconds) {'idle timeout'}
             elseif ($null -ne $rootExitAt -and ($Handle.elapsed.Elapsed.TotalSeconds-$rootExitAt) -ge 3) {'pipe drain deadline'}
             else {''}
         if ($reason) {
+            $timeoutKind=switch ($reason) {'output limit' {'output'};'timeout' {'hard'};'idle timeout' {'idle'};'pipe drain deadline' {'drain'}}
+            $Handle['stop_reason']=$reason; $Handle['timeout_kind']=$timeoutKind
             try { $null=Close-TeamProcess $Handle -Terminate -DrainTimeoutMilliseconds 0 }
             catch { if ($_.Exception.Data['TeamExitCode'] -ne 31) { throw } }
-            Stop-TeamError 31 "Process exceeded its $reason; partial output preserved"
+            $failure=[InvalidOperationException]::new("Process exceeded its $reason; partial output preserved")
+            $failure.Data['TeamExitCode']=31; $failure.Data['TimeoutKind']=$timeoutKind; $failure.Data['ProcessStarted']=$true
+            throw $failure
         }
         if ($Handle.out_copy.IsFaulted -or $Handle.err_copy.IsFaulted) {
             try { $null=Close-TeamProcess $Handle -Terminate -DrainTimeoutMilliseconds 0 } catch { }
@@ -329,7 +426,12 @@ function Wait-TeamProcess($Handle, [int]$TimeoutSeconds = 60, [int]$IdleTimeoutS
             if ($null -eq $rootExitAt) { $rootExitAt=$Handle.elapsed.Elapsed.TotalSeconds }
             if (Test-TeamProcessStreamsComplete $Handle) {
                 $code=Close-TeamProcess $Handle -DrainTimeoutMilliseconds 0
-                if (Test-TeamProcessOutputLimit $Handle $AdditionalFiles) { Stop-TeamError 31 'Process exceeded its output limit; partial output preserved' }
+                if (Test-TeamProcessOutputLimit $Handle $AdditionalFiles) {
+                    $Handle['stop_reason']='output limit'; $Handle['timeout_kind']='output'
+                    $failure=[InvalidOperationException]::new('Process exceeded its output limit; partial output preserved')
+                    $failure.Data['TeamExitCode']=31; $failure.Data['TimeoutKind']='output'; $failure.Data['ProcessStarted']=$true
+                    throw $failure
+                }
                 return $code
             }
             Start-Sleep -Milliseconds 100

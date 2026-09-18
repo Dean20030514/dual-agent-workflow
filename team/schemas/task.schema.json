@@ -108,6 +108,32 @@
       "type": "string",
       "minLength": 1
     },
+    "issue_acceptance_map": {
+      "type": "array",
+      "description": "Optional author-declared mapping from objective entries to acceptance entries. The runner never invents issue text.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "objective_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "acceptance_indexes": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minItems": 1
+          }
+        },
+        "required": [
+          "objective_index",
+          "acceptance_indexes"
+        ],
+        "additionalProperties": false
+      }
+    },
     "verification": {
       "type": "array",
       "items": {
@@ -131,6 +157,19 @@
           "timeout_seconds": {
             "type": "integer",
             "minimum": 1
+          },
+          "environment_fingerprint": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Caller-declared environment identity (for example an isolated database fingerprint). Deterministic reuse requires it; declare 'none' only for hermetic commands."
+          },
+          "input_artifacts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Workspace-relative input files whose hashes are bound into a reuse key."
           }
         },
         "required": [
