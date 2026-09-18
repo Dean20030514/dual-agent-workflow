@@ -55,7 +55,7 @@ V2+ 长期演进不在 V1 范围内；全局部署与七项目接入随后已完
 | 审计问题 | 实现与验收定位 |
 |---|---|
 | 最低 Agent 预算遗漏审查 | Contracts 必需依赖闭包与派发/replan 余量，Hardening/Runtime 边界用例 |
-| 命令行和聚合输入无界 | Core Windows 参数计数、DSH 启动前拒绝、ReviewEvidence 有界日志摘录和完整 diff 限制 |
+| 命令行和聚合输入无界 | Core Windows 参数计数、长输入经原生 runner 配置 patch 传输（见 LONG_INPUT_TRANSPORT）、完整输入字节准入、ReviewEvidence 有界日志摘录和完整 diff 限制 |
 | 规则可由待审 tip 改写 | State 冻结 run-base authority，Local/Fresh 绑定哈希，治理改动要求 fresh 9A |
 | 临时 holding 生命周期 | CODEX_HOME 仓外 holding + runtime/reviews/archives，原始文件丢失后的验收/篡改反例 |
 | Reviewer 缺少作者风险 | Local/9A/9B 传递 risks 并标明为待核实声明 |

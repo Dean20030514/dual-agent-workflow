@@ -53,14 +53,16 @@ Worker risks 以待核实声明传给 Local/9A/9B，不传作者聊天或推理�
 accept 以封存哈希为准，不依赖系统临时目录。`reviews/evidence/` 保留给独立补证执行。
 未含冻结规则/封存证据的旧 run 可查询，但不能自动继承为新审查通过，须保留现场并另建明确计划的 run。
 
-DSH 当前仍使用 I1 命令行输入。默认 prompt 上限为 24,000 个 UTF-16 单元，
-另在 Windows 原生启动前计算完整参数转义长度（含可识别 npm shim 的二次启动）。
-审查完整 diff 默认上限 2,000,000 UTF-8 字节，聚合输入上限 4,000,000 字节；
-DSH 还须满足更小的命令行限制。验证日志仅传每文件前 1,024、合计 4,096 字符摘录，
-同时给出完整日志大小、SHA-256 和截断标记，原日志不改写。diff 不静默截断。
-超限返回 70 / `input_too_large`，PAUSED 等待 Lead 拆分/replan，不重试原生启动或计未创建的 Agent。
-三个 runtime 配置项分别为 `max_dsh_prompt_chars`、`max_diff_bytes`、`max_review_input_bytes`；
-旧项目 manifest 未填写时使用上述默认值，不需要覆盖项目配置。
+DSH 短任务沿用 I1 命令行输入；超过 `max_dsh_prompt_chars`（默认 24,000 UTF-16 单元）时，
+适配器把完整提示词写入运行专属 JSON patch，通过原生 `headless-runner.config.task` 传入。
+命令行仅携带 patch 路径；不要求模型读取文件，不开放审查工具，也不截断规则或 diff。
+`input-transport.json` 记录方式、字符数、UTF-8 字节数和提示词 SHA-256。原生端到端证据见
+[长输入传输验收](spike/LONG_INPUT_TRANSPORT.md)。这是适配器扩展，不声称 DSH CLI 新增了文件参数。
+Windows 启动长度检查仍保留。完整提示词继续受 `max_review_input_bytes` 限制（默认 4,000,000 字节），
+审查 diff 继续受 `max_diff_bytes` 限制（默认 2,000,000 字节）；超限仍返回 70 / `input_too_large`。
+验证日志仅传每文件前 1,024、合计 4,096 字符摘录，同时给出完整日志大小、SHA-256 和截断标记。
+三个 runtime 配置项均有兼容默认值；`max_dsh_prompt_chars` 现在是切换文件传输的阈值，
+`max_review_input_bytes` 同时约束 Worker 与 Reviewer 的完整原生输入。旧项目无需修改 manifest。
 
 `certifications/*.json` 登记精确版本/profile/provider/model、I/O/E 轴、guard 哈希和历史验收索引；
 doctor 从记录准入，不硬编码版本元组。更换 native guard 后须重验并更新记录，版本 pin 本身不构成认证。

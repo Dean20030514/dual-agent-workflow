@@ -11,6 +11,7 @@ param(
     [int]$IdleTimeoutSeconds = 900,
     [int]$MaxSingleLogMb = 50,
     [int]$MaxPromptChars = 24000,
+    [long]$MaxPromptBytes = 4000000,
     [ValidateSet('worker','local-review')][string]$Mode = 'worker',
     [string]$PromptFile
 )
@@ -52,11 +53,29 @@ $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.js
         if (-not $PromptFile) { Stop-TeamError 10 'Local review requires its allowlisted prompt file' }
         $prompt=[IO.File]::ReadAllText($PromptFile)
     }
-    if ($prompt.Length -gt $MaxPromptChars) {
+    $promptBytes=[Text.Encoding]::UTF8.GetByteCount($prompt)
+    if ($promptBytes -gt $MaxPromptBytes) {
         $startupExhausted=$true; $inputTooLarge=$true
-        Stop-TeamInputCapacity "DSH prompt input too large ($($prompt.Length) characters, limit $MaxPromptChars); split/replan the task"
+        Stop-TeamInputCapacity "DSH prompt input too large ($promptBytes UTF-8 bytes, limit $MaxPromptBytes); split/replan the task"
     }
-    $dshArguments=@('--profile',$Profile,'--patch',$Patch,$prompt)
+    # The native runner accepts config.task. A JSON patch carries literal UTF-8 text without
+    # asking the model to read a file (local reviewers deliberately have no tools).
+    $transport='argv'; $promptPatch=$null
+    if ($prompt.Length -gt $MaxPromptChars) {
+        $transport='native-config-file'
+        $promptPatch=Join-Path $directory 'prompt-input.patch.json'
+        # -InputObject preserves the top-level array when it contains a single patch entry.
+        $patchJson=ConvertTo-Json -InputObject @(@{id='headless-runner';config=@{task=$prompt}}) -Depth 10
+        [IO.File]::WriteAllText($promptPatch,$patchJson,[Text.UTF8Encoding]::new($false))
+        $dshArguments=@('--profile',$Profile,'--patch',$Patch,'--patch',$promptPatch,'Team task supplied through native runner configuration.')
+    } else {
+        $dshArguments=@('--profile',$Profile,'--patch',$Patch,$prompt)
+    }
+    Write-TeamData (Join-Path $directory 'input-transport.json') @{
+        transport=$transport;characters=$prompt.Length;utf8_bytes=$promptBytes
+        prompt_sha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($prompt))).ToLowerInvariant()
+        patch_file=$promptPatch
+    }
     # Check the second native launch made by the installed npm PowerShell shim too.
     if ($IsWindows) {
         $shimCommand=Get-Command dsh -ErrorAction SilentlyContinue

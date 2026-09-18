@@ -16,6 +16,15 @@ $patchIndex = [array]::IndexOf($args, '--patch')
 $patch = Get-Content -LiteralPath $args[$patchIndex + 1] -Raw | ConvertFrom-Json -AsHashtable
 $guard = @($patch | Where-Object { $_.ContainsKey('insert') })[0].insert[0].config
 $prompt = $args[-1]
+for ($index=0; $index -lt $args.Count-1; $index++) {
+    if ($args[$index] -ne '--patch') {continue}
+    $overlayText=Get-Content -LiteralPath $args[$index+1] -Raw
+    if (-not $overlayText.TrimStart().StartsWith('[')) {Write-Error 'Native patch must be an array';exit 7}
+    $overlay=$overlayText | ConvertFrom-Json -AsHashtable
+    foreach ($entry in $overlay) {
+        if ($entry['id'] -eq 'headless-runner' -and $entry.config.ContainsKey('task')) {$prompt=$entry.config.task}
+    }
+}
 if ($prompt -match '^Perform DSH LOCAL_REVIEW') {
     $localTask=(($prompt -split 'Task packet:',2)[1] -split '(?m)^Base:',2)[0] | ConvertFrom-Json -AsHashtable
     if (-not $guard.readOnly -or $guard.maxAgents -ne 1 -or $guard.maxDepth -ne 0) { exit 7 }

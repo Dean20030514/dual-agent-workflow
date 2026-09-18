@@ -108,7 +108,8 @@ $([IO.File]::ReadAllText((Join-Path $script:TeamRoot 'schemas/review.schema.json
             '-Patch',(Join-Path $holding 'worker.patch.yaml'),'-Profile',$Manifest.runtime.profile,'-Mode','local-review','-PromptFile',$promptPath,
             '-TimeoutSeconds',[string]$Manifest.runtime.timeout_seconds,'-IdleTimeoutSeconds',[string]$Manifest.runtime.idle_timeout_seconds,
             '-MaxSingleLogMb',[string]$Manifest.runtime.max_single_log_mb,
-            '-MaxPromptChars',[string]$(if ($Manifest.runtime['max_dsh_prompt_chars']) {$Manifest.runtime.max_dsh_prompt_chars} else {24000}))
+            '-MaxPromptChars',[string]$(if ($Manifest.runtime['max_dsh_prompt_chars']) {$Manifest.runtime.max_dsh_prompt_chars} else {24000}),
+            '-MaxPromptBytes',[string]$(if ($Manifest.runtime['max_review_input_bytes']) {$Manifest.runtime.max_review_input_bytes} else {4000000}))
         try {
             $review.reserved=1; $review.status='STARTING'; $State.agents_reserved++
             Save-TeamState $State $Directory

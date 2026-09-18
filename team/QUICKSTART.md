@@ -5,7 +5,7 @@ Codex → 合法 Plan → DSH Worker 的独立 worktree → Result → 范围审
       → 外部验证 → 独立 DSH Local Review → Lead accept → integration → final verification
 ```
 
-当前 DSH：I1 命令行输入 / O2 正文 stdout / E2 有界退出。
+当前 DSH：短输入用命令行，长输入由运行专属 patch 传入原生 runner 配置；O2 正文 stdout / E2 有界退出。
 适配器把 Task Packet 放入 prompt，将严格 JSON 正文转换为 `result.yaml`。
 原生子代理可用；主进程与子进程路由由 native registry guard 记录。
 

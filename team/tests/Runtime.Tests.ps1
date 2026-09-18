@@ -83,17 +83,22 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
         $r.data.status | Should -Be 'COMPLETED'
     }
-    It 'rejects oversized local review authority without charging a reviewer' {
+    It 'transports long local review authority intact through native config' {
         $f=New-RuntimeFixture
-        Set-Content (Join-Path $f.repo 'AGENTS.md') ('Base authority. '*2000)
-        $null=Invoke-TeamGit $f.repo @('add','AGENTS.md'); $null=Invoke-TeamGit $f.repo @('commit','-qm','test: large base authority')
-        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 70 -Because $r.raw
-        $r.data.event | Should -Be 'input_too_large'
-        $state=State $f; $state.agents_created | Should -Be 1; $state.agents_reserved | Should -Be 0
-        $state.status | Should -Be 'PAUSED'
-        $receipt=Read-TeamData (Join-Path $state.tasks.T1.local_review.directory 'exit.json')
-        $receipt.input_too_large | Should -BeTrue; $receipt.launch_attempts | Should -Be 0
-        Test-Path (Join-Path $state.tasks.T1.local_review.directory 'native-process.json') | Should -BeFalse
+        $authority='Authority start 森驰汇 "quoted". '+('Full rules. '*6000)+' Authority end.'
+        Set-Content (Join-Path $f.repo 'AGENTS.md') $authority
+        $null=Invoke-TeamGit $f.repo @('add','AGENTS.md'); $null=Invoke-TeamGit $f.repo @('commit','-qm','test: long governing rules')
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $state=State $f; $state.agents_created | Should -Be 2; $state.agents_reserved | Should -Be 0
+        $state.tasks.T1.status | Should -Be 'REVIEW'
+        $holding=$state.tasks.T1.local_review.directory
+        $transport=Read-TeamData (Join-Path $holding 'input-transport.json')
+        $transport.transport | Should -Be 'native-config-file'
+        $patch=@(Read-TeamData $transport.patch_file)
+        $prompt=[IO.File]::ReadAllText((Join-Path $holding 'prompt.txt'))
+        $patch[0].config.task | Should -BeExactly $prompt
+        $transport.prompt_sha256 | Should -Be (Get-TeamHash (Join-Path $holding 'prompt.txt'))
+        $patch[0].config.task | Should -Match 'Authority end'
     }
     It 'reviews governance against frozen base rules and accepts durable evidence after raw loss' {
         $f=New-RuntimeFixture
@@ -118,11 +123,22 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
         $r.data.status | Should -Be 'COMPLETED'
     }
-    It 'rejects oversized worker input without native launches or agent charges' {
-        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('x'*25000); Write-TeamData $f.path $f.plan
-        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 70 -Because $r.raw
-        $r.data.event | Should -Be 'input_too_large'
-        $state=State $f; $state.status | Should -Be 'PAUSED'; $state.agents_created | Should -Be 0; $state.agents_reserved | Should -Be 0
+    It 'transports long worker input and still enforces the byte admission limit' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('WRITE',('multiline 森驰汇 "quote" '+"`n")*2000); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $state=State $f; $state.tasks.T1.status | Should -Be 'REVIEW'
+        $transport=Read-TeamData (Join-Path $state.tasks.T1.directory 'input-transport.json')
+        $transport.transport | Should -Be 'native-config-file'
+        $nativePatch=@(Read-TeamData $transport.patch_file)
+        $parsed=(($nativePatch[0].config.task -split 'Task packet:',2)[1] -split 'Result schema:',2)[0] | ConvertFrom-Json -AsHashtable
+        $parsed.objective[1] | Should -BeExactly $f.plan.tasks[0].objective[1]
+
+        $blocked=New-RuntimeFixture; $blocked.plan.tasks[0].objective=@('x'*25000); Write-TeamData $blocked.path $blocked.plan
+        $manifest=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml'); $manifest.runtime['max_review_input_bytes']=24000
+        $manifestPath=Join-Path $TestDrive 'small-input-budget.json'; Write-TeamData $manifestPath $manifest
+        $r=Invoke-Cli @('run','-Repo',$blocked.repo,'-Plan',$blocked.path,'-Manifest',$manifestPath,'-Json')
+        $r.code | Should -Be 70 -Because $r.raw; $r.data.event | Should -Be 'input_too_large'
+        $state=State $blocked; $state.status | Should -Be 'PAUSED'; $state.agents_created | Should -Be 0; $state.agents_reserved | Should -Be 0
         $receipt=Read-TeamData (Join-Path $state.tasks.T1.directory 'exit.json')
         $receipt.input_too_large | Should -BeTrue; $receipt.launch_attempts | Should -Be 0
         Test-Path (Join-Path $state.tasks.T1.directory 'native-process.json') | Should -BeFalse

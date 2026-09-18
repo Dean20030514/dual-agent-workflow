@@ -68,7 +68,8 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory, $Plan = 
         '-Patch',$patchPath,'-Profile',$Manifest.runtime.profile,
         '-TimeoutSeconds',[string]$Manifest.runtime.timeout_seconds,
         '-IdleTimeoutSeconds',[string]$Manifest.runtime.idle_timeout_seconds,'-MaxSingleLogMb',[string]$Manifest.runtime.max_single_log_mb,
-        '-MaxPromptChars',[string]$(if ($Manifest.runtime['max_dsh_prompt_chars']) {$Manifest.runtime.max_dsh_prompt_chars} else {24000}))
+        '-MaxPromptChars',[string]$(if ($Manifest.runtime['max_dsh_prompt_chars']) {$Manifest.runtime.max_dsh_prompt_chars} else {24000}),
+        '-MaxPromptBytes',[string]$(if ($Manifest.runtime['max_review_input_bytes']) {$Manifest.runtime.max_review_input_bytes} else {4000000}))
     $handle = New-TeamProcess (Join-Path $PSScriptRoot 'Invoke-DshWorker.ps1') $args $item.worktree (Join-Path $item.directory 'adapter.stdout') (Join-Path $item.directory 'adapter.stderr') -MaxOutputBytes ($Manifest.runtime.max_single_log_mb * 1MB)
     $item.pid = $handle.process.Id; $item.process_start = $handle.process.StartTime.ToUniversalTime().ToString('o')
     Save-TeamState $State $Directory
