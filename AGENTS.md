@@ -15,7 +15,7 @@
 * 存档参考命令(仅需要时):`pwsh -Command "Invoke-Pester -Path tools/validate/tests -CI"`;依赖模块(powershell-yaml、PSScriptAnalyzer、Pester ≥5,版本见 `tools/validate/requirements.psd1`)仅跑存档测试时需要,不是仓库门禁。
 
 ## Code Style Rules
-* Team Mode 实现位于 `team/`，入口为 `team/scripts/team.ps1`。非审查开发任务先读 manifest 与 `team/policies/codex-lead-prompt.md`，按任务价值选 L0–L3；`team.enabled=false` 保持原流程。本仓库自身仍由人类提交、禁止 Agent merge/push/pull；Team 的 Git 集成验收只能在独立临时仓库执行。
+* Team Mode 实现位于 `team/`，入口为 `team/scripts/team.ps1`。非审查开发任务先读 manifest 与 `team/policies/codex-lead-prompt.md`，按任务价值选 L0–L3；`team.enabled=false` 保持原流程。除下文 Team 专用 Git 例外外，本仓库自身仍由人类提交、禁止 Agent merge/push/pull；Team 的 Git 集成验收只能在独立临时仓库执行。
 * Team 验收：Pester 配置 `Run.Path = 'team/tests'`、`Run.Exit = $true`、`TestResult.Enabled = $false`；另跑 `node --test team/tests/native-guard.test.mjs`。替身 CLI 接线测试不等于真实 Harness 验收，真实证据见 `team/spike/`。
 * 用户可读文档中文为主;代码、注释、提交信息英文(Conventional Commits)。
 * UTF-8 无 BOM;LF(`.gitattributes` 强制)。
@@ -27,4 +27,14 @@
 * 重流程(9P 计划审、9A/9B 双审、Frozen Acceptance、批准门,全文仍在 `claude/workflow/AGENTS.md` 与 `claude/workflow/reviewer-prompt.md`)仅在人类明确要求的真项目任务启用;**任何新增流程/规则/登记表/检查项默认「不」**,除非一句话说清净收益。
 * per-task 交接文件在 `docs/ai/`,旧任务归档 `docs/ai/archive/<日期-任务>/`。
 * 共识基线引用方式:一律指 tag `plan-v1.1`(现为参考材料),不要复述 SHA;artifact 身份链见 `docs/ai/archive/2026-07-30-improvement-plan-v1.1-landing/HANDOFF.md` 与 commit trailers。
-* 本仓库无远程操作(NEVER push/pull/merge);push/CI 由人类执行。
+* 本仓库禁止 Agent push/pull；除下文 Team 专用集成分支例外外，merge 仍由人类执行；push/CI 由人类执行。
+
+## Team 专用 Git 例外（2026-09-17 人类明确授权；两模式恒适用）
+
+本例外用于让 Team 的独立 worktree、审查和集成证据链能够运行，仅覆盖有效 Team Plan 内的专用分支操作，优先于本文件对 Routine 建分支与 Agent commit 的默认限制。
+
+- 允许通过本项目 `team/scripts/team.ps1` 创建 run 专属 worktree、`codex/team/<run-id>/...` Worker 分支和 `codex/integration/<run-id>` 集成分支。Worker 仅可在自己获分配的分支提交 Task 声明范围内的改动。
+- 通过外部验证、独立审查及 Lead 对确切 SHA 的验收后，允许 Team 运行器仅在该 run 的专用集成分支 merge 已验收的 Worker 提交；按明确的恢复/回滚决定，允许在同一集成分支 revert 本 run 的集成提交。不得据此操作其他分支或撤销无关提交。
+- 本例外不授予主分支的业务提交或合入主分支权限，仍按本项目原有的人类批准/执行规则处理；本例外不授权 push/pull、发布或部署，也不扩大生产、凭据和不可逆操作权限。Reviewer 零写入及其他业务、安全和验证规则保持适用。
+- 不因使用 Team 将 Routine 升级成 Critical。Team 的 Plan/Task/Result、运行证据与 SHA 绑定属于其机械执行协议，不要求 Routine 另建 Critical 的散文交接文件或启用旧双审账本；该点是 Mode Scope 中相关默认限制的配套例外。
+- 当前主工作树已有的未提交改动不自动成为 Worker 基线。不得为启用 Team 擅自提交、stash、覆盖或丢弃这些改动；Lead 须先明确任务输入和基线。新 run 使用包含本授权条款的已提交规则快照，不改写既有 run 的冻结规则。
