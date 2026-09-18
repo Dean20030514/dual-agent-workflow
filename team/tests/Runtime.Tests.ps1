@@ -50,6 +50,28 @@ BeforeAll {
 AfterAll { Restore-TeamLeadFixture $script:LeadEnvironment; $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'refuses setup when a replanned critical run is rejected on resume' {
+        $f = New-RuntimeFixture
+        $f.plan.classification.level = 'critical'
+        $f.plan.review.require_9p = $true; $f.plan.review.require_fresh_9b = $true
+        Write-TeamData $f.path $f.plan
+        $r = Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $before = State $f
+        $marker = Join-Path $f.repo 'replanned-setup.txt'
+        $f.plan.run.revision = 2
+        $f.plan.tasks[0].objective = @('FIXTURE_PLAN_REJECT')
+        $f.plan['prerequisites'] = @(@{ id='setup'; executable='pwsh'; timeout_seconds=30
+            args=@('-NoProfile','-Command',"Set-Content -LiteralPath '$marker' ran") })
+        Write-TeamData $f.path $f.plan
+        $r = Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Plan',$f.path,'-Reason','Fixture revised setup','-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $r = Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json')
+        $r.code | Should -Be 50 -Because $r.raw
+        (Test-Path -LiteralPath $marker) | Should -BeFalse
+        (State $f).tasks.T1.attempts | Should -Be $before.tasks.T1.attempts
+        (Read-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/prerequisites.json')).plan_hash | Should -Be $before.plan_hash
+    }
     It 'refuses rejected plan setup before executing any prerequisite' {
         $f = New-RuntimeFixture
         $marker = Join-Path $f.repo 'setup-ran.txt'

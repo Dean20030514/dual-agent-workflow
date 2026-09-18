@@ -169,6 +169,17 @@ Describe 'Opt-in deterministic verification reuse' {
             return Invoke-TeamVerification @($Fixture.command) $Fixture.repo $Fixture.directory 'verification' $Fixture.runtime -Reuse:$Reuse -CacheDirectory $Fixture.directory
         }
     }
+    It 'records a missing executable failure when verification reuse is requested' {
+        $fixture = New-ReuseFixture
+        $fixture.command.executable = Join-Path $TestDrive 'nonexistent-tool.exe'
+        $failure = Catch-TeamError { Invoke-ReuseVerification $fixture -Reuse }
+        $failure.Data['TeamExitCode'] | Should -Be 40
+        $saved = @(Read-TeamData (Join-Path $fixture.directory 'verification-evidence.json'))[0]
+        $saved.process_started | Should -BeFalse
+        $saved.exit_code | Should -Be 30
+        $saved.reused | Should -BeFalse
+        $saved.error | Should -Not -BeNullOrEmpty
+    }
     It 'executes by default and only reuses when the caller opts in' {
         $fixture = New-ReuseFixture
         $first = @(Invoke-ReuseVerification $fixture)[0]
@@ -688,6 +699,15 @@ Describe 'Archive and finalize lifecycle' {
             (Get-TeamRefState $repo $worktree.branch).exists | Should -BeTrue
             (Invoke-TeamGit $repo @('rev-parse','HEAD')) | Should -Be $base
         } finally { $script:TeamFinalizeMaxFiles = 20000 }
+        $oldReceipt = Join-Path $run.directory 'finalize/targets/T1-a1/receipt.json'
+        $oldHash = Get-TeamHash $oldReceipt
+        $retry = Invoke-TeamFinalize $run.state $run.directory -Apply
+        $retry.outcome | Should -Be 'completed'
+        (Test-Path -LiteralPath $worktree.path) | Should -BeFalse
+        (Get-TeamRefState $repo $worktree.branch).exists | Should -BeFalse
+        $history = @(Get-ChildItem -LiteralPath (Join-Path $run.directory 'finalize/preserved') -Recurse -Filter receipt.json)
+        $history.Count | Should -Be 1
+        (Get-TeamHash $history[0].FullName) | Should -Be $oldHash
     }
     It 'refuses to finalize a run that can still be resumed' {
         $repo = New-TestRepo 'resumable'

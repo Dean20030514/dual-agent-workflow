@@ -104,6 +104,7 @@ function Invoke-TeamVerification($Commands, [string]$Worktree, [string]$Director
         $reuseKey=$null; $reuseSource=$null; $reuseHash=$null; $binding=$null; $timeoutKind=$null; $publishRejected=$null
         $watch=[Diagnostics.Stopwatch]::StartNew()
         if ($Reuse) {
+            try {
             $binding = Get-TeamVerificationKey $Worktree $command.executable @($command.args) $command
             $lookup = Read-TeamVerificationCache $CacheDirectory $binding
             if ($lookup.hit) {
@@ -117,6 +118,12 @@ function Invoke-TeamVerification($Commands, [string]$Worktree, [string]$Director
                 $reuseSource=Get-TeamRootRelativePath $CacheDirectory $lookup.path
                 $reuseHash=Get-TeamHash $lookup.path
             } else { $reuseRejected=$lookup.reason }
+            } catch {
+                # Reuse is optional. A lookup failure must still take the normal execution
+                # path, which records launch failures (including a missing executable).
+                $binding=$null; $reused=$false; $reuseKey=$null; $reuseSource=$null; $reuseHash=$null
+                $reuseRejected="cache_lookup_failed: $($_.Exception.Message)"
+            }
         }
         if (-not $reused) {
             try {

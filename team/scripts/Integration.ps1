@@ -110,14 +110,14 @@ function Resume-TeamRun($State, $Plan, $Manifest, [string]$Directory) {
     Assert-TeamRecovery $State $Plan $Directory
     Assert-TeamActionApproval $State $Plan $Directory
     Assert-TeamReviewRound $State $Plan $Directory
-    # Plan-declared prerequisites must hold before any new author is admitted.
-    $null = Invoke-TeamPrerequisites $State $Plan $Manifest $Directory
     if ($Plan.classification.level -eq 'critical') {
         if (-not (Test-TeamReviewAccepted $Directory '9P' $State.plan_hash $State.run_base_sha)) {
             $base = $State.run_base_sha
             $null = Invoke-TeamReview $State $Plan $Manifest $Directory '9P' $State.repo $base $base
         }
     }
+    # A revised plan must pass the same authorization/9P gates as a new run before setup.
+    $null = Invoke-TeamPrerequisites $State $Plan $Manifest $Directory
     foreach ($task in $Plan.tasks) {
         $item = $State.tasks[$task.id]
         # An active pre-local-review run may already be waiting for Lead acceptance.

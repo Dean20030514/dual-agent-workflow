@@ -444,6 +444,20 @@ function Invoke-TeamFinalizeArchive($State, [string]$Directory, $Target, $Inspec
     $receiptPath = Join-Path $targetRoot 'receipt.json'
     $bundlePath = Join-Path $targetRoot 'branch.bundle'
     $receipt = if (Test-Path -LiteralPath $receiptPath) { Read-TeamData $receiptPath } else { $null }
+    if ($receipt -and $receipt['preserved'] -eq $true) {
+        if (-not $Inspection.bounded) { return $receipt }
+        # A failed preservation attempt is not an accepted archive. Keep all its evidence
+        # intact, then retry from the freshly inspected current state after the obstacle clears.
+        $historyRoot = Get-TeamChild $Directory 'finalize/preserved'
+        $history = Get-TeamChild $historyRoot ($Target.key + '-' + [guid]::NewGuid().ToString('N'))
+        $null = Get-TeamRootRelativePath $Directory $targetRoot
+        $null = Get-TeamRootRelativePath $Directory $history
+        [IO.Directory]::CreateDirectory($historyRoot) | Out-Null
+        [IO.Directory]::Move($targetRoot, $history)
+        [IO.Directory]::CreateDirectory($targetRoot) | Out-Null
+        Add-TeamEvent $Directory 'finalize_preserved_retry' @{ key=$Target.key; previous_archive=(Get-TeamRootRelativePath $Directory $history) }
+        $receipt = $null
+    }
     if ($receipt -and (Test-TeamFinalizeInventoryComparable $Inspection) -and $receipt['inventory_sha256'] -cne $Inspection.inventory_sha256) {
         Stop-TeamError 80 "Run worktree inventory changed after its archive receipt was written: $($Target.key)"
     }
@@ -451,7 +465,6 @@ function Invoke-TeamFinalizeArchive($State, [string]$Directory, $Target, $Inspec
     if ($receipt -and $receipt['archived'] -eq $true -and $receipt['restore_proof'] -and $receipt.restore_proof['verified'] -eq $true) {
         return $receipt
     }
-    if ($receipt -and $receipt['preserved'] -eq $true) { return $receipt }
     if (-not $Inspection.exists) {
         # The worktree is already gone (for example a completed partial removal). Its branch
         # ref may still hold the only copy of the work, so it must be archived before it is
