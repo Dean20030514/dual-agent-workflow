@@ -130,6 +130,14 @@ function New-TestCase {
         foreach ($d in 'claude', 'codex', 'dsh') {
             Copy-Item (Join-Path $script:RepoRoot $d) (Join-Path $fake $d) -Recurse -Force
         }
+        # Exclude private run state when building the isolated installer fixture.
+        New-Item -ItemType Directory -Force (Join-Path $fake 'team') | Out-Null
+        foreach ($d in 'scripts', 'schemas', 'roles', 'policies', 'spike') {
+            Copy-Item (Join-Path $script:RepoRoot "team\$d") (Join-Path $fake "team\$d") -Recurse -Force
+        }
+        foreach ($f in 'manifest.yaml', 'README.md', 'QUICKSTART.md') {
+            Copy-Item (Join-Path $script:RepoRoot "team\$f") (Join-Path $fake "team\$f")
+        }
         if ($IncompleteSourceTree) {
             Remove-Item (Join-Path $fake 'claude\settings.json') -Force
         }
@@ -278,6 +286,13 @@ function Get-ManagedDeploySet {
         }
     }
     $set.Add('codex/AGENTS.md')
+    foreach ($f in Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'team') -File -Recurse) {
+        $rel = $f.FullName.Substring((Join-Path $RepoRoot 'team').Length + 1).Replace('\', '/')
+        if ($rel -match '^(scripts|schemas|roles|policies)/' -or
+            $rel -match '^spike/[^/]+\.md$' -or $rel -in @('manifest.yaml', 'README.md', 'QUICKSTART.md')) {
+            $set.Add('codex/team/' + $rel)
+        }
+    }
     $set.Add('dsh/AGENTS.md')
     foreach ($f in Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'dsh\workflow') -File -Recurse) {
         $rel = $f.FullName.Substring((Join-Path $RepoRoot 'dsh\workflow').Length + 1).Replace('\', '/')

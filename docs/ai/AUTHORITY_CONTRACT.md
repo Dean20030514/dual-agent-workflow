@@ -1,5 +1,10 @@
 # Snapshot-first authority contract — task record
 
+> **2026-09-17 Team 部署增补**：`install.ps1` 新增受管目标 `~/.codex/team/` 下的
+> `scripts/`、`schemas/`、`roles/`、`policies/`、manifest/README/QUICKSTART 与 `spike/*.md`。
+> 不含私有运行状态、测试和探针脚本。`tools/enable-team-project.ps1` 在目标项目播种的
+> `team/manifest.yaml` 属于各项目配置，后续接入不覆盖；不是全局部署器的受管目标。
+
 > **2026-09-06 增补（非原记录内容）**：DSH 落地（`dsh/AGENTS.md`、`dsh/workflow/`、`dsh/skills/{dual-agent-workflow,independent-review}/`、`portable/通用prompt-DSH-v1.txt`）**已写入 `install.ps1` 的部署段，因而进入本契约定义的受管部署面**（部署器持续更新/覆盖的路径）。随之适用于 DSH 侧的两条既有条款：① **迁移期与 H3 的差别在"整树覆盖"与"选择性更新"**——DSH 段**不**碰整个 `~/.dsh`（那是 harness home，含 sessions/settings/凭据），只更新 `AGENTS.md`、`workflow/` 与 **`dsh/skills/` 下仓库自带的每个 skill 目录**（2026-09-15 起按目录枚举，不再是写死的两个名字），`~/.dsh/skills` 里**不在仓库中**的内容一概不动（只增/只更新语义下更不会：脚本没有删除路径，镜像目标也只按仓库内容生成）；`~/.dsh/settings.yaml` 与凭据属 **machine-local / keep-local-only**，与 `~/.codex/config.toml` 同类，H3 的 drift check **不得**要求它们匹配仓库。**（2026-09-15 订正）副作用披露**：**不存在整树备份**——旧版的 `~/.dsh.bak-<stamp>` 整树备份已随只增/只更新语义移除（它会把 `sessions/`、`storages/`、`.credentials.yaml` 一并复制），现在**只有被覆盖的单个受管文件**会先备份为同级 `<name>.bak-<时间戳>-<4位guid>`。② **seed-only 例外** 目前仍只有 `~/.codex/config.toml` 一项（`~/.dsh/AGENTS.md` 是持续部署目标，不是 seed-only）。**已实测**：2026-09-15 该脚本已对真实树运行（首轮 `-DryRun` + 真部署，`written=0`——本机本就全同步），运行记录见 `docs/ai/archive/2026-09-15-h3c-add-update-only/REAL_DEPLOY_LOG.txt`；改点见 `docs/ai/DSH-LANDING-NOTES.md`；**未偿还的债与未验证清单见 `docs/ai/HANDOFF.md`（空闲期形态：`Current Phase: Idle`，`Remaining Risks / Debt` 承接未偿 `[DEBT]`；形状唯一定义处 = `claude/workflow/templates/HANDOFF.md` 文首）**——本任务的 per-task 文件（`TASK_BRIEF.md` / `last_test_run.txt` / `review_9{A,B}*.md`）已按仓库惯例归档于 `docs/ai/archive/2026-09-06-dsh-landing/`。
 
 > Versioned process record for `task/snapshot-first-authority-contract`

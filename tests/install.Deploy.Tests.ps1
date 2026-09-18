@@ -336,6 +336,7 @@ Describe 'Deploy - completeness into an empty home (ported from the stopped H3 b
                 $source = switch -Regex ($rel) {
                     '^claude/' { Join-Path (Get-RepoRoot) ('claude\' + $rel.Substring(7)); break }
                     '^codex/config\.toml$' { Join-Path (Get-RepoRoot) 'codex\config.example.toml'; break }
+                    '^codex/team/' { Join-Path (Get-RepoRoot) ('team\' + $rel.Substring(11)); break }
                     '^codex/' { Join-Path (Get-RepoRoot) ('codex\' + $rel.Substring(6)); break }
                     '^dsh/' { Join-Path (Get-RepoRoot) ('dsh\' + $rel.Substring(4)); break }
                 }

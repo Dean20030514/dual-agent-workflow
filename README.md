@@ -44,6 +44,21 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ## 布局与安装位置
 
+Team Mode 全局运行器由 `install.ps1` 安装到 `~/.codex/team/`：受管范围为
+`scripts/`、`schemas/`、`roles/`、`policies/`、顶层 manifest/README/QUICKSTART 和 `spike/*.md`。
+不部署 `team/runtime/`、测试或探针脚本。每个项目只需首次运行：
+
+```powershell
+pwsh -NoProfile -File ./install.ps1 -NoPluginInstall
+pwsh -NoProfile -File ./tools/enable-team-project.ps1 -Repo 'C:/path/to/project'
+```
+
+项目接入器在 AGENTS（有 override 时使用 override）文首先加 Team 入口，播种项目 manifest，
+添加共享运行器 launcher 与运行目录忽略规则。已有项目 manifest 保持不变；修改前备份到
+`~/.codex/deployment-backups/`，重复运行无变更，支持 `-DryRun`。本仓库已有完整运行器则跳过接入。
+项目配置属于项目自身，之后全局部署不会覆盖它。新开该项目的 Codex 会话即可加载入口；
+实际分派前仍须 doctor、任务分类、合法 Plan 及目标项目 Git/安全约束。
+
 | 目录/文件 | 安装到 | 内容 |
 |------|--------|------|
 | `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | 全局指令（跨项目红线 + 工作流导航，每会话自动加载） |

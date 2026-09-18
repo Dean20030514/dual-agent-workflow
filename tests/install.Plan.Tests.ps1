@@ -147,7 +147,11 @@ Describe 'AC2 -DryRun' {
             foreach ($entry in (Get-ManagedDeploySet -RepoRoot (Get-RepoRoot))) {
                 $parts = $entry -split '/'
                 if ($parts[0] -eq 'claude') { $managed += ('claude/' + $parts[1]) }
-                elseif ($parts[0] -eq 'codex') { $managed += ('codex/' + $parts[1]) }
+                elseif ($parts[0] -eq 'codex') {
+                    if ($parts[1] -ne 'team') { $managed += ('codex/' + $parts[1]) }
+                    elseif ($parts[2] -eq 'spike') { $managed += $entry }
+                    else { $managed += ('codex/team/' + $parts[2]) }
+                }
                 elseif ($parts[0] -eq 'dsh') {
                     if ($parts[1] -eq 'skills') { $managed += ('dsh/skills/' + $parts[2]) }
                     else { $managed += ('dsh/' + $parts[1]) }

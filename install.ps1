@@ -242,6 +242,16 @@ function Build-Plan {
     }
     $plan.Add((New-FileAction -Source (Join-Path $RepoRoot 'codex\AGENTS.md') -Target (Join-Path $CodexRoot 'AGENTS.md')))
     $plan.Add((New-FileAction -Source (Join-Path $RepoRoot 'codex\config.example.toml') -Target (Join-Path $CodexRoot 'config.toml') -Kind 'seed'))
+    # Shared Team runtime only: never deploy runtime state or test/probe scripts.
+    foreach ($d in 'scripts', 'schemas', 'roles', 'policies') {
+        $plan.Add((New-MirrorAction -Source (Join-Path $RepoRoot "team\$d") -Target (Join-Path $CodexRoot "team\$d")))
+    }
+    foreach ($f in 'manifest.yaml', 'README.md', 'QUICKSTART.md') {
+        $plan.Add((New-FileAction -Source (Join-Path $RepoRoot "team\$f") -Target (Join-Path $CodexRoot "team\$f")))
+    }
+    foreach ($f in (Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'team\spike') -Filter '*.md' -File)) {
+        $plan.Add((New-FileAction -Source $f.FullName -Target (Join-Path $CodexRoot ('team\spike\' + $f.Name))))
+    }
     $plan.Add((New-FileAction -Source (Join-Path $RepoRoot 'dsh\AGENTS.md') -Target (Join-Path $DshRoot 'AGENTS.md')))
     $plan.Add((New-MirrorAction -Source (Join-Path $RepoRoot 'dsh\workflow') -Target (Join-Path $DshRoot 'workflow')))
     # Enumerated, not hard-coded: a bundle ships by existing under dsh/skills/. A list kept

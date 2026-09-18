@@ -15,8 +15,12 @@ If your prompt asks for no review at all — no 9P/9A/9B mode, no request to ass
 - Ask for an explicit yes before: elevation/UAC, system-wide network/proxy/certificate settings, registry writes, killing or restarting user applications or VPNs, runtime major-version jumps, or reinstalling/renaming install directories.
 
 For implementation tasks in repositories with `team/manifest.yaml`, read that
-manifest and `team/policies/codex-lead-prompt.md`. When Team Mode is enabled,
-evaluate L0/L1/L2/L3; use the repository's `team/scripts/team.ps1` for any native
+manifest and the Team lead policy. The runtime is the repository's `team/` when
+`team/scripts/Core.ps1` exists; otherwise use `$CODEX_HOME/team` (default
+`~/.codex/team`). Read `policies/codex-lead-prompt.md`, `policies/activation.md`,
+`policies/delegation.md` and `policies/review-mapping.md` under that runtime.
+When Team Mode is enabled, evaluate L0/L1/L2/L3; use the repository's
+`team/scripts/team.ps1` launcher for any native
 DSH delegation and require a valid Team Plan before dispatch. Disabled Team Mode
 keeps ordinary Codex behavior. This does not change the independent Reviewer role
 when a review is requested, or override the repository's Git and safety rules.
