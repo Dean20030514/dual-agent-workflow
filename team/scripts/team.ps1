@@ -13,6 +13,7 @@ param(
 foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
 $lock = $null; $runData = $null; $exitCode = 0
 try {
+    if ($PSBoundParameters.ContainsKey('Since')) { $Since=$Since.ToUniversalTime() }
     $Repo = [IO.Path]::GetFullPath($Repo).TrimEnd([IO.Path]::DirectorySeparatorChar)
     if (-not $Manifest) { $Manifest = Join-Path $script:TeamRoot 'manifest.yaml' }
     $config = Read-TeamData $Manifest
@@ -176,7 +177,7 @@ try {
         $output['routing_health']=@{auto_route=$health.auto_route;notice=$health.notice;lead_action=$health.lead_action}
         if ($health.auto_route -eq 'degraded') { Add-TeamEvent $runData.directory 'routing_degraded' $output.routing_health }
     }
-    $output | ConvertTo-Json -Depth 100 -Compress:$Json
+    ConvertTo-Json -InputObject $output -Depth 100 -Compress:$Json
 } catch {
     $exitCode = if ($_.Exception.Data.Contains('TeamExitCode')) { [int]$_.Exception.Data['TeamExitCode'] } else { 90 }
     if ($runData -and $lock) {

@@ -58,6 +58,8 @@ function Invoke-TeamLocalReview($State, $Task, $Manifest, [string]$Directory) {
         $agentsPath=Join-Path $item.worktree 'AGENTS.md'
         $agents=if (Test-Path $agentsPath) {[IO.File]::ReadAllText($agentsPath)} else {'No target AGENTS.md exists.'}
         $evidence=Read-TeamData (Join-Path $item.directory 'verification-evidence.json')
+        $workerResult=Read-TeamData (Join-Path $item.directory 'result.yaml')
+        $nativeFacts=@((Read-TeamData (Join-Path $item.directory 'agents.json')).agents | Select-Object id,depth,state,provider,model,cwd)
         $testOutput=@(Get-ChildItem $item.directory -Filter 'verification-*.stdout' | ForEach-Object { "$($_.Name):`n$([IO.File]::ReadAllText($_.FullName))" }) -join "`n"
         $prompt=@"
 Perform DSH LOCAL_REVIEW, independently of the author. Review only the provided task,
@@ -77,6 +79,10 @@ git rev-parse HEAD: $head
 git status --porcelain --untracked-files=all: <empty>
 git diff --name-only --no-renames $($item.base_sha) $($item.commit):
 $(Invoke-TeamGit $item.worktree @('diff','--name-only','--no-renames',$item.base_sha,$item.commit))
+Native creation receipt (coordinator-observed identities and routes):
+$($nativeFacts | ConvertTo-Json -Depth 10)
+Result subagent declarations (checked against the native count and task limits):
+$($workerResult.subagents_used | ConvertTo-Json -Depth 15)
 AGENTS.md snapshot:
 $agents
 External verification:

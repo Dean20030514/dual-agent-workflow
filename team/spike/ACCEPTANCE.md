@@ -235,3 +235,54 @@ native guard **6 passed / 0 failed**、派生漂移门 17 对/292 行均 exit 0�
 新增九组交集正反例和一组依赖/范围传递案例；这不是持久化中断验收的替代品。
 同轮恢复事务实现尚未提交：专项 Persistence.Tests.ps1 被 Defender/AMSI 拦截，
 尚未完成对应中断点验收；未关闭防护、添加排除项或将被拦截测试迁移到其他执行入口。
+
+2026-09-17 只读核查：Defender 1116/1117 记录该文件在 18:54:54、18:57:37（本机时间）
+触发 `HackTool:PowerShell/ApexToolkit.A`，来源 AMSI，随后记录隔离动作。
+当前可读文件 SHA-256 为 `5226721c41e60067c1afed7667ee50425f8bba37435820af02243e74bf0e9b58`；
+静态内容为临时 Git 仓库的持久化边界测试，未发现下载、窃密或修改安全设置的代码。
+19:00:52 的另一条 `Trojan:PowerShell/PsAttack.R` 告警指向只读关键词搜索的完整命令行，
+解释了当时一次进程启动拒绝访问；不能据此宣称文件已获安全放行。
+防护保持启用，安全情报版本 1.459.258.0。结论为疑似误报、尚未权威确认；未再次执行该文件，
+未向外部服务提交文件。普通 Runtime 回归可执行不代表专项测试已通过。
+
+# 并行任务补证与观察命令
+
+真实 DAG-NATIVE-014 暴露：一个 Local Review 请求补证时，协调器错误清理了仍在运行的
+另一作者。原 run 及失败证据保留并显式停止，没有把它改写为成功。
+现在仅暂停新增派发，让已启动作者在原超时/输出限额内完成，记录 RESULT_READY；
+补证后 resume 审计既有结果，不重复启动作者或覆盖原 verdict。
+Local Review 输入补入已核验的子代理声明与原生身份/路由收据，不传作者聊天或内部推理。
+定向 Pester（`*lets a parallel author finish*`、`*handles local evidence requests before Critical*`）
+**2 passed / 0 failed**，exit 0，42.84 秒；这是替身 CLI/真实进程验收，不能冒称真实模型重演。
+
+观察命令原来把空结果输出为空文本、单项结果展开为对象；现稳定输出 JSON 数组。
+实际 CLI 还发现 `-Since` 参数的本地时间与 UTC 事件直接比较，错误纳入更早事件；现统一为 UTC。
+新 Runtime 用例覆盖空/单项/多项 JSON、Task/Since 过滤、PAUSED 默认返回、Follow 保持及
+CANCELLED 自动退出且不重复事件，**1 passed / 0 failed**，exit 0，17.95 秒。
+该测试首次发现时间过滤问题，保留原断言；未通过修改预期来掩盖产品缺陷。
+native guard **6 passed / 0 failed**，派生漂移门 17 对/292 行均 exit 0。
+
+# 真实多 Worker、依赖与超时修订
+
+`Start-NativeDependencyAcceptance.ps1 -PrepareOnly -RunId DAG-NATIVE-015` 创建独立临时 Git 仓库，
+预先固定 LABEL/TOTAL/SUMMARY 共 14 个合同案例。实际 DSH 同时运行两个父进程，各创建一个
+depth-1 子代理；按 PID+UTC 创建时间确认同时存活，SUMMARY attempt=0，全局保守预留=6。
+这只是原生并发观测，未把 creation 收据声称为所有子代理同时执行模型推理。
+
+LABEL 完成并通过独立 Local Review；TOTAL 首次 300 秒无输出，真实触发 idle timeout / exit 31。
+保留失败 attempt 和预算记账，Lead 接受 LABEL 后显式 replan r2，仅影响 TOTAL/SUMMARY；
+TOTAL 改为直接实现、不再委派子代理，累计上限仍为 10。LABEL 未重跑，TOTAL attempt=2。
+随后两个上游各自验收并集成，SUMMARY 从包含两者的集成 SHA 启动，复用两个函数。
+TOTAL 与 SUMMARY 的 Local Review 分别提出边界类型、de-DE 小数格式补证；外部命令实跑后
+复用原 verdict，没有多跑 Reviewer 寻找通过结论。三份最终 Local Review 均 pass、无 blocking。
+
+最终 COMPLETED，固定全量合同 **5+5+4=14 cases**，exit 0；主分支不变且干净，原验证文件
+在全部工作树中的 Git blob 不变。累计保守记账=10、实际记录的不同原生身份=9、预留=0。
+两者差额来自超时 attempt 的保守家族记账，不是金额账单，也不人为回填为零。
+`watch -Task LABEL -Follow` 跨暂停/补证持续等待，最后自动退出 0 / COMPLETED，仅输出该任务事件。
+
+补证脚本首次直接比对跨工作树文件字节，因本机 Git CRLF 转换失败；确认 Git blob 相同且
+工作树干净后改按 Git 内容校验，首次失败输出另存，后续补证通过。探针模板现对临时仓库
+显式设置 core.autocrlf=false，避免后续探针的字节差异；未改本机全局 Git 配置。
+精确 SHA、原生身份及证据哈希见 VERIFIED_VERSIONS。该运行经过尚未提交的恢复事务工作树，
+证明正常 replan/集成路径，不代替被 Defender 阻塞的持久化中断窗口验收。

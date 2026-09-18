@@ -5,6 +5,11 @@
 schema/DAG/范围/锁/进程超时的机械测试；使用替身 CLI 的 L2 DAG 与 Critical gate 接线。
 当前测试数与最终结果由本任务的实际输出记录，不把历史通过数当本次回归结论。
 
+真实 DAG-NATIVE-015 还完成两个父 Worker 各创建一个子代理的并发观测、idle timeout 后显式
+replan、保留无关 ACCEPTED、下游从已集成 SHA 启动及 14 案例最终回归。首次 TOTAL 超时保留，
+第二次直接实现不再委派；不是两个首轮家族均成功。累计保守记账 10、不同原生身份 9。
+持久化事务中断窗口的专项测试仍因 Defender 拦截待验，不能用正常 replan 成功替代。
+
 真实独立 DSH Local Review 已由 LOCAL-NATIVE-013 验证：作者与 Reviewer 为不同原生 session，
 后者禁用工具、提出一项 Git 补证，经外部进程实跑后复用原 verdict，Lead 验收并完成集成。
 本地 Reviewer 中断/恢复、stop、拒绝写入及 DISCARDED 清理由真实进程/Git 加替身 CLI 验证，

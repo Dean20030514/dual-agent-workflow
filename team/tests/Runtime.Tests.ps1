@@ -48,6 +48,78 @@ BeforeAll {
 AfterAll { $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'keeps observation collections valid and follows paused runs until cancellation' {
+        $f=New-RuntimeFixture
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $r=Invoke-Cli @('logs','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Json')
+        $r.code | Should -Be 0; $r.raw | Should -Match '^\['
+        @($r.data).Count | Should -BeGreaterThan 1
+        @($r.data | Where-Object {$_.details.task_id -ne 'T1'}).Count | Should -Be 0
+        $since=([datetime]$r.data[-1].timestamp).ToUniversalTime().ToString('o')
+        $r=Invoke-Cli @('logs','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Since',$since,'-Json')
+        $r.raw | Should -Match '^\['; @($r.data).Count | Should -Be 1
+        $r=Invoke-Cli @('logs','-Repo',$f.repo,'-Run','FIXTURE','-Since','2099-01-01T00:00:00Z','-Json')
+        $r.code | Should -Be 0; $r.raw | Should -Be '[]'
+        $r=Invoke-Cli @('escalations','-Repo',$f.repo,'-Run','FIXTURE','-Json')
+        $r.raw | Should -Be '[]'
+        $r=Invoke-Cli @('watch','-Repo',$f.repo,'-Run','FIXTURE','-Since','2099-01-01T00:00:00Z','-Json')
+        $r.code | Should -Be 0; $r.data.status | Should -Be 'PAUSED'
+        $stdout=Join-Path $TestDrive 'watch.out'
+        $handle=New-TeamProcess 'pwsh' @('-NoProfile','-File',(Join-Path $script:TeamPath 'scripts/team.ps1'),'watch','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Since',$since,'-Follow','-Json') $f.repo $stdout (Join-Path $TestDrive 'watch.err')
+        try {
+            Start-Sleep -Seconds 3
+            $handle.process.HasExited | Should -BeFalse
+            $r=Invoke-Cli @('stop','-Repo',$f.repo,'-Run','FIXTURE','-Json')
+            $r.code | Should -Be 0
+            Wait-TeamProcess $handle 10 | Should -Be 0; $handle=$null
+            $entries=@(Get-Content $stdout | ForEach-Object {ConvertFrom-Json $_ -AsHashtable})
+            $entries[-1].status | Should -Be 'CANCELLED'
+            @($entries | Where-Object {$_['event']}).Count | Should -Be 1
+        } finally {
+            $null=Invoke-Cli @('stop','-Repo',$f.repo,'-Run','FIXTURE','-Json')
+            if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate }
+        }
+    }
+    It 'lets a parallel author finish when another local review requests evidence' {
+        $f=New-RuntimeFixture 2
+        $f.plan.tasks[0].objective=@('LOCAL_VN'); $f.plan.tasks[1].objective=@('WAIT_FOR_RELEASE')
+        Write-TeamData $f.path $f.plan
+        $handle=New-TeamProcess 'pwsh' @('-NoProfile','-File',(Join-Path $script:TeamPath 'scripts/team.ps1'),'run','-Repo',$f.repo,'-Plan',$f.path,'-Json') $f.repo (Join-Path $TestDrive 'parallel-review.out') (Join-Path $TestDrive 'parallel-review.err')
+        try {
+            $deadline=[datetime]::UtcNow.AddSeconds(25); $ready=$false
+            do {
+                Start-Sleep -Milliseconds 100
+                if (Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/state.json')) {
+                    $s=State $f; $ready=$s.tasks.T1.status -eq 'LOCAL_REVIEW' -and $s.status -eq 'ESCALATED'
+                }
+            } while (-not $ready -and [datetime]::UtcNow -lt $deadline)
+            $ready | Should -BeTrue
+            $native=Read-TeamData (Join-Path $s.tasks.T2.directory 'native-process.json')
+            $live=Get-TeamOwnedProcess $native.pid $native.start
+            $live | Should -Not -BeNullOrEmpty
+            if ($live) { $live.Dispose() }
+            Set-Content (Join-Path $s.tasks.T2.directory 'release.test') 'continue'
+            Wait-TeamProcess $handle 20 | Should -Be 70
+            $handle=$null
+            $s=State $f; $s.status | Should -Be 'ESCALATED'; $s.tasks.T2.status | Should -Be 'RESULT_READY'
+            (Read-TeamData (Join-Path $s.tasks.T2.directory 'exit.json')).exit_code | Should -Be 0
+            Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/reviews/LOCAL-T2.json') | Should -BeFalse
+            $disposition=Join-Path $TestDrive 'parallel-review-vn.json'
+            Write-TeamData $disposition @(@{index=0;action='verify';reason='Check the requested fixture fact';command=@{id='fact';executable='pwsh';args=@('-NoProfile','-Command','exit 0');timeout_seconds=10}})
+            $r=Invoke-Cli @('resolve-review','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Stage','LOCAL','-Disposition',$disposition,'-Json')
+            $r.code | Should -Be 0 -Because $r.raw
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+            $s=State $f; $s.agents_created | Should -Be 4; $s.agents_reserved | Should -Be 0
+            foreach ($item in $s.tasks.Values) { $item.status | Should -Be 'REVIEW'; $item.attempts | Should -Be 1 }
+            Accept-All $f
+            $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+            $r.data.status | Should -Be 'COMPLETED'
+        } finally {
+            if (Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/state.json')) { $null=Invoke-Cli @('stop','-Repo',$f.repo,'-Run','FIXTURE','-Json') }
+            if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate }
+        }
+    }
     It 'recovers a live local reviewer after coordinator crash without launching it twice' {
         $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('LOCAL_WAIT'); Write-TeamData $f.path $f.plan
         $handle=New-TeamProcess 'pwsh' @('-NoProfile','-File',(Join-Path $script:TeamPath 'scripts/team.ps1'),'run','-Repo',$f.repo,'-Plan',$f.path,'-Json') $f.repo (Join-Path $TestDrive 'local-crash-out') (Join-Path $TestDrive 'local-crash-err')

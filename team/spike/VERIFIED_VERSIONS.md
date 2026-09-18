@@ -163,3 +163,41 @@ verdict SHA-256 `80b6210f0f8f85873bfcd39e14c9aec3e410f44bc51f26f62478f47282bb2d3
 临时根 acceptance.json 保留精简断言；原始审查 holding 与会话仅留在本机。
 可复用付费探针为 Test-NativeLocalReview.ps1；若模型提出 VN，脚本保留根目录并停止自动推进，
 须按实际请求 resolve-review、resume、accept、integrate，不能自动编造补证处置。
+
+真实并发/依赖/超时修订 `DAG-NATIVE-015`（临时根 `team-native-dag-2e8c33be1f`，仓库 `repo/`）：
+DSH 0.1.5-rc.1、deepseek-official/deepseek-flash；base/main
+`37af4281a2f0693646ab9bdd9c062bbd44bc0cfe`，最终集成
+`2a8ff79582e55eca7f9d52c44cb7cfb071289c4c`；run=COMPLETED、revision=2、main 不变且干净。
+
+| 任务 | 成功提交 | 作者 session | 独立 Reviewer session |
+|---|---|---|---|
+| LABEL a1 | `da7efa7259d45bdf40dd814e1425ff7028478c66` | `session-b27f1bd2-6b57-4698-a0a3-bf82eaf4dfba` | `session-38daf653-232e-4a3b-a7e9-2c776fb58f1d` |
+| TOTAL a2 | `7cf9e1a1dc8b1cb458a1d15358b7f1612ee3f6a3` | `session-4613cab4-b945-46ca-a34e-ec801598b2f9` | `session-7e6714ee-d08e-4e8d-baf5-9302ff51f6c1` |
+| SUMMARY a1 | `b246392c87adfeeedd9af21d46651f826db5c85e` | `session-43aa0a7e-a12a-41d9-a71a-5e7d5448ef02` | `session-43bcdd9a-fd55-44ca-ae05-efe879c0e734` |
+
+LABEL child `32214928-adcb-47c1-b6e5-a43fe09548de`，depth=1。
+TOTAL 首次作者 `session-a30dbeca-7b90-4c27-b60f-5b3a9352be02`、child
+`da453814-8925-4579-8887-702081f8fccb` 已记录，但该 attempt 实际 idle timeout / exit 31；
+没有计作成功交付。并发观测时两个 native PID 4440/26552 均按 UTC 创建时间核对存活，预留=6。
+显式 replan r2 保留已接受 LABEL，只重做 TOTAL 及其依赖；SUMMARY 的 base 精确为两个上游
+集成后的 `bbce64b1ebaa8a7385f5579d651b767d967d4ab7`，全部源提交为最终集成祖先。
+
+三份 Reviewer 均 read_only=true、与作者身份不同。TOTAL/SUMMARY 各一项 VN 实际执行通过，
+分别证明 decimal 类型和值、de-DE 下 `3,75` 控制值与 `x|3.75` 输出；原 verdict 不变。
+固定全量测试输出 LABEL 5 / TOTAL 5 / SUMMARY 4 cases，exit 0。
+原始验证合同的 Git blob `0ec54d0b034aa309a64dfb20c4ad926f4ffeac28` 在所有工作树一致；
+本机 core.autocrlf 的字节差异及一次失败补证另存 `vn-initial-byte-hash-failure/`。
+累计保守记账=10、实际不同原生身份=9、预留=0；不将它们当费用金额或实时模型并发数。
+
+证据 SHA-256：
+
+- `acceptance.json`：`82a7e5b18fc4bee5b806ceaeccdc0c4f062b3329089a910f97dc7b947e01390e`
+- `observations.jsonl`：`2e0918f6064f307b7caa892d80cccb6334da9568ee912c5faeb0da800fa79d99`
+- 最终 stdout：`f77759c365c2f5874badb41145cc2e071a945a4e210e28224c6468167748a6ce`
+- LABEL verdict：`d5144d739e7d02564fb956790c1876b8067a4e865384bba9679b03878cbad547`
+- TOTAL verdict：`a45815bf3953f7768c551f11cc15cb467d276c9da2f938b836d414c9db7d9dba`
+- SUMMARY verdict：`bf91f0cb86d23fcf4e27b69d386f82d22ef3579ef23b5fea33ba082f9e8ffc8d`
+
+前次 `DAG-NATIVE-014` 根 `team-native-dag-7fba5ecf2e` 保留失败记录并已 CANCELLED：
+当时 TOTAL 的 Local Review 请求 VN 导致另一个运行中作者被清理；修复与替身并发回归见 ACCEPTANCE。
+015 没有重演同一个真实并行 VN 时序，不能把它当该故障的真实模型回归。

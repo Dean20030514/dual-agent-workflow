@@ -137,7 +137,7 @@ function Resume-TeamRun($State, $Plan, $Manifest, [string]$Directory) {
         # An active pre-local-review run may already be waiting for Lead acceptance.
         # Upgrade that pending task through verification/review without rerunning its author.
         if ($item.status -eq 'REVIEW' -and -not (Test-Path (Join-Path $Directory "reviews/LOCAL-$($task.id).json"))) { $item.status='VERIFYING' }
-        if ($item.status -notin @('RUNNING','VERIFYING','LOCAL_REVIEW')) { continue }
+        if ($item.status -notin @('RUNNING','RESULT_READY','VERIFYING','LOCAL_REVIEW')) { continue }
         if ($item.pid) {
             $process = Get-TeamOwnedProcess $item.pid $item.process_start
             if ($process) {

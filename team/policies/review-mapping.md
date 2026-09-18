@@ -6,7 +6,8 @@ Team 的结构化 Plan/Task/Result、Git SHA、验证产物取代该运行模式
 不修改旧 Routine/Critical 流程，也不要求 Routine 临时制造旧 Critical 文档。
 
 Routine/Critical 的 Worker 都先通过 Git 审计和外部验证，再执行独立 DSH Local Review。
-它使用新原生进程、禁用全部工具，仅接收 Task、精确 diff、AGENTS 快照和外部验证证据；
+它使用新原生进程、禁用全部工具，仅接收 Task、精确 diff、AGENTS 快照、外部验证证据、
+已核验的 Result 子代理声明及协调器观测的原生身份/路由收据；
 不接收作者会话或推理。原生身份收据、输入与 verdict 哈希绑定 plan hash 和提交，
 Lead accept 强制核对该结论和补证处置。Local Review 不计入 Critical 的 9A/9B 修复轮数。
 

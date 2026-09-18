@@ -101,6 +101,8 @@ pwsh -NoProfile -File ./team/scripts/team.ps1 resolve -Repo C:/path/to/test-repo
 ```
 
 watch 每两秒读取新增事件，支持 `-Since`、`-Task`；PAUSED/ESCALATED 默认返回，`-Follow` 才持续等候。
+一个 Local Review 请求补证时，已经派发的其他作者可在原有期限内完成；结果保存为
+`RESULT_READY`，暂停新增作者和审查。处置补证后 `resume` 核验这些结果，不重复派发作者。
 常用错误：10 修正 schema；20 检查 doctor/锁；31 检查超时证据；40 修正验证失败；
 50 处理独立审查；80 先恢复 Git/PID 一致性；82 更新合法 plan revision 或撤销越界改动。
 禁止把 schema 失败静默降成 L0，或把无 verdict 当通过。

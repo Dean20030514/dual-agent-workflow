@@ -65,7 +65,7 @@ function Assert-TeamRecovery($State, $Plan, [string]$Directory) {
         }
         if ((Invoke-TeamGit $expected @('branch','--show-current')) -cne $item.branch) { Stop-TeamError 80 'Task is no longer on its assigned branch' }
         $null = Invoke-TeamGit $expected @('merge-base','--is-ancestor',$item.base_sha,'HEAD')
-        if ($item.status -in @('RUNNING','VERIFYING','LOCAL_REVIEW')) {
+        if ($item.status -in @('RUNNING','RESULT_READY','VERIFYING','LOCAL_REVIEW')) {
             $processes = @(@{pid=$item.pid;start=$item.process_start})
             $nativePath = Join-Path $item.directory 'native-process.json'
             if (Test-Path -LiteralPath $nativePath) { $processes += Read-TeamData $nativePath }

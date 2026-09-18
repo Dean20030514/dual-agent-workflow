@@ -207,6 +207,7 @@ function Close-TeamDispatchWorkers($State, $Handles, [string]$Directory) {
 function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
     Assert-TeamActionApproval $State $Plan $Directory
     $handles = @{}
+    $deferredFailure=$null
     try {
         $State.status = 'RUNNING'; Save-TeamState $State $Directory
         do {
@@ -217,6 +218,7 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
                 return @{status='CANCELLED';run_id=$State.run_id}
             }
             foreach ($taskId in $State.order) {
+                if ($deferredFailure) { break }
                 Sync-TeamCost $State $Manifest $Directory
                 $task = @($Plan.tasks | Where-Object { $_.id -eq $taskId })[0]
                 $item = $State.tasks[$taskId]
@@ -256,11 +258,24 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
                 if ($handle.process.HasExited) {
                     $null = Close-TeamProcess $handle; $handles.Remove($taskId)
                     $task = @($Plan.tasks | Where-Object { $_.id -eq $taskId })[0]
-                    Complete-TeamWorkerSafely $State $task $Directory $Plan $Manifest
+                    if ($deferredFailure) {
+                        # Let already dispatched authors finish under their original
+                        # deadlines. Resume will audit their durable results after the
+                        # pending decision; no new author or reviewer starts here.
+                        $item.status='RESULT_READY'; Save-TeamState $State $Directory
+                        Add-TeamEvent $Directory 'worker_result_deferred' @{task_id=$taskId;reason='pending_review_decision'}
+                    } else {
+                        try { Complete-TeamWorkerSafely $State $task $Directory $Plan $Manifest }
+                        catch {
+                            if ($_.Exception.Data['TeamExitCode'] -eq 70 -and $item.status -eq 'LOCAL_REVIEW') { $deferredFailure=$_ }
+                            else { throw }
+                        }
+                    }
                 }
             }
             if ($handles.Count) { Start-Sleep -Milliseconds 250 }
         } while ($handles.Count)
+        if ($deferredFailure) { throw $deferredFailure }
         Sync-TeamCost $State $Manifest $Directory
         if ($State.status -eq 'RUNNING') { $State.status = 'PAUSED' }
         Save-TeamState $State $Directory
