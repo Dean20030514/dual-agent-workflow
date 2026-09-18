@@ -85,6 +85,9 @@ try {
                 if ($Command -in @('resume','accept','integrate','replan','rollback','repair-integration','resolve-review') -and
                     (Get-TeamHash (Join-Path $directory 'plan.yaml')) -cne $state.plan_hash) { Stop-TeamError 80 'Plan changed outside revision protocol' }
             }
+            if ($Command -in @('resume','resolve','cleanup','accept','integrate','replan','rollback','repair-integration','resolve-review')) {
+                Assert-TeamCleanupSettled $state
+            }
             switch ($Command) {
                 'status' { $output = $state }
                 'cost' { $output = @{ schema_version = 1; run_id = $Run; known_cost = $state.known_cost; unknown_usage = $state.unknown_usage; agents_created = $state.agents_created; active_workers = @($state.tasks.Values | Where-Object { $_.status -eq 'RUNNING' }).Count } }

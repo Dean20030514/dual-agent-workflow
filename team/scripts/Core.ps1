@@ -127,7 +127,7 @@ function New-TeamProcess([string]$Executable, [string[]]$Arguments, [string]$Dir
     $info.RedirectStandardError = $true
     $process = [Diagnostics.Process]::new()
     $process.StartInfo = $info
-    $started=$false; $outStream=$null; $errStream=$null
+    $started=$false; $outStream=$null; $errStream=$null; $outCopy=$null; $errCopy=$null; $inputCancellation=$null
     try {
         # A log creation failure must never leave a process behind.
         $outStream = [IO.File]::Create($Stdout)
@@ -136,36 +136,96 @@ function New-TeamProcess([string]$Executable, [string[]]$Arguments, [string]$Dir
         if (-not $started) { Stop-TeamError 30 'Process did not start' }
         $outCopy=[TeamRuntime.BoundedCopy]::Start($process.StandardOutput.BaseStream,$outStream,$MaxOutputBytes)
         $errCopy=[TeamRuntime.BoundedCopy]::Start($process.StandardError.BaseStream,$errStream,$MaxOutputBytes)
+        $inputCancellation=[Threading.CancellationTokenSource]::new()
         return @{
             process=$process;started=[DateTime]::UtcNow;elapsed=[Diagnostics.Stopwatch]::StartNew();last_activity=[DateTime]::UtcNow;last_size=0L
             stdout=$Stdout;stderr=$Stderr;out_stream=$outStream;err_stream=$errStream;max_output_bytes=$MaxOutputBytes
             out_copy=$outCopy.Completion;err_copy=$errCopy.Completion;out_capture=$outCopy;err_capture=$errCopy
-            input_write=[TeamRuntime.BoundedCopy]::WriteInputAsync($process.StandardInput,$InputText)
+            input_cancellation=$inputCancellation
+            input_write=[TeamRuntime.BoundedCopy]::WriteInputAsync($process.StandardInput,$InputText,$inputCancellation.Token)
         }
     } catch {
         $failure=[InvalidOperationException]::new("Process launch failed: $($_.Exception.Message)",$_.Exception)
         $failure.Data['TeamExitCode']=30; $failure.Data['ProcessStarted']=$started
-        try { if ($started -and -not $process.HasExited) { $process.Kill($true); $process.WaitForExit() } }
+        try { if ($started -and -not $process.HasExited) { $process.Kill($true); $null=$process.WaitForExit(5000) } }
         finally {
+            if ($inputCancellation) { $inputCancellation.Cancel() }
+            if ($outCopy) { $outCopy.Cancel() }; if ($errCopy) { $errCopy.Cancel() }
             if ($outStream) { $outStream.Dispose() }; if ($errStream) { $errStream.Dispose() }; $process.Dispose()
         }
         throw $failure
     }
 }
 
-function Close-TeamProcess($Handle, [switch]$Terminate) {
-    if ($Handle['closed']) { return $Handle.exit_code }
-    if ($Terminate -and -not $Handle.process.HasExited) { $Handle.process.Kill($true) }
-    $Handle.process.WaitForExit()
-    $code = $Handle.process.ExitCode
+function Stop-TeamExitedProcessChildren($Handle) {
+    # Windows retains a dead parent's PID in child metadata. Never trust that PID without birth times.
+    if (-not $IsWindows -or -not $Handle.process.HasExited) { return }
+    $Handle['child_cleanup']=@{terminated=@();unverified=0;error=$null}
     try {
+        $rootId=$Handle.process.Id; $born=$Handle.process.StartTime.ToUniversalTime().Ticks
+        $ended=$Handle.process.ExitTime.ToUniversalTime().Ticks
+        $children=@(Get-CimInstance Win32_Process -Filter "ParentProcessId = $rootId" -Property ProcessId,CreationDate -OperationTimeoutSec 2 -ErrorAction Stop)
+        $cleanupWatch=[Diagnostics.Stopwatch]::StartNew()
+        foreach ($child in $children) {
+            if ($cleanupWatch.ElapsedMilliseconds -ge 2000) { $Handle.child_cleanup.unverified++; continue }
+            $process=Get-Process -Id $child.ProcessId -ErrorAction SilentlyContinue
+            if (-not $process) { continue }
+            try {
+                $created=$process.StartTime.ToUniversalTime().Ticks
+                if ($created -lt $born -or $created -gt $ended -or -not $child.CreationDate -or
+                    [Math]::Abs($created-$child.CreationDate.ToUniversalTime().Ticks) -ge 10) {
+                    $Handle.child_cleanup.unverified++; continue
+                }
+                $process.Kill($true)
+                if (-not $process.WaitForExit([int][Math]::Max(1,2000-$cleanupWatch.ElapsedMilliseconds))) { $Handle.child_cleanup.unverified++; continue }
+                $Handle.child_cleanup.terminated+=@{pid=[int]$child.ProcessId;start_ticks=$created}
+            } finally { $process.Dispose() }
+        }
+    } catch { $Handle.child_cleanup.error=$_.Exception.Message }
+}
+
+function Test-TeamProcessStreamsComplete($Handle) {
+    return $Handle.out_copy.IsCompleted -and $Handle.err_copy.IsCompleted -and $Handle.input_write.IsCompleted
+}
+
+function Get-TeamProcessCleanupEvidence($Handle) {
+    if (-not $Handle) { return $null }
+    return @{drain_expired=[bool]$Handle['drain_expired'];children=$Handle['child_cleanup'];streams_settled=(Test-TeamProcessStreamsComplete $Handle)}
+}
+
+function Assert-TeamCleanupSettled($State) {
+    if (@($State.tasks.Values | Where-Object { $_['cleanup_pending'] }).Count) {
+        Stop-TeamError 80 'Owned process cleanup is pending; inspect its evidence and retry stop before further execution'
+    }
+}
+
+function Close-TeamProcess($Handle, [switch]$Terminate, [int]$DrainTimeoutMilliseconds = 3000) {
+    if ($Handle['closed']) { return $Handle.exit_code }
+    $code=$null; $drainExpired=$false
+    try {
+        if ($Terminate -and -not $Handle.process.HasExited) { $Handle.process.Kill($true) }
+        if (-not $Handle.process.WaitForExit(5000)) { Stop-TeamError 31 'Process did not exit during bounded cleanup' }
+        $code=$Handle.process.ExitCode
+        $watch=[Diagnostics.Stopwatch]::StartNew()
+        while (-not (Test-TeamProcessStreamsComplete $Handle) -and $watch.ElapsedMilliseconds -lt $DrainTimeoutMilliseconds) { Start-Sleep -Milliseconds 20 }
+        if (-not (Test-TeamProcessStreamsComplete $Handle)) {
+            $drainExpired=$true
+            Stop-TeamExitedProcessChildren $Handle
+            Stop-TeamError 31 'Process exited with unfinished pipes; partial output preserved'
+        }
+        if ($Handle.out_copy.IsFaulted -or $Handle.err_copy.IsFaulted) { Stop-TeamError 30 'Process output capture failed; partial output preserved' }
         $null = $Handle.out_copy.GetAwaiter().GetResult(); $null = $Handle.err_copy.GetAwaiter().GetResult()
         try { $null=$Handle.input_write.GetAwaiter().GetResult() }
         catch { if ($code -eq 0) { Stop-TeamError 30 'Process exited before its full input was delivered' } }
     }
     finally {
+        $Handle.input_cancellation.Cancel(); $Handle.out_capture.Cancel(); $Handle.err_capture.Cancel()
+        $watch=[Diagnostics.Stopwatch]::StartNew()
+        while (-not (Test-TeamProcessStreamsComplete $Handle) -and $watch.ElapsedMilliseconds -lt 1000) { Start-Sleep -Milliseconds 20 }
+        # Observe faults even on cancellation; never await a pipe without a deadline.
+        foreach ($task in @($Handle.out_copy,$Handle.err_copy,$Handle.input_write)) { if ($task.IsFaulted) { $null=$task.Exception } }
         $Handle.out_stream.Dispose(); $Handle.err_stream.Dispose()
-        $Handle['exit_code']=$code; $Handle['closed']=$true; $Handle.process.Dispose()
+        $Handle['exit_code']=$code; $Handle['closed']=$true; $Handle['drain_expired']=$drainExpired; $Handle.process.Dispose()
     }
     return $code
 }
@@ -180,23 +240,35 @@ function Test-TeamProcessOutputLimit($Handle, [string[]]$AdditionalFiles = @()) 
 
 function Wait-TeamProcess($Handle, [int]$TimeoutSeconds = 60, [int]$IdleTimeoutSeconds = 0, [string[]]$AdditionalFiles = @()) {
     $lastBytes=0L; $lastActivity=$Handle.elapsed.Elapsed.TotalSeconds
+    $rootExitAt=$null
     while ($true) {
         $bytes=$Handle.out_capture.BytesRead+$Handle.err_capture.BytesRead
         if ($bytes -ne $lastBytes) { $lastActivity=$Handle.elapsed.Elapsed.TotalSeconds; $lastBytes=$bytes }
         $reason=if (Test-TeamProcessOutputLimit $Handle $AdditionalFiles) {'output limit'}
             elseif ($Handle.elapsed.Elapsed.TotalSeconds -ge $TimeoutSeconds) {'timeout'}
             elseif ($IdleTimeoutSeconds -gt 0 -and ($Handle.elapsed.Elapsed.TotalSeconds-$lastActivity) -ge $IdleTimeoutSeconds) {'idle timeout'}
+            elseif ($null -ne $rootExitAt -and ($Handle.elapsed.Elapsed.TotalSeconds-$rootExitAt) -ge 3) {'pipe drain deadline'}
             else {''}
         if ($reason) {
-            $null=Close-TeamProcess $Handle -Terminate
+            try { $null=Close-TeamProcess $Handle -Terminate -DrainTimeoutMilliseconds 0 }
+            catch { if ($_.Exception.Data['TeamExitCode'] -ne 31) { throw } }
             Stop-TeamError 31 "Process exceeded its $reason; partial output preserved"
         }
-        if ($Handle.process.HasExited) {
-            $code=Close-TeamProcess $Handle
-            if (Test-TeamProcessOutputLimit $Handle $AdditionalFiles) { Stop-TeamError 31 'Process exceeded its output limit; partial output preserved' }
-            return $code
+        if ($Handle.out_copy.IsFaulted -or $Handle.err_copy.IsFaulted) {
+            try { $null=Close-TeamProcess $Handle -Terminate -DrainTimeoutMilliseconds 0 } catch { }
+            Stop-TeamError 30 'Process output capture failed; partial output preserved'
         }
-        $null=$Handle.process.WaitForExit(100)
+        if ($Handle.process.HasExited) {
+            if ($null -eq $rootExitAt) { $rootExitAt=$Handle.elapsed.Elapsed.TotalSeconds }
+            if (Test-TeamProcessStreamsComplete $Handle) {
+                $code=Close-TeamProcess $Handle -DrainTimeoutMilliseconds 0
+                if (Test-TeamProcessOutputLimit $Handle $AdditionalFiles) { Stop-TeamError 31 'Process exceeded its output limit; partial output preserved' }
+                return $code
+            }
+            Start-Sleep -Milliseconds 100
+        } else {
+            $null=$Handle.process.WaitForExit(100)
+        }
     }
 }
 

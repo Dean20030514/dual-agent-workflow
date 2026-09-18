@@ -4,6 +4,7 @@ BeforeAll {
     . (Join-Path $script:TeamPath 'scripts/Contracts.ps1')
     . (Join-Path $script:TeamPath 'scripts/State.ps1')
     . (Join-Path $script:TeamPath 'scripts/Execution.ps1')
+    . (Join-Path $script:TeamPath 'scripts/Recovery.ps1')
     $script:RealNewProcess=(Get-Command New-TeamProcess).ScriptBlock
     function Catch-TeamError($Action) {
         try { & $Action | Out-Null } catch { return $_.Exception }
@@ -11,6 +12,20 @@ BeforeAll {
     }
     function Start-FixtureProcess([string]$Command, [long]$Limit=4096, [string]$InputText='') {
         New-TeamProcess 'pwsh' @('-NoProfile','-Command',$Command) $TestDrive (Join-Path $TestDrive 'stdout') (Join-Path $TestDrive 'stderr') $InputText -MaxOutputBytes $Limit
+    }
+    function Start-PipeHolder([int]$Delay=30, [string]$InputText='') {
+        $receipt=Join-Path $TestDrive ('pipe-child-' + [guid]::NewGuid().ToString('N') + '.json')
+        $handle=New-TeamProcess (Join-Path $PSScriptRoot 'fixtures/pipe-holder.ps1') @('-Delay',[string]$Delay,'-Receipt',$receipt) $TestDrive ($receipt+'.out') ($receipt+'.err') $InputText
+        $handle['fixture_receipt']=$receipt
+        return $handle
+    }
+    function Stop-PipeFixture($Handle) {
+        try { $null=Close-TeamProcess $Handle -Terminate -DrainTimeoutMilliseconds 0 } catch { }
+        if (Test-Path -LiteralPath $Handle.fixture_receipt) {
+            $receipt=Read-TeamData $Handle.fixture_receipt
+            $child=Get-TeamOwnedProcess $receipt.pid $receipt.start
+            if ($child) { try { $child.Kill($true); $null=$child.WaitForExit(2000) } finally { $child.Dispose() } }
+        }
     }
 }
 
@@ -96,6 +111,123 @@ Describe 'Bounded real subprocess transport' {
         $evidence.process_started | Should -BeTrue
         $evidence.process_exit_code | Should -BeNullOrEmpty
         $evidence.exit_code | Should -Be 30
+    }
+}
+
+Describe 'Inherited pipes after parent exit' {
+    It 'retains coordinator cleanup failures and reservations until a later explicit stop succeeds' {
+        Mock Stop-TeamTaskProcesses { if ($Item.id -eq 'A') { Stop-TeamError 31 'Fixture termination failure' } }
+        Mock Close-TeamProcess { 0 }
+        Mock Get-TeamProcessCleanupEvidence { @{drain_expired=$false} }
+        Mock Save-TeamState {}
+        Mock Add-TeamEvent {}
+        Mock Unlock-TeamRepo {}
+        $state=@{status='RUNNING';agents_created=0;agents_reserved=2;repo=$TestDrive;run_id='STOP';tasks=@{
+            A=@{id='A';status='RUNNING';reserved=1};B=@{id='B';status='RUNNING';reserved=1}}}
+        Close-TeamDispatchWorkers $state @{A=@{};B=@{}} $TestDrive
+        $state.tasks.A.cleanup_pending | Should -BeTrue
+        $state.tasks.A.status | Should -Be 'RUNNING'
+        $state.tasks.B.status | Should -Be 'FAILED'
+        $state.agents_reserved | Should -Be 1
+        $state.agents_created | Should -Be 1
+        Should -Invoke Close-TeamProcess -Exactly 2
+        (Catch-TeamError { Assert-TeamRecovery $state $null $TestDrive }).Data['TeamExitCode'] | Should -Be 80
+        Mock Stop-TeamTaskProcesses {}
+        Stop-TeamOwnedProcesses $state $TestDrive
+        $state.tasks.A.cleanup_pending | Should -BeFalse
+        $state.agents_reserved | Should -Be 0
+        $state.agents_created | Should -Be 2
+        $state.status | Should -Be 'CANCELLED'
+    }
+    It 'continues stopping other workers after a cleanup failure and keeps failed ownership available for retry' {
+        Mock Stop-TeamTaskProcesses { if ($Item.id -eq 'A') { Stop-TeamError 31 'Fixture stop failure' } }
+        Mock Save-TeamState {}
+        Mock Add-TeamEvent {}
+        Mock Unlock-TeamRepo {}
+        $state=@{status='RUNNING';agents_created=0;agents_reserved=2;repo=$TestDrive;run_id='STOP';tasks=[ordered]@{
+            A=@{id='A';status='RUNNING';reserved=1};B=@{id='B';status='RUNNING';reserved=1}}}
+        (Catch-TeamError { Stop-TeamOwnedProcesses $state $TestDrive }).Data['TeamExitCode'] | Should -Be 31
+        Should -Invoke Stop-TeamTaskProcesses -Exactly 2
+        $state.tasks.A.status | Should -Be 'RUNNING'
+        $state.tasks.B.status | Should -Be 'FAILED'
+        $state.agents_reserved | Should -Be 1
+        $state.status | Should -Not -Be 'CANCELLED'
+        Should -Invoke Unlock-TeamRepo -Exactly 0
+        Should -Invoke Add-TeamEvent -Exactly 1 -ParameterFilter {$Event -eq 'process_cleanup_failed'}
+    }
+    It 'honors the overall deadline and cleans its surviving child while preserving an unrelated process' -Skip:(-not $IsWindows) {
+        $unrelated=New-TeamProcess 'pwsh' @('-NoProfile','-Command','Start-Sleep -Seconds 30') $TestDrive (Join-Path $TestDrive 'unrelated-out') (Join-Path $TestDrive 'unrelated-err')
+        $handle=Start-PipeHolder -InputText ('p' * 2MB)
+        try {
+            $watch=[Diagnostics.Stopwatch]::StartNew()
+            (Catch-TeamError { Wait-TeamProcess $handle 2 }).Data['TeamExitCode'] | Should -Be 31
+            $watch.Elapsed.TotalSeconds | Should -BeLessThan 8
+            $handle.exit_code | Should -Be 0
+            $handle.drain_expired | Should -BeTrue
+            $child=Read-TeamData $handle.fixture_receipt
+            @($handle.child_cleanup.terminated | Where-Object pid -eq $child.pid).Count | Should -Be 1
+            Get-TeamOwnedProcess $child.pid $child.start | Should -BeNullOrEmpty
+            $unrelated.process.HasExited | Should -BeFalse
+            [IO.File]::ReadAllText($handle.stdout) | Should -Match 'parent output retained'
+        } finally { Stop-PipeFixture $handle; $null=Close-TeamProcess $unrelated -Terminate }
+    }
+    It 'limits pipe draining even when the overall command timeout is much longer' {
+        $handle=Start-PipeHolder
+        try {
+            $watch=[Diagnostics.Stopwatch]::StartNew()
+            (Catch-TeamError { Wait-TeamProcess $handle 30 }).Message | Should -Match 'pipe drain deadline'
+            $watch.Elapsed.TotalSeconds | Should -BeLessThan 9
+        } finally { Stop-PipeFixture $handle }
+    }
+    It 'bounds direct Close calls used by the coordinator' {
+        $handle=Start-PipeHolder
+        try {
+            $handle.process.WaitForExit(5000) | Should -BeTrue
+            (Catch-TeamError { Close-TeamProcess $handle -DrainTimeoutMilliseconds 100 }).Data['TeamExitCode'] | Should -Be 31
+            $handle.closed | Should -BeTrue
+            $stream=[IO.File]::Open($handle.stdout,'Open','ReadWrite','None'); $stream.Dispose()
+        } finally { Stop-PipeFixture $handle }
+    }
+    It 'allows normal short drain completion without changing the native exit code' {
+        $handle=Start-PipeHolder -Delay 1
+        try { Wait-TeamProcess $handle 10 | Should -Be 0; $handle.drain_expired | Should -BeFalse }
+        finally { Stop-PipeFixture $handle }
+    }
+    It 'rejects stale child metadata without killing the matching live PID' -Skip:(-not $IsWindows) {
+        $unrelated=Start-FixtureProcess 'Start-Sleep -Seconds 30'
+        try {
+            $script:FakeChild=@{ProcessId=$unrelated.process.Id;CreationDate=$unrelated.process.StartTime.AddSeconds(-1)}
+            Mock Get-CimInstance { @($script:FakeChild) }
+            $fakeRoot=@{process=[pscustomobject]@{HasExited=$true;Id=999999;StartTime=[DateTime]::Now.AddMinutes(-1);ExitTime=[DateTime]::Now}}
+            Stop-TeamExitedProcessChildren $fakeRoot
+            $fakeRoot.child_cleanup.unverified | Should -Be 1
+            $fakeRoot.child_cleanup.terminated.Count | Should -Be 0
+            $unrelated.process.HasExited | Should -BeFalse
+        } finally { $null=Close-TeamProcess $unrelated -Terminate }
+    }
+    It 'cancels pending pipe reads without guessing ownership when process discovery fails' -Skip:(-not $IsWindows) {
+        $handle=Start-PipeHolder
+        Mock Get-CimInstance { throw 'Fixture process discovery unavailable' }
+        try {
+            $watch=[Diagnostics.Stopwatch]::StartNew()
+            (Catch-TeamError { Wait-TeamProcess $handle 2 }).Data['TeamExitCode'] | Should -Be 31
+            $watch.Elapsed.TotalSeconds | Should -BeLessThan 6
+            $handle.child_cleanup.error | Should -Match 'discovery unavailable'
+            $handle.child_cleanup.terminated.Count | Should -Be 0
+            (Get-TeamProcessCleanupEvidence $handle).streams_settled | Should -BeTrue
+            $child=Read-TeamData $handle.fixture_receipt
+            $live=Get-TeamOwnedProcess $child.pid $child.start
+            $live | Should -Not -BeNullOrEmpty
+            $live.Dispose()
+        } finally { Stop-PipeFixture $handle }
+    }
+    It 'terminates promptly if a log stream fails while the child is still running' {
+        $handle=Start-FixtureProcess 'Start-Sleep -Milliseconds 500; [Console]::Out.Write("x" * 8192); Start-Sleep -Seconds 30'
+        try {
+            $handle.out_stream.Dispose()
+            (Catch-TeamError { Wait-TeamProcess $handle 15 }).Data['TeamExitCode'] | Should -Be 30
+            $handle.closed | Should -BeTrue
+        } finally { $null=Close-TeamProcess $handle -Terminate }
     }
 }
 

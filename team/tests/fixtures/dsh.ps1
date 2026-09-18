@@ -50,3 +50,6 @@ if ($task.objective[0] -eq 'MALFORMED') { Write-Output 'no result'; exit 0 }
 $escalated=$task.objective[0] -in @('ESCALATE','ESCALATE_SCOPE')
 $changedFiles=@(); if ($task.objective[0] -ne 'NOOP') { $changedFiles=@($path) }
 @{schema_version=1;run_id=$task.run_id;task_id=$task.task_id;status=$(if ($escalated) {'escalated'} else {'completed'});summary=@('synthetic fixture');changed_files=$changedFiles;verification=@{passed=(-not $escalated)};subagents_used=@();risks=@();git=@{branch=$branch;commit=$commit}} | ConvertTo-Json -Depth 20
+if ($task.objective[0] -eq 'PIPE_HOLDER') {
+    & (Join-Path $PSScriptRoot 'pipe-holder.ps1') -Silent -Receipt (Join-Path (Split-Path $guard.receipt -Parent) 'pipe-child.json')
+}

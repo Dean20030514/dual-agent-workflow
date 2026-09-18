@@ -10,9 +10,11 @@ namespace TeamRuntime
     {
         private int exceeded;
         private long bytesRead;
+        private readonly CancellationTokenSource cancellation = new CancellationTokenSource();
         public bool Exceeded => Volatile.Read(ref exceeded) != 0;
         public long BytesRead => Interlocked.Read(ref bytesRead);
         public Task Completion { get; private set; }
+        public void Cancel() => cancellation.Cancel();
 
         public static BoundedCopy Start(Stream input, Stream output, long limit)
         {
@@ -26,27 +28,38 @@ namespace TeamRuntime
             var buffer = new byte[8192];
             long written = 0;
             int read;
-            while ((read = await input.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) != 0)
+            try
             {
-                Interlocked.Add(ref bytesRead, read);
-                int keep = (int)Math.Min(read, limit - written);
-                if (keep < read) Volatile.Write(ref exceeded, 1);
-                if (keep > 0)
+                while ((read = await input.ReadAsync(buffer, 0, buffer.Length, cancellation.Token).ConfigureAwait(false)) != 0)
                 {
-                    await output.WriteAsync(buffer, 0, keep).ConfigureAwait(false);
-                    written += keep;
+                    Interlocked.Add(ref bytesRead, read);
+                    int keep = (int)Math.Min(read, limit - written);
+                    if (keep < read) Volatile.Write(ref exceeded, 1);
+                    if (keep > 0)
+                    {
+                        await output.WriteAsync(buffer, 0, keep, cancellation.Token).ConfigureAwait(false);
+                        written += keep;
+                    }
                 }
             }
-            await output.FlushAsync().ConfigureAwait(false);
+            finally { await output.FlushAsync().ConfigureAwait(false); }
         }
 
-        public static async Task WriteInputAsync(StreamWriter input, string text)
+        public static async Task WriteInputAsync(StreamWriter input, string text, CancellationToken cancellation)
         {
             try
             {
-                if (!string.IsNullOrEmpty(text)) await input.WriteAsync(text).ConfigureAwait(false);
+                if (!string.IsNullOrEmpty(text)) await input.WriteAsync(text.AsMemory(), cancellation).ConfigureAwait(false);
+                await input.FlushAsync(cancellation).ConfigureAwait(false);
             }
-            finally { input.Dispose(); }
+            finally
+            {
+                // Do not synchronously flush buffered input into an abandoned pipe on cancellation.
+                input.BaseStream.Dispose();
+                try { input.Dispose(); }
+                catch (ObjectDisposedException) { }
+                catch (IOException) { }
+            }
         }
     }
 }

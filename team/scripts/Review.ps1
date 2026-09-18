@@ -135,6 +135,7 @@ $repairContext
         $code=if ($_.Exception.Data.Contains('TeamExitCode')) {[int]$_.Exception.Data['TeamExitCode']} else {30}
     } finally { if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate } }
     Write-TeamData (Join-Path $Directory "reviews/attempt-$attemptId.json") @{stage=$Stage;task_id=$TaskId;holding=$holding;status='exited';exit_code=$code
+        transport_cleanup=(Get-TeamProcessCleanupEvidence $handle)
         process_started=$processStarted;process_exit_code=$(if ($handle) {$handle.exit_code} else {$null});error=$errorText;tip=$Tip;plan_hash=$State.plan_hash}
     if ($code -ne 0 -or -not (Test-Path -LiteralPath $resultPath)) { Stop-TeamError 50 'Fresh reviewer failed to return a verdict' }
     $verdict = Read-TeamData $resultPath

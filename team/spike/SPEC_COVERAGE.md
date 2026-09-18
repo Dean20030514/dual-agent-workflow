@@ -20,7 +20,7 @@
 | 23–25 worktree/base/cleanup | 冻结 base、依赖从集成 SHA、MERGED 清理；Git fixture | DISCARDED 生命周期/清理尚缺 |
 | 26–30 Packet、范围、启动 | schemas、adapter、Git diff 范围审计、`scope_violation` 事件；真实 L1；确认未启动才重试一次，逐次 launch 收据及二次失败升级 | 重试为本地真实进程/故障注入验收，不声称模拟了原生服务端故障 |
 | 31–32 状态机、原子持久化 | State、Core 原子替换；state schema 约束任务状态、SHA、计数、恢复必填字段 | 各持久化步骤间的中断点尚未逐一注入 |
-| 33 恢复 | PID+UTC ticks、native PID、exit receipt、Result、Git、events、集成 checkpoint；实际终止 coordinator 后恢复通过 | 原生模型在 coordinator 崩溃后的长任务恢复尚未验收；checkpoint 落盘窗口自动协调尚待补齐 |
+| 33 恢复 | PID+UTC ticks、native PID、exit receipt、Result、Git、events、集成 checkpoint；CRASH-NATIVE-011 在真实 DSH 受控等待点终止 coordinator，存活时拒绝 resume、结束后单 attempt 接续并完成集成 | checkpoint 落盘窗口自动协调尚待补齐；一次进程崩溃点不代表全部持久化窗口 |
 | 34–35 受影响子图、修订、保留 ACCEPTED | Contracts/Recovery；fixture 保留无关 ACCEPTED | glob overlap 的候选集需补充交叉/传递边界测试 |
 | 36–38 fresh review、输入白名单、9P/A/B | 独立 Codex exec、stdin 白名单、read-only；真实 Critical 完成 | 需核对目标仓库旧 Critical 规则兼容性，不能以隔离 fixture 代替任意项目 |
 | 39 硬停 | hard_stop、ESCALATED、禁止下游；连续两轮 yes 硬停优先于轮次出口；CLI 反例覆盖 | 硬停后新任务的重拆/架构批准仍属于人类决策，不自动清除 hard_stop |
@@ -35,9 +35,9 @@
 | 52–53 单 run、锁 | coordinator 排他文件句柄、持久 run 锁、terminal stale repair；禁止 linked worktree 另建 run | 当前只允许主仓库根目录作为控制根，linked worktree 内调用必须显式指向主根目录 |
 | 54–57 Lead、AGENTS、既有规则映射 | root/codex AGENTS hook、Lead policy、Case B/map | 未部署本机全局副本；项目契约优先 |
 | 58–59 QUICKSTART/首条链路 | QUICKSTART 含能力矩阵、Task/Result 示例及操作链路，真实 SQL-SMOKE-001 | 无 |
-| 60–69 Phase 0–8 | 单/双 Worker、worktree、验证、fresh/fork 子 Agent、Critical 有真实证据；coordinator crash 为真实进程+替身模型；doctor.route 含 input/output/exit axes | 真实多 Worker 的依赖串接、真实模型 crash/replan 组合仍待验 |
+| 60–69 Phase 0–8 | 单/双 Worker、worktree、验证、fresh/fork 子 Agent、Critical 有真实证据；coordinator crash 已有真实 DSH 保活/恢复/集成验收；doctor.route 含 input/output/exit axes | 真实多 Worker 的依赖串接、真实模型 crash 后需要 replan 的组合仍待验 |
 | 70 A–T 验收矩阵 | 见下方明细 | 未完成项不得用相邻测试替代 |
-| 72 资源约束 | 4/6/10；Worker/验证/审查 stdout 与 stderr 写入时有界；异步 stdin、timeout/idle；所有 Team worktree 创建路径共享 12 目录限制；真实进程与隔离 CLI 反例 | 直接 verdict 文件仅轮询上限；父进程退出后后代持有管道的 drain/清理边界仍需补齐，不宣称任意子进程树均已受控 |
+| 72 资源约束 | 4/6/10；Worker/验证/审查 stdout 与 stderr 写入时有界；异步 stdin、timeout/idle；所有 Team worktree 创建路径共享 12 目录限制；父进程退出后继续限时 drain、取消未完成流；Windows 按身份清理可确认的直接子进程树 | 直接 verdict 文件仅轮询上限；无法关联的退出中间进程之后代及其他平台脱离进程，不保证自动清除；不宣称任意子进程树均已受控 |
 | 73–74 Claude 定位、Windows | 核心无 Claude；PowerShell 7，安装器保持 5.1 | 无 |
 | 75–77 目录、CLI、manifest | 文件/命令见下方映射 | 示例未逐字照搬：原生模型 ID 为已实测 deepseek-flash；脚本按职责合并 |
 | 78 风险登记 | security、OPEN_GAPS 和本表明确已知边界 | R4/R8/R11/R13 等随待办补验收 |
@@ -64,7 +64,7 @@
 
 MVP A–T 的证据层级：A–D 路由为本地真实函数；E/O 含真实 Git + 替身 Worker，以及 ROLES-NATIVE-006 的真实 DSH 集成 Worker；
 F 生产删除只注入声明并验证硬停，不执行生产删除；G/T 错误路由/版本为替身 preflight；
-H 进程 timeout 有机械测试，完整超时→replan 仍待验；I 已实际终止 coordinator，保留替身 Worker，验证存活时拒绝恢复、结束后接续且无重复派发；
+H 进程 timeout 有机械测试，完整超时→replan 仍待验；I 已实际终止 coordinator，并分别保留替身 Worker 与真实 DSH Worker，验证存活时拒绝恢复、结束后接续且无重复派发；
 J 子 Agent 越权由静态/机械 guard 与 Git 审计测试覆盖，未宣称对抗式 OS 安全；
 K 由 schema 拒绝缺失 Critical gate、真实 fresh Critical 链路覆盖；
 L 动态费用限制的 soft/hard 运行中收据测试与 native guard 测试已通过；M/N 连续错路由记录已有测试；

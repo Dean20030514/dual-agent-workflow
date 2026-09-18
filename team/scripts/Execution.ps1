@@ -94,6 +94,7 @@ function Invoke-TeamVerification($Commands, [string]$Worktree, [string]$Director
         } finally { if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate } }
         $evidence += @{ id=$command.id;executable=$command.executable;args=$command.args;exit_code=$exitCode
             process_started=$processStarted;process_exit_code=$(if ($handle) {$handle.exit_code} else {$null});error=$errorText
+            transport_cleanup=(Get-TeamProcessCleanupEvidence $handle)
             stdout_sha256=$(if (Test-Path -LiteralPath $out -PathType Leaf) {Get-TeamHash $out} else {$null})
             stderr_sha256=$(if (Test-Path -LiteralPath $err -PathType Leaf) {Get-TeamHash $err} else {$null}) }
         Write-TeamData (Join-Path $Directory "$Prefix-evidence.json") $evidence
@@ -178,6 +179,25 @@ function Complete-TeamWorkerSafely($State, $Task, [string]$Directory, $Plan, $Ma
     }
 }
 
+function Close-TeamDispatchWorkers($State, $Handles, [string]$Directory) {
+    foreach ($taskId in @($Handles.Keys)) {
+        $item=$State.tasks[$taskId]; $cleanupErrors=@()
+        try { Stop-TeamTaskProcesses $item } catch { $cleanupErrors+=$_.Exception.Message }
+        try { $null=Close-TeamProcess $Handles[$taskId] -Terminate } catch { $cleanupErrors+=$_.Exception.Message }
+        $item['transport_cleanup']=Get-TeamProcessCleanupEvidence $Handles[$taskId]
+        $item['cleanup_pending']=$cleanupErrors.Count -gt 0
+        if ($item.cleanup_pending) {
+            # Preserve both ownership and reservation until an explicit stop can finish cleanup.
+            $item.status='RUNNING'
+            Add-TeamEvent $Directory 'process_cleanup_failed' @{task_id=$taskId;errors=$cleanupErrors}
+        } else {
+            $State.agents_created+=$item.reserved; $State.agents_reserved-=$item.reserved; $item.reserved=0
+            $item.status='FAILED'
+        }
+    }
+    Save-TeamState $State $Directory
+}
+
 function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
     Assert-TeamActionApproval $State $Plan $Directory
     $handles = @{}
@@ -236,12 +256,6 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
         return @{ status = $State.status; run_id = $State.run_id; next = 'Inspect evidence; accept task with a SHA-bound Lead decision, then integrate/resume.' }
     } finally {
         # On coordinator errors, terminate only child processes created by this invocation.
-        foreach ($taskId in @($handles.Keys)) {
-            $null = Close-TeamProcess $handles[$taskId] -Terminate
-            $item = $State.tasks[$taskId]
-            $State.agents_created += $item.reserved; $State.agents_reserved -= $item.reserved; $item.reserved=0
-            $item.status = 'FAILED'
-        }
-        Save-TeamState $State $Directory
+        Close-TeamDispatchWorkers $State $handles $Directory
     }
 }

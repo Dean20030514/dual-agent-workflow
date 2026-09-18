@@ -142,3 +142,27 @@ CLI 反例覆盖 Worker、外部验证、9P、final 的 1 MiB 限制，均拒绝
 run=COMPLETED、main 不变且干净。真实模型证明正常传输链路，超限/重试故障仍由前述进程及替身测试证明。
 未重复调用 Codex 模型；独立审查限额本批为替身 CLI 接线验收。
 直接 verdict 文件只受轮询检查；退出父进程的后代持有管道时的收尾边界仍在 SPEC_COVERAGE 中保留。
+
+# 第十批：退出后管道收尾与真实协调器崩溃恢复
+
+先在独立临时目录复现：父进程退出 0、后代持有管道，`Wait-TeamProcess ... 2` 原来约 4.925 秒
+才返回 0，越过期限且被当作成功。修复后同一复现约 2.246 秒返回 31，保留已写输出。
+父进程退出后继续检查总期限、idle 和输出限制，pipe drain 单独最多 3 秒；可取消读写，
+Windows 只清理通过父生命周期、PID 和创建时间核验的直接子进程树。流失败和未知清理事实不伪装为通过。
+
+Team 完整回归 **106 passed / 0 failed**，exit 0（599.50 秒）。随后补齐清理失败的
+`cleanup_pending`、预留保留、执行阻断和 stop 重试，受影响进程/CLI 再执行 **12 passed / 0 failed**，exit 0。
+最后增加身份查询失败的故障注入：取消后流任务结束、控制流程及时返回 31、未知子进程仍存活且未被猜测终止；
+测试自身最后按独立保存的身份清理，**1 passed / 0 failed**，exit 0。分次运行不合称一次全量 109 项。
+native guard **5 passed / 0 failed**、派生漂移门 17 对/292 行、git diff --check 均 exit 0。
+覆盖完整成功 Result 之后管道仍被占用的反例：adapter 返回 31，native_exit_code 保留真实 0，
+不生成可验收 result.yaml、不运行外部验证；Worker/验证/审查的持久记录包含 `transport_cleanup`。
+清理失败不会阻止其他 Worker 的终止，也不会释放失败项预留或允许重派；CLI 对 pending 的 resume、
+integrate、replan 拒绝 80，stop 仍可重试。测试证明的普通 Windows 子进程清理不扩张为 OS 沙箱承诺。
+
+真实 `CRASH-NATIVE-011`：DSH 在固定 wait 脚本的可观察等待点执行中，外部只终止协调器，
+原生 Worker 继续存活；第一次 resume 拒绝 80，未增加 attempt。外部放行后原 session 完成代码提交，
+第二次 resume 使用持久 exit/Result/Git 事实接续验证，六条固定合同通过，attempt/Agent 均为 1。
+Lead 按实际 SHA 接受，最终集成和 final exit 0，run=COMPLETED；main 不变且干净。
+这是实际模型进程崩溃恢复验收，没有用替身 Worker 替代，也没有覆盖全部 checkpoint 崩溃窗口。
+具体身份时间、SHA 与哈希见 VERIFIED_VERSIONS；原始 runtime 及简要断言留在临时目录。

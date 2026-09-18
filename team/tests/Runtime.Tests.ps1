@@ -48,6 +48,40 @@ BeforeAll {
 AfterAll { $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'blocks execution while process cleanup is pending and allows stop to clear it' {
+        $f=New-RuntimeFixture
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $s=State $f; $s.tasks.T1['cleanup_pending']=$true; $s.tasks.T1.status='FAILED'
+        Write-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/state.json') $s
+        foreach ($command in @('resume','integrate')) {
+            $r=Invoke-Cli @($command,'-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 80 -Because $r.raw
+        }
+        $f.plan.run.revision=2; $f.plan.tasks[0].objective=@('WRITE AGAIN'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Must not replace pending ownership','-Json')
+        $r.code | Should -Be 80 -Because $r.raw
+        (State $f).revision | Should -Be 1
+        (State $f).tasks.T1.attempts | Should -Be 1
+        $r=Invoke-Cli @('stop','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        (State $f).status | Should -Be 'CANCELLED'
+        (State $f).tasks.T1.cleanup_pending | Should -BeFalse
+    }
+    It 'rejects a complete Result when a surviving native child keeps the output pipe open' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('PIPE_HOLDER'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
+        $r.code | Should -Be 31 -Because $r.raw
+        $item=(State $f).tasks.T1
+        $item.status | Should -Be 'FAILED'
+        $receipt=Read-TeamData (Join-Path $item.directory 'exit.json')
+        $receipt.native_exit_code | Should -Be 0
+        $receipt.transport_cleanup.drain_expired | Should -BeTrue
+        $receipt.transport_cleanup.streams_settled | Should -BeTrue
+        $receipt.transport_cleanup.children.terminated.Count | Should -Be 1
+        (Read-TeamData (Join-Path $item.directory 'worker.stdout')).status | Should -Be 'completed'
+        Test-Path (Join-Path $item.directory 'result.yaml') | Should -BeFalse
+        Test-Path (Join-Path $item.directory 'verification-evidence.json') | Should -BeFalse
+        $child=Read-TeamData (Join-Path $item.directory 'pipe-child.json')
+        Get-TeamOwnedProcess $child.pid $child.start | Should -BeNullOrEmpty
+    }
     It 'enforces the configured log cap through the <Surface> entry point' -ForEach @(@{Surface='worker'},@{Surface='verification'},@{Surface='review'},@{Surface='final'}) {
         $f=New-RuntimeFixture
         $config=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml'); $config.runtime.max_single_log_mb=1

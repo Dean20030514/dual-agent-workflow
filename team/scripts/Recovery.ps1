@@ -9,6 +9,7 @@ function Assert-TeamRunRoot([string]$Repo) {
 }
 
 function Assert-TeamRecovery($State, $Plan, [string]$Directory) {
+    Assert-TeamCleanupSettled $State
     Assert-TeamRunRoot $State.repo
     if ($State.revision -ne $Plan.run.revision -or $State.run_id -cne $Plan.run.id -or
         @(Compare-Object @($State.tasks.Keys | Sort-Object) @($Plan.tasks.id | Sort-Object)).Count -or
@@ -80,6 +81,7 @@ function Assert-TeamRecovery($State, $Plan, [string]$Directory) {
 }
 
 function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Directory, [string]$FailedTask, [string]$Reason) {
+    Assert-TeamCleanupSettled $State
     $order = @(Test-TeamPlan $NewPlan $Manifest)
     if ($State.replans -ge $Manifest.budget.max_replans) { Stop-TeamError 60 'Replan limit reached; hard-stop' }
     if ($NewPlan.run.id -cne $State.run_id -or $NewPlan.run.revision -ne ($State.revision + 1) -or -not $Reason) {
@@ -126,22 +128,39 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
     return @{ affected=$affected; revision=$State.revision; status='PAUSED' }
 }
 
+function Stop-TeamTaskProcesses($Item) {
+    $nativePath = Join-Path $Item.directory 'native-process.json'
+    $records = @(@{pid=$Item.pid;start=$Item.process_start})
+    if (Test-Path -LiteralPath $nativePath) { $records += Read-TeamData $nativePath }
+    $errors=@()
+    foreach ($record in $records) {
+        if (-not $record.pid) { continue }
+        $process = Get-TeamOwnedProcess $record.pid $record.start
+        if ($process) {
+            try {
+                $process.Kill($true)
+                if (-not $process.WaitForExit(5000)) { $errors+='Owned process did not exit during cleanup' }
+            } catch { $errors+=$_.Exception.Message }
+            finally { $process.Dispose() }
+        }
+    }
+    if ($errors.Count) { Stop-TeamError 31 ($errors -join '; ') }
+}
+
 function Stop-TeamOwnedProcesses($State, [string]$Directory) {
+    $errors=@()
     foreach ($taskId in $State.tasks.Keys) {
         $item = $State.tasks[$taskId]
-        if ($item.status -ne 'RUNNING') { continue }
-        $nativePath = Join-Path $item.directory 'native-process.json'
-        $records = @(@{pid=$item.pid;start=$item.process_start})
-        if (Test-Path -LiteralPath $nativePath) { $records += Read-TeamData $nativePath }
-        foreach ($record in $records) {
-            if (-not $record.pid) { continue }
-            $process = Get-TeamOwnedProcess $record.pid $record.start
-            if ($process) {
-                $process.Kill($true); $process.WaitForExit()
-            }
-        }
+        if ($item.status -ne 'RUNNING' -and -not $item['cleanup_pending']) { continue }
+        try { Stop-TeamTaskProcesses $item }
+        catch { $item['cleanup_pending']=$true; $errors+=@{task_id=$taskId;error=$_.Exception.Message}; continue }
+        $item['cleanup_pending']=$false
         $item.status = 'FAILED'
         if ($item['reserved']) { $State.agents_created += $item.reserved; $State.agents_reserved -= $item.reserved; $item.reserved=0 }
+    }
+    if ($errors.Count) {
+        Save-TeamState $State $Directory; Add-TeamEvent $Directory 'process_cleanup_failed' @{errors=$errors}
+        Stop-TeamError 31 'Some owned processes could not be stopped; retry stop after inspecting the preserved evidence'
     }
     $State.status = 'CANCELLED'; Save-TeamState $State $Directory
     Add-TeamEvent $Directory 'run_cancelled'

@@ -62,6 +62,12 @@ $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.js
     [Console]::Error.WriteLine($_.Exception.Message)
 } finally {
     try { if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate } }
-    finally { Write-TeamData (Join-Path $directory 'exit.json') @{ exit_code=$code;startup_exhausted=$startupExhausted;launch_attempts=$launchAttempts;finished_at=[DateTime]::UtcNow.ToString('o') } }
+    finally {
+        Write-TeamData (Join-Path $directory 'exit.json') @{
+            exit_code=$code;native_exit_code=$(if ($handle) {$handle['exit_code']} else {$null})
+            startup_exhausted=$startupExhausted;launch_attempts=$launchAttempts
+            transport_cleanup=(Get-TeamProcessCleanupEvidence $handle);finished_at=[DateTime]::UtcNow.ToString('o')
+        }
+    }
 }
 exit $code

@@ -114,3 +114,19 @@ Lead 绑定真实 commit 接受后，最终 integration `7121b4a9f40255f6dc05602
 run=COMPLETED、final exit/process_exit_code 均为 0，stdout SHA-256
 `fb25915d727b421175a83b10d8f7892b2c64d0b79a9df1e2100288667dbbc61f`。
 main 仍为原 base 且干净；临时根 `acceptance.json` 保留精简断言结果，原 runtime 日志留在本机。
+
+真实协调器崩溃恢复 `CRASH-NATIVE-011`（临时根 `team-crash-live-eac980226b`，仓库位于 `repo/`）：
+base/main `ae9b319fecc339ebaf4a215379958f48f44cdcde`；DSH 0.1.5-rc.1，
+deepseek-official/deepseek-flash；session `session-69756695-bd37-44d5-9c49-ef6039d102d9`，depth 0。
+真实 Worker 执行受控 `wait.ps1` 写 readiness 后等待外部放行；只终止新建的测试 coordinator PID 928，
+原生 PID 32272 仍存活，第一次 resume 返回 80，attempt 仍为 1。
+两者 UTC 创建时间、存活断言与拒绝结果保存在临时根 `crash-boundary.json`，SHA-256
+`32142289cf92da59f7fff9ff62a5963335cfdda06a2c6bd3df0e362be44a1e6c`；PID 仅为该次证据，不能作为后续终止依据。
+外部放行后，同一 Worker 完成 commit `64d45cc25f761e2c5d2856c2119d451e70224177`，只新增 `src/label.ps1`。
+native/adapter exit 均 0，drain_expired=false、streams_settled=true，Result SHA-256
+`1ece1cb9c342b2424f2582fff1f5e98e307842a2ee0ffb27767b6481520e184e`。
+第二次 resume 完成 Git/外部六条合同验证并进入 REVIEW，没有重启 Worker，累计 Agent=1、attempt=1。
+Lead 检查真实 diff 并按 SHA 接受，最终 integration `05e651ba2b647e054aa9cc1e0971f57d53f79cd5`，
+run=COMPLETED；final exit 0，stdout SHA-256 `d83afd5262e47eb0c5d7d7a17c6be3d038657227c048ff8fbc3960dac8986c43`。
+main 不变且干净；固定 wait/verify 脚本未改变。此验收覆盖该受控崩溃点下的真实原生连续执行，
+不代表所有 checkpoint 持久化窗口或崩溃后需要 replan 的路径均已验收。
