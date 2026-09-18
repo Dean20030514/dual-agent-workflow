@@ -23,11 +23,15 @@ function Read-TeamData([string]$Path) {
 }
 
 function Write-TeamData([string]$Path, $Value) {
+    Write-TeamTextAtomic $Path (($Value | ConvertTo-Json -Depth 100) + "`n")
+}
+
+function Write-TeamTextAtomic([string]$Path, [string]$Text) {
     $parent = [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($Path))
     [IO.Directory]::CreateDirectory($parent) | Out-Null
     $temp = Join-Path $parent ('.atomic-' + [guid]::NewGuid().ToString('N'))
     try {
-        [IO.File]::WriteAllText($temp, ($Value | ConvertTo-Json -Depth 100) + "`n", [Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($temp, $Text, [Text.UTF8Encoding]::new($false))
         # Windows readers outside our control may omit FileShare.Delete. Retry only a bounded
         # sharing window; persistent ACL/read-only failures still surface with the old file intact.
         for ($attempt=0; ; $attempt++) {

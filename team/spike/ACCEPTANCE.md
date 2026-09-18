@@ -1,5 +1,9 @@
 # 验收记录（2026-09-17）
 
+以下按实施顺序保留历史批次及失败记录，不能累加重跑数量。
+最终结果见文末：常规 158 项、恢复专项 28+2 项、Node guard 6 项通过；
+本机 Defender 允许检测类别的条件一并保留，不改写为官方误报确认。
+
 | 验证 | 实际结果 |
 |---|---|
 | Pester，`Run.Path=@('tests','team/tests')`，关闭 XML 输出 | 114 passed / 0 failed，exit 0；包含既有安装器隔离测试 |
@@ -319,3 +323,53 @@ ReviewRounds.Tests.ps1、Runtime.Tests.ps1，Run.Exit=true、TestResult.Enabled=
 **158 passed / 0 failed**，exit 0，858.09 秒；四文件内 Skipped=0、NotRun=0。
 它覆盖已提交的补证/隔离修复及当前未提交恢复事务的常规路径，不包括被拦截的
 Persistence.Tests.ps1，不能称为完整 Team 套件通过或事务中断窗口已验收。
+
+# 本机显式允许检测项后的恢复验收
+
+2026-09-17 用户选择本机放行，亲自执行 Add-MpPreference，为本机核实的
+Threat ID 2147749462（HackTool:PowerShell/ApexToolkit.A）设置 Allow。
+只读核对确认设置为 6，防病毒及实时防护均仍启用；这属于检测类别允许，
+不限于单个文件，也不是微软确认误报。Agent 未关闭 Defender 或添加路径排除项。
+确认原文件 SHA-256 仍为 5226721c41e60067c1afed7667ee50425f8bba37435820af02243e74bf0e9b58 后，
+按用户操作接续复测：Run.Path=team/tests/Persistence.Tests.ps1，Run.Exit=true，
+TestResult.Enabled=false，**7 passed / 0 failed**，exit 0，104.14 秒。
+此前被拦截的七个集成写入边界现已实际执行；后续新增修订/回滚验收另记结果。
+
+新增持久化专项：同一文件完整运行 **28 passed / 0 failed**，exit 0，395.78 秒，
+Skipped=0、NotRun=0。其中包含原 7 个集成边界、5 个计划事务写入边界、3 个修订证据反例、
+7 个回滚写入边界、跨两个任务的恢复及无关提交拒绝、3 个集成身份/输出反例和已知失败保留。
+所有 Git 操作均在 TestDrive 临时仓库；Worker 和 Reviewer 为测试替身，使用真实子进程与 Git。
+确认不重复 merge/revert、不重派作者、不增加原有 attempt/Agent 计数、main 不变，
+并核对无关 ACCEPTED 的完整状态、旧计划原始字节、历史 checkpoint 和原验证证据。
+
+随后补齐 stop 与终态保护：取消运行不接续尚未开始的回滚；拒绝已完成 run 的 resume 后，
+保持 COMPLETED 与 state 原始哈希，不由统一错误处理器改成 PAUSED。
+仅选这两项运行 **2 passed / 0 failed**，exit 0，28.78 秒；NotRun=28 是本次明确过滤的既有用例，
+不是跳过失败测试。因此当前文件 30 个不同用例的证据为 28+2 两批，不声称单次跑出 30。
+
+本机真实 doctor 再次返回 exit 0 / success=true：DSH 0.1.5-rc.1、Codex 0.153.3、pwsh 7.6.6，
+deepseek-official/deepseek-flash 路由核对通过、四个路由样例通过、无活动仓库锁；
+原生能力仍为 I1/O2/E2，L3 通过既定适配器扩展准入。该诊断未调用付费模型。
+Node native-guard **6 passed / 0 failed**，exit 0；17 对派生文件仍为登记的 292 行差异，
+dsh-drift-check exit 0 / DRIFT: none。
+
+最终常规回归使用当前工作树执行：
+
+```powershell
+$c = New-PesterConfiguration
+$c.Run.Path = @('team/tests/Contracts.Tests.ps1', 'team/tests/Processes.Tests.ps1',
+    'team/tests/ReviewRounds.Tests.ps1', 'team/tests/Runtime.Tests.ps1')
+$c.Run.Exit = $true
+$c.TestResult.Enabled = $false
+Invoke-Pester -Configuration $c
+```
+
+实际结果：**158 passed / 0 failed**，exit 0，868.12 秒；Skipped=0、NotRun=0。
+Contracts 10.46 秒、Processes 18.13 秒、ReviewRounds 0.531 秒、Runtime 838.99 秒。
+本轮恢复专项与常规文件不重叠，合计覆盖当前 188 个不同 Pester 用例；这不是一次全目录运行。
+末尾两项终态修复以其独立定向批次验证，没有因重跑将同一用例重复计数。
+
+交付核对：原 v5 文件 SHA-256 不变，SPEC_COVERAGE 逐章映射及 A–T 的实现/证据均已闭合；
+DAG-NATIVE-015 当前仍为 COMPLETED/revision=2，main 干净，acceptance.json 与 observations.jsonl
+的完整 SHA-256 与 VERIFIED_VERSIONS 一致。本轮没有再次调用付费模型，也没有执行全局部署。
+所有改动文件 UTF-8 无 BOM、LF，git diff --check exit 0。此前失败、首次超时及边界说明保留。

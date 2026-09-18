@@ -31,20 +31,19 @@ function New-TeamIntegrationRepair($State, $Plan, $Manifest, [string]$Directory,
     $next.run.revision++; if ($next.mode -eq 'L1') { $next.mode='L2' }; $next.tasks += $task
     $order = @(Test-TeamPlan $next $Manifest)
     Assert-TeamReviewRound $State $Plan $Directory -Close
+    $State=$State | ConvertTo-Json -Depth 100 | ConvertFrom-Json -AsHashtable
+    $source=$State.tasks[$sourceTask.id]
     # Preserve the failed merge's file list before aborting only our own integration merge.
     $null = Invoke-TeamGit $State.integration_worktree @('merge','--abort')
     if ((Invoke-TeamGit $State.integration_worktree @('rev-parse','HEAD')) -cne $State.last_good_integration_sha) { Stop-TeamError 80 'Integration abort did not restore checkpoint' }
-    Write-TeamData (Join-Path $Directory "plan-revision-$($State.revision).yaml") $Plan
-    Write-TeamData (Join-Path $Directory 'plan.yaml') $next
     if (-not $State.Contains('repairs')) { $State['repairs']=@{} }
     $State.repairs[$id]=@{source_task=$sourceTask.id;source_commit=$source.commit;write_scope=$scope}
     $State.tasks[$id]=@{status='READY';attempts=0;commit='';pid=0;process_start='';directory='';worktree='';branch='';base_sha=''}
     $source.status='REPAIRING'; $State.revision=$next.run.revision; $State.replans++; $State.order=$order
-    $State.plan_hash=Get-TeamHash (Join-Path $Directory 'plan.yaml'); $State.status='PAUSED'
-    Write-TeamData (Join-Path $Directory "decisions/DEC-Integration-$($State.revision).json") @{
+    $State.status='PAUSED'
+    Save-TeamPlanRevision $State $Plan $next $Directory "DEC-Integration-$($State.revision)" @{
         reason=$Reason;conflict_files=$conflict.conflicts;glue_scope=$GlueScope;task_id=$id;source_commit=$source.commit;revision=$State.revision
     }
-    Save-TeamState $State $Directory
     Add-TeamEvent $Directory 'integration_worker_planned' @{task_id=$id;source_task=$sourceTask.id}
     return @{task_id=$id;revision=$State.revision;next='resume; inspect and accept the repair, then integrate'}
 }

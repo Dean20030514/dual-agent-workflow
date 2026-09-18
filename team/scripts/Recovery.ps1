@@ -89,6 +89,7 @@ function Assert-TeamRecovery($State, $Plan, [string]$Directory) {
 
 function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Directory, [string]$FailedTask, [string]$Reason) {
     Assert-TeamCleanupSettled $State
+    if (@(Get-TeamPendingIntegration $Directory).Count) { Stop-TeamError 80 'Reconcile or roll back the pending integration before replanning' }
     $order = @(Test-TeamPlan $NewPlan $Manifest)
     if ($State.replans -ge $Manifest.budget.max_replans) { Stop-TeamError 60 'Replan limit reached; hard-stop' }
     if ($NewPlan.run.id -cne $State.run_id -or $NewPlan.run.revision -ne ($State.revision + 1) -or -not $Reason) {
@@ -115,6 +116,9 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
         if ($State.tasks[$taskId].attempts -gt $Manifest.budget.max_worker_retries) { Stop-TeamError 60 'Worker retry budget exhausted' }
     }
     Assert-TeamReviewRound $State $OldPlan $Directory -Close
+    # Prepare a separate candidate so a failed transaction cannot leak into the
+    # CLI error handler's last known committed state.
+    $State=$State | ConvertTo-Json -Depth 100 | ConvertFrom-Json -AsHashtable
     # Retire the old attempt before READY can be dispatched into a new worktree.
     # Keep its exact Git tip and all evidence even when its task ID is removed.
     if (-not $State['discarded_tasks']) { $State['discarded_tasks']=@{} }
@@ -140,13 +144,10 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
     foreach ($oldId in @($State.tasks.Keys)) {
         if ($oldId -notin @($NewPlan.tasks | ForEach-Object { $_.id })) { $State.tasks.Remove($oldId) }
     }
-    Write-TeamData (Join-Path $Directory "plan-revision-$($OldPlan.run.revision).yaml") $OldPlan
-    Write-TeamData (Join-Path $Directory 'plan.yaml') $NewPlan
-    $State.plan_hash = Get-TeamHash (Join-Path $Directory 'plan.yaml'); $State.status = 'PAUSED'
-    Write-TeamData (Join-Path $Directory "decisions/DEC-Replan-$($State.revision).json") @{
-        decision='replan'; reason=$Reason; affected=$affected; revision=$State.revision; plan_hash=$State.plan_hash
+    $State.status = 'PAUSED'
+    Save-TeamPlanRevision $State $OldPlan $NewPlan $Directory "DEC-Replan-$($State.revision)" @{
+        decision='replan'; reason=$Reason; affected=$affected; revision=$State.revision
     }
-    Save-TeamState $State $Directory
     Add-TeamEvent $Directory 'run_replanned' @{ affected=$affected; revision=$State.revision }
     return @{ affected=$affected; revision=$State.revision; status='PAUSED' }
 }
@@ -207,6 +208,11 @@ function Undo-TeamIntegration($State, [string]$Directory, [string]$TaskId, [stri
         $null=Invoke-TeamGit $tree @('revert','--abort')
         $pending[0].status='aborted'; $pending[0]['abort_reason']=$Reason
         Write-TeamData (Join-Path $Directory "rollbacks/$($pending[0].id).json") $pending[0]
+        $batchPath=Join-Path $Directory 'rollback-pending.json'
+        if (Test-Path -LiteralPath $batchPath) {
+            $batch=Read-TeamData $batchPath
+            if ($batch.id -ceq $pending[0]['batch_id']) { $batch.status='aborted'; Write-TeamData $batchPath $batch }
+        }
         $State.status='PAUSED'; Save-TeamState $State $Directory
         return @{status='PAUSED';aborted_revert=$pending[0].id;commit=$head}
     }
@@ -220,6 +226,8 @@ function Undo-TeamIntegration($State, [string]$Directory, [string]$TaskId, [stri
         return @{status='PAUSED';commit=$head;aborted_merge=$conflict.task_id}
     }
     Assert-TeamId $TaskId
+    $restored=Restore-TeamRollback $State $Directory
+    if ($restored) { return $restored }
     if (Invoke-TeamGit $tree @('status','--porcelain','--untracked-files=all')) { Stop-TeamError 80 'Rollback refuses unrelated dirty changes' }
     $plan=Read-TeamData (Join-Path $Directory 'plan.yaml')
     $affected=@(Get-TeamAffectedByScope $plan $TaskId)
@@ -246,28 +254,10 @@ function Undo-TeamIntegration($State, [string]$Directory, [string]$TaskId, [stri
         if (-not $checkpoint['noop'] -and (Invoke-TeamGit $tree @('rev-parse',"$($checkpoint.after)^1")) -cne $checkpoint.before) { Stop-TeamError 80 'Checkpoint parent differs from its recorded base' }
         $null=Invoke-TeamGit $tree @('merge-base','--is-ancestor',$checkpoint.worker_commit,$checkpoint.after)
     }
-    $rolled=@()
-    foreach ($checkpoint in $selected) {
-        $before=Invoke-TeamGit $tree @('rev-parse','HEAD')
-        $id='ROLLBACK-' + [guid]::NewGuid().ToString('N').Substring(0,12)
-        $record=@{id=$id;task_id=$checkpoint.task_id;before=$before;reverted_merge=$checkpoint.after;reason=$Reason;status='started'}
-        Write-TeamData (Join-Path $Directory "rollbacks/$id.json") $record
-        if (-not $checkpoint['noop']) { $null=Invoke-TeamGit $tree @('revert','-m','1','--no-edit',$checkpoint.after) }
-        $after=Invoke-TeamGit $tree @('rev-parse','HEAD')
-        $record.status='completed'; $record['after']=$after
-        Write-TeamData (Join-Path $Directory "rollbacks/$id.json") $record
-        $checkpoint['rollback_commit']=$after; $checkpoint['rollback_before']=$before
-        Save-TeamCheckpoint $Directory $checkpoint
-        $ids=@($checkpoint.task_id)
-        if ($State['repairs'] -and $State.repairs.Contains($checkpoint.task_id)) { $ids+=@(Get-TeamRepairSources $State.repairs[$checkpoint.task_id]) }
-        foreach ($id in $ids) {
-            if ($State.tasks[$id].status -eq 'CLEANED') { $State.tasks[$id]['worktree_removed']=$true }
-            $State.tasks[$id].status='REWORK'
-        }
-        $State.last_good_integration_sha=$after; $State.status='PAUSED'; Save-TeamState $State $Directory
-        Add-TeamEvent $Directory 'integration_rollback' @{task_id=$checkpoint.task_id;reason=$Reason;reverted_merge=$checkpoint.after;commit=$after}
-        $rolled+=$checkpoint.task_id
+    $entries=@($selected | ForEach-Object { @{id=('ROLLBACK-'+[guid]::NewGuid().ToString('N'));checkpoint=$_} })
+    Write-TeamData (Join-Path $Directory 'rollback-pending.json') @{
+        id=('UNDO-'+[guid]::NewGuid().ToString('N'));run_id=$State.run_id;plan_hash=$State.plan_hash;
+        before=$head;reason=$Reason;status='prepared';affected=$affected;entries=$entries
     }
-    Record-TeamRollbackProbe $State $plan $Directory $rolled
-    return @{status='PAUSED';commit=$State.last_good_integration_sha;rolled_back=$rolled;affected=$affected}
+    return Restore-TeamRollback $State $Directory
 }

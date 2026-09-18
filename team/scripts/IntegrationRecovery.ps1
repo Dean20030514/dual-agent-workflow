@@ -75,7 +75,8 @@ function Record-TeamRollbackProbe($State, $Plan, [string]$Directory, [string[]]$
     $failure=Read-TeamData $path
     if ($failure.status -ne 'unresolved') { return }
     $head=Invoke-TeamGit $State.integration_worktree @('rev-parse','HEAD')
-    $probePath=Join-Path $failure.directory ('probe-' + $head)
+    if (@($failure.probes | Where-Object { $_.sha -ceq $head -and (@($_.rolled_back) -join '|') -ceq ($RolledBack -join '|') }).Count) { return }
+    $probePath=Join-Path $failure.directory ('probe-' + $head + '-' + [guid]::NewGuid().ToString('N'))
     [IO.Directory]::CreateDirectory($probePath) | Out-Null
     $result='passes_after_rollback'
     $manifest=Read-TeamData (Join-Path $Directory 'manifest.yaml')
@@ -104,8 +105,7 @@ function New-TeamRegressionRepair($State, $Plan, $Manifest, [string]$Directory, 
     $next.run.revision++; if ($next.mode -eq 'L1') { $next.mode='L2' }; $next.tasks+=@($task)
     $order=@(Test-TeamPlan $next $Manifest)
     Assert-TeamReviewRound $State $Plan $Directory -Close
-    Write-TeamData (Join-Path $Directory "plan-revision-$($State.revision).yaml") $Plan
-    Write-TeamData (Join-Path $Directory 'plan.yaml') $next
+    $State=$State | ConvertTo-Json -Depth 100 | ConvertFrom-Json -AsHashtable
     if (-not $State['repairs']) { $State['repairs']=@{} }
     $State.repairs[$task.id]=@{kind='regression';failure_id=$failure.id;source_tasks=$draft.sources;
         source_commits=@($draft.sources | ForEach-Object { $State.tasks[$_].commit });write_scope=$task.write_scope;conflict_files=@();glue_scope=$task.write_scope}
@@ -114,9 +114,8 @@ function New-TeamRegressionRepair($State, $Plan, $Manifest, [string]$Directory, 
         $State.tasks[$id].status='REPAIRING'
     }
     $State.tasks[$task.id]=@{status='READY';attempts=0;commit='';pid=0;process_start='';directory='';worktree='';branch='';base_sha=''}
-    $State.revision=$next.run.revision; $State.replans++; $State.order=$order; $State.plan_hash=Get-TeamHash (Join-Path $Directory 'plan.yaml'); $State.status='PAUSED'
-    Write-TeamData (Join-Path $Directory "decisions/DEC-Integration-$($State.revision).json") @{reason=$Reason;kind='regression';failure_id=$failure.id;source_tasks=$draft.sources;task_id=$task.id;revision=$State.revision;integration_sha=$head;conflict_files=@();glue_scope=$task.write_scope}
-    Save-TeamState $State $Directory
+    $State.revision=$next.run.revision; $State.replans++; $State.order=$order; $State.status='PAUSED'
+    Save-TeamPlanRevision $State $Plan $next $Directory "DEC-Integration-$($State.revision)" @{reason=$Reason;kind='regression';failure_id=$failure.id;source_tasks=$draft.sources;task_id=$task.id;revision=$State.revision;integration_sha=$head;conflict_files=@();glue_scope=$task.write_scope}
     Add-TeamEvent $Directory 'integration_worker_planned' @{task_id=$task.id;kind='regression';failure_id=$failure.id;source_tasks=$draft.sources}
     return @{task_id=$task.id;revision=$State.revision;next='resume; inspect and accept the regression repair, then integrate'}
 }

@@ -10,7 +10,7 @@ param(
     [string[]]$ChangedPaths = @(), [string[]]$GlueScope = @(), [datetime]$Since = [datetime]::MinValue,
     [switch]$Json, [switch]$Follow, [switch]$AllowUnverifiedRuntime, [switch]$RepairLock
 )
-foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
+foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Checkpoints','Revisions','Rollbacks','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
 $lock = $null; $runData = $null; $exitCode = 0
 try {
     if ($PSBoundParameters.ContainsKey('Since')) { $Since=$Since.ToUniversalTime() }
@@ -75,8 +75,6 @@ try {
             if ($state['hard_stop'] -and $Command -in @('resume','accept','integrate','replan','repair-integration')) { Stop-TeamError 60 'Run is hard-stopped; preserve evidence and return to the owner' }
             $document = Read-TeamData (Join-Path $directory 'plan.yaml')
             $config = Read-TeamData (Join-Path $directory 'manifest.yaml')
-            if ($Command -in @('resume','accept','integrate','replan','rollback','repair-integration','resolve-review') -and
-                (Get-TeamHash (Join-Path $directory 'plan.yaml')) -cne $state.plan_hash) { Stop-TeamError 80 'Plan changed outside revision protocol' }
             if ($Command -eq 'stop') {
                 Write-TeamData (Join-Path $directory 'cancel.request.json') @{ run_id=$Run; requested_at=[DateTime]::UtcNow.ToString('o') }
                 try { $lock = Lock-TeamRepo $Repo $Run -Resume }
@@ -87,10 +85,12 @@ try {
             } elseif ($Command -in @('resume','resolve','cleanup','accept','integrate','replan','rollback','record-route','repair-integration','resolve-review')) { $lock = Lock-TeamRepo $Repo $Run -Resume }
             if ($lock) {
                 # Refresh after acquiring the coordinator lock, never mutate a pre-lock snapshot.
+                Restore-TeamPlanRevision $directory $Repo $Run
                 $runData = Read-TeamRun $Repo $Run; $state = $runData.state
                 $document = Read-TeamData (Join-Path $directory 'plan.yaml')
                 if ($Command -in @('resume','accept','integrate','replan','rollback','repair-integration','resolve-review') -and
                     (Get-TeamHash (Join-Path $directory 'plan.yaml')) -cne $state.plan_hash) { Stop-TeamError 80 'Plan changed outside revision protocol' }
+                if ($Command -in @('resume','integrate','replan','repair-integration')) { $null=Restore-TeamRollback $state $directory }
             }
             if ($Command -in @('resume','resolve','cleanup','accept','integrate','replan','rollback','repair-integration','resolve-review')) {
                 Assert-TeamCleanupSettled $state
@@ -153,6 +153,7 @@ try {
                         @{status='QUEUED';evidence_hash=$hash;next='Coordinator consumes the receipt before its next dispatch.'} | ConvertTo-Json -Compress
                         exit 0
                     }
+                    Restore-TeamPlanRevision $directory $Repo $Run
                     $runData = Read-TeamRun $Repo $Run; $state = $runData.state
                     Sync-TeamCost $state $config $directory
                     $output=@{status='RECORDED';known_cost=$state.known_cost;unknown_usage=$state.unknown_usage;evidence_hash=$hash}
@@ -181,14 +182,20 @@ try {
 } catch {
     $exitCode = if ($_.Exception.Data.Contains('TeamExitCode')) { [int]$_.Exception.Data['TeamExitCode'] } else { 90 }
     if ($runData -and $lock) {
-        if ($exitCode -eq 60) {
+        # A revision may have committed before a later event write failed. Never
+        # overwrite that durable state with the caller's pre-transaction object.
+        $runData=Read-TeamRun $runData.state.repo $runData.state.run_id
+        $revisionPath=Join-Path $runData.directory 'revision-pending.json'
+        $preserveRevision=(Test-Path -LiteralPath $revisionPath) -and (Read-TeamData $revisionPath).phase -ne 'completed'
+        if (-not $preserveRevision -and $exitCode -eq 60) {
             $runData.state['hard_stop']=$true
             New-TeamEscalation $runData.state $runData.directory 'hard_stop' $_.Exception.Message
-        } elseif ($exitCode -eq 70 -and $runData.state.status -ne 'ESCALATED' -and
+        } elseif (-not $preserveRevision -and $exitCode -eq 70 -and $runData.state.status -ne 'ESCALATED' -and
             -not @(Get-ChildItem -LiteralPath (Join-Path $runData.directory 'escalations') -Filter '*.yaml' -ErrorAction SilentlyContinue | ForEach-Object { Read-TeamData $_.FullName } | Where-Object { $_.status -in @('pending','modify-plan') }).Count) {
             New-TeamEscalation $runData.state $runData.directory 'capacity_or_budget' $_.Exception.Message
         }
-        if ($exitCode -in @(30,31,40,50,60,80,81,82,90) -and $Command -in @('run','resume','integrate','replan','rollback')) {
+        if (-not $preserveRevision -and $exitCode -in @(30,31,40,50,60,80,81,82,90) -and
+            $Command -in @('run','resume','integrate','replan','rollback') -and $runData.state.status -notin @('COMPLETED','CANCELLED')) {
             if ($runData.state.status -ne 'ESCALATED') { $runData.state.status = 'PAUSED' }
             Save-TeamState $runData.state $runData.directory
         }

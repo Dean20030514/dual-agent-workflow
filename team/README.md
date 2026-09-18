@@ -6,7 +6,8 @@ Codex Lead → `scripts/team.ps1` → DSH native Workers → Git 范围审计 �
 `69cee29bb2affb98c92d3075d8c0eaa7fa63223f18ca430f488f1efbdab3c6c4`。
 先读 [QUICKSTART](QUICKSTART.md)，能力证据与限制见 [spike/OPEN_GAPS.md](spike/OPEN_GAPS.md)。
 本轮已执行的测试与真实 Harness 链路见 [验收记录](spike/ACCEPTANCE.md)。
-整份 v5 的逐章完成度与剩余缺口见 [范围核对](spike/SPEC_COVERAGE.md)；目前尚未全部完成。
+v5 的 V1 实现与本机验收已完成，包含人类确认的 L3 适配器扩展；逐章证据及适用边界见
+[范围核对](spike/SPEC_COVERAGE.md)。运行器未部署到本机全局受管副本。
 
 依赖：PowerShell ≥ 7.4、Git、DSH native CLI、Codex native CLI、powershell-yaml ≥ 0.4.12。
 YAML 模块由用户在本任务中明确批准；运行器不会安装依赖、修改全局配置或调用部署器。
@@ -50,6 +51,12 @@ resume 会检查事件记录、计划/状态图、所有已创建 worktree 的�
 集成 checkpoint，以及 adapter/native 的 PID 和启动时间。原 Worker 尚存活时返回 80，
 等它写出 durable exit receipt 后再恢复；不会盲目创建第二个 Worker。
 事件截断、状态损坏或集成 HEAD 偏移会保留证据并拒绝派发，须先协调或 rollback。
+集成先保存操作意图，再合并和验证；恢复时核对确切父提交、任务 attempt 和证据哈希，
+补齐中断的 checkpoint/state 写入，不重复合并、不用新验证覆盖已知失败。
+计划修订将旧计划、新计划、状态与决定暂存并记录哈希；持锁命令先重放未完成事务，
+外部修改或缺失证据返回 80。回滚也保存整批检查点与逐次撤销收据，
+`rollback` 或 `resume` 可接续已授权的中断回滚；任务进入 REWORK 后仍须明确 replan。
+恢复遇到不属于事务的提交或脏文件时保留现场，禁止自动覆盖。
 
 测试：
 

@@ -127,6 +127,10 @@ Critical 审查按已审 plan revision 聚合 9A/9B；9P 不计入修复轮次�
 必要时可继续回滚更早检查点。确认修复范围后，执行
 `repair-integration -Task <suspect-id> -Reason ...`，再走 resume / accept / integrate。
 无关已集成任务保留；probe 通过不代替原验收，失败证据不会因下一次验证而丢失。
+协调器在修订、合并或回滚中断后，保留原 runtime 目录并使用 `resume`。
+持久事务会先核对并补齐计划/状态、集成检查点或已授权回滚；不会重复创建作者。
+回滚完成后返回需要 replan 的提示是预期行为。若存在未解决的 revert 冲突，
+先检查现场，再用原 `rollback -Task <id> -Reason ...` 中止属于本次操作的冲突。
 
 最小验收：result.status=completed、Worker 分支与 worktree 存在、main SHA 不变、
 外部验证 exit=0、Lead 验收绑定 commit、集成回归 exit=0、run.status=COMPLETED。

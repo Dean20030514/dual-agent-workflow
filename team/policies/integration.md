@@ -15,6 +15,10 @@ glue scope 形成 integration 角色任务，不得扩大业务需求、改验�
 未完成 merge 只有与记录的 source/base 相符才可 abort；revert 冲突保留现场，下一次 rollback
 只对本运行已记录的冲突执行 revert --abort。脏树、错误分支和未登记 HEAD 一律拒绝。
 全程不 reset，所有操作仅在本 run 的集成 worktree。回滚与进程恢复是独立操作。
+合并操作使用 durable intent，恢复核对 exact parents、操作消息、task/attempt/plan 和验证证据。
+已知失败的验证不会在 resume 中重跑以替换失败；中断的输出保存在独立目录。
+回滚先冻结整个受影响检查点列表，再逐次写入撤销收据、检查点和状态；恢复能接续这项
+已授权操作，不重复撤销已完成项。stop 后禁止接续残留回滚，取消状态保持不变。
 
 最终回归失败返回 40，同时生成 `integration-failure.json` 和
 `integration-failure-task.json`（draft，不自动派发）。失败记录保存 exact SHA、最近 merge、

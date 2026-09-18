@@ -27,13 +27,8 @@ function Accept-TeamTask($State, $Plan, [string]$Directory, [string]$TaskId, [st
 function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $null) {
     if ($State.status -in @('CANCELLED','COMPLETED','ESCALATED')) { Stop-TeamError 80 'Run is not available for integration' }
     if (-not $Manifest) { $Manifest=Read-TeamData (Join-Path $Directory 'manifest.yaml') }
-    if (-not $State.integration_worktree) {
-        Assert-TeamWorktreeCapacity $State.repo
-        $path = Get-TeamChild $State.repo ".worktrees/$($State.run_id)-integration"
-        $null = Invoke-TeamGit $State.repo @('worktree','add','-b',$State.integration_branch,$path,$State.run_base_sha)
-        $State.integration_worktree = $path
-        Save-TeamState $State $Directory
-    }
+    Initialize-TeamIntegrationTree $State $Directory
+    Restore-TeamIntegration $State $Plan $Manifest $Directory
     $tree = $State.integration_worktree
     if (Invoke-TeamGit $tree @('status','--porcelain','--untracked-files=all')) { Stop-TeamError 80 'Integration worktree is dirty; reconcile before integration' }
     if ((Invoke-TeamGit $tree @('rev-parse','HEAD')) -cne $State.last_good_integration_sha) { Stop-TeamError 80 'Integration HEAD differs from last accepted checkpoint' }
@@ -50,9 +45,12 @@ function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $
             if ($previous['rollback_commit'] -and -not $previous['noop'] -and $previous.worker_commit -ceq $item.commit) { Stop-TeamError 80 'A reverted source commit cannot be merged again unchanged; replan or use an integration repair' }
         }
         $before = $State.last_good_integration_sha
+        $operation=@{id=('MERGE-'+[guid]::NewGuid().ToString('N'));run_id=$State.run_id;plan_hash=$State.plan_hash;
+            task_id=$taskId;attempt=$item.attempts;worker_commit=$item.commit;before=$before;phase='prepared'}
+        Save-TeamIntegrationOperation $Directory $operation
         Add-TeamEvent $Directory 'integration_started' @{ task_id = $taskId; base_sha = $before; commit = $item.commit }
         # Merge only into the run-owned integration worktree, never the caller's branch.
-        $mergeOutput = & git -C $tree merge --no-ff --no-edit $item.commit 2>&1
+        $mergeOutput = & git -C $tree merge --no-ff -m "Team integration $($operation.id)" $item.commit 2>&1
         if ($LASTEXITCODE -ne 0) {
             $conflicts = Invoke-TeamGit $tree @('diff','--name-only','--diff-filter=U')
             if (-not $conflicts) { Stop-TeamError 80 'Git merge failed without merge conflicts; inspect Git state before recovery' }
@@ -60,31 +58,14 @@ function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $
                 task_id = $taskId; base_sha = $before; conflicts = @($conflicts -split "`n" | Where-Object { $_ })
                 write_scope_policy = 'conflict_files_plus_explicit_glue_scope'; may_change_interfaces = $false
             }
+            $operation.phase='conflict'; Save-TeamIntegrationOperation $Directory $operation
             $State.status = 'PAUSED'; Save-TeamState $State $Directory
             Add-TeamEvent $Directory 'integration_conflict' @{ task_id = $taskId }
             Stop-TeamError 81 'Integration conflict retained; Lead must approve a bounded integration task or rollback'
         }
         $mergedHead = Invoke-TeamGit $tree @('rev-parse','HEAD')
-        $checkpointRecord=@{ task_id=$taskId;attempt=$item.attempts;before=$before;after=$mergedHead;worker_commit=$item.commit;verified=$false;noop=($mergedHead -ceq $before) }
-        Save-TeamCheckpoint $Directory $checkpointRecord
-        $verificationDirectory=Join-Path $Directory "integration-evidence/$taskId-a$($item.attempts)-$mergedHead"
-        [IO.Directory]::CreateDirectory($verificationDirectory) | Out-Null
-        try { $null = Invoke-TeamVerification $task.verification $tree $verificationDirectory 'verification' $Manifest.runtime }
-        catch { $State.status = 'PAUSED'; Save-TeamState $State $Directory; throw }
-        $checkpoint = Invoke-TeamGit $tree @('rev-parse','HEAD')
-        if ((Invoke-TeamGit $tree @('diff','HEAD','--name-only')) -or $checkpoint -cne $mergedHead) { Stop-TeamError 82 'Integration verification modified source or HEAD' }
-        $State.last_good_integration_sha = $checkpoint; $item.status = 'MERGED'
-        $State['last_merged_task']=$taskId
-        if ($State.Contains('repairs') -and $State.repairs.Contains($taskId)) {
-            $repair = $State.repairs[$taskId]
-            $sources=if ($repair['source_commits']) {@($repair.source_commits)} else {@($repair.source_commit)}
-            foreach ($source in $sources) { $null = Invoke-TeamGit $tree @('merge-base','--is-ancestor',$source,$checkpoint) }
-            foreach ($sourceId in @(Get-TeamRepairSources $repair)) { $State.tasks[$sourceId].status='MERGED' }
-        }
-        $checkpointRecord.verified=$true; $checkpointRecord['evidence_directory']=$verificationDirectory
-        Save-TeamCheckpoint $Directory $checkpointRecord
-        Save-TeamState $State $Directory
-        Add-TeamEvent $Directory 'task_merged' @{ task_id = $taskId; commit = $checkpoint }
+        $operation.phase='merged'; $operation['after']=$mergedHead; Save-TeamIntegrationOperation $Directory $operation
+        Complete-TeamIntegrationCheckpoint $State $Plan $Manifest $Directory $operation
     }
     $remaining = @($State.tasks.Values | Where-Object { $_.status -notin @('MERGED','CLEANED') })
     if ($remaining.Count) { $State.status = 'PAUSED' }
@@ -123,6 +104,7 @@ function Resume-TeamRun($State, $Plan, $Manifest, [string]$Directory) {
     $null = Test-TeamPlan $Plan $Manifest
     if (-not $Manifest.team.enabled) { Stop-TeamError 20 'Team disabled' }
     if (Test-Path -LiteralPath (Join-Path $Directory 'cancel.request.json')) { Stop-TeamError 80 'Cancelled run cannot resume' }
+    Restore-TeamIntegration $State $Plan $Manifest $Directory
     Assert-TeamRecovery $State $Plan $Directory
     Assert-TeamActionApproval $State $Plan $Directory
     Assert-TeamReviewRound $State $Plan $Directory
