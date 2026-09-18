@@ -71,7 +71,7 @@ foreach ($path in $Repo) {
         }
     }
     $files = [ordered]@{
-        $agentName = $hook.TrimEnd() + "`n`n" + $body
+        $agentName = $hook.TrimEnd() + $(if ($body.Length) {"`n`n" + $body} else {"`n"})
         '.gitignore' = $newIgnore
         'team/scripts/team.ps1' = $launcher.TrimEnd() + "`n"
     }
