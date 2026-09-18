@@ -62,6 +62,18 @@ function Invoke-TeamPrerequisites($State, $Plan, $Manifest, [string]$Directory, 
         foreach ($item in $declared) {
             $command = $item['restore']
             if (-not $command) { continue }
+            $previous = Read-TeamPrerequisiteState $Directory
+            if ($previous -and $previous.status -eq 'PASSED') {
+                # Invalidate before launching: a failed or interrupted restore may already
+                # have removed the fixture. Keep the original success and command evidence.
+                $history = Get-TeamChild $Directory ('prerequisites/history/' + [guid]::NewGuid().ToString('N') + '.json')
+                [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($history)) | Out-Null
+                [IO.File]::Copy((Join-Path $Directory 'prerequisites.json'), $history, $false)
+                $previous.status = 'INVALIDATED'
+                $previous['restore_reason'] = $Reason
+                $previous['timestamp'] = [DateTime]::UtcNow.ToString('o')
+                Write-TeamData (Join-Path $Directory 'prerequisites.json') $previous
+            }
             $evidenceDirectory = Get-TeamChild $root ("restore-$($item.id)-" + [guid]::NewGuid().ToString('N'))
             $entry = Invoke-TeamDeclaredCommand $command $State.repo $evidenceDirectory "restore-$($item.id)" $runtime
             $restored += @{ id = $item.id; exit_code = $entry.exit_code; directory = (Get-TeamRootRelativePath $Directory $evidenceDirectory) }

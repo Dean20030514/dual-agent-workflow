@@ -680,6 +680,49 @@ Describe 'Archive and finalize lifecycle' {
         @($again.results)[0].worktree_removed | Should -BeTrue
         (Invoke-TeamGit $repo @('rev-parse','HEAD')) | Should -Be $base
     }
+    It 'refuses root and ancestor junctions before inventory or deletion' {
+        $repo = New-TestRepo 'root-junction'
+        Set-Content -LiteralPath (Join-Path $repo 'src.txt') 'base'
+        $base = Add-TestCommit $repo 'test: base'
+        $worktree = New-TestRunWorktree $repo 'runlink' $base
+        $run = New-TestRunDirectory $repo 'runlink' $worktree.branch $worktree.path $base $base
+        $null = Invoke-TeamGit $repo @('worktree','remove',$worktree.path)
+        $outside = Join-Path $TestDrive 'outside-sentinel'
+        [IO.Directory]::CreateDirectory($outside) | Out-Null
+        $sentinel = Join-Path $outside 'sentinel.txt'
+        Set-Content -LiteralPath $sentinel 'must survive'
+        $hash = Get-TeamHash $sentinel
+        $null = New-Item -ItemType Junction -Path $worktree.path -Target $outside
+        try {
+            $applied = Invoke-TeamFinalize $run.state $run.directory -Apply
+            $applied.outcome | Should -Be 'partial'
+            $applied.results[0].exit_code | Should -Be 82
+            (Get-TeamHash $sentinel) | Should -Be $hash
+            $entry = @{ path='sentinel.txt'; bytes=(Get-Item $sentinel).Length; sha256=$hash }
+            (Catch-TeamError { Remove-TeamFinalizeResidue $worktree.path @($entry) }).Data['TeamExitCode'] | Should -Be 82
+            $child = Join-Path $outside 'child'
+            [IO.Directory]::CreateDirectory($child) | Out-Null
+            (Catch-TeamError { Get-TeamWorktreeLooseInventory (Join-Path $worktree.path 'child') -FilesystemOnly }).Data['TeamExitCode'] | Should -Be 82
+            (Get-TeamHash $sentinel) | Should -Be $hash
+            (Get-TeamRefState $repo $worktree.branch).exists | Should -BeTrue
+        } finally { [IO.Directory]::Delete($worktree.path, $false) }
+    }
+    It 'retries an archive interrupted before its first receipt without losing copied evidence' {
+        $repo = New-TestRepo 'partial-archive'
+        Set-Content -LiteralPath (Join-Path $repo 'src.txt') 'base'
+        $base = Add-TestCommit $repo 'test: base'
+        $worktree = New-TestRunWorktree $repo 'runpartial' $base
+        $run = New-TestRunDirectory $repo 'runpartial' $worktree.branch $worktree.path $base $base
+        $partial = Join-Path $run.directory 'finalize/targets/T1-a1/files'
+        [IO.Directory]::CreateDirectory($partial) | Out-Null
+        $copied = Copy-TeamArchiveFile (Join-Path $worktree.path 'src.txt') $partial 'src.txt'
+        $applied = Invoke-TeamFinalize $run.state $run.directory -Apply
+        $applied.outcome | Should -Be 'completed'
+        (Test-Path -LiteralPath $worktree.path) | Should -BeFalse
+        $history = @(Get-ChildItem -LiteralPath (Join-Path $run.directory 'finalize/preserved') -Recurse -Filter src.txt)
+        $history.Count | Should -Be 1
+        (Get-TeamHash $history[0].FullName) | Should -Be $copied.sha256
+    }
     It 'preserves a target whose inventory cannot be archived instead of deleting it' {
         $repo = New-TestRepo 'preserve'
         Set-Content -LiteralPath (Join-Path $repo 'src.txt') 'base'
@@ -691,6 +734,7 @@ Describe 'Archive and finalize lifecycle' {
         try {
             $applied = Invoke-TeamFinalize $run.state $run.directory -Apply
             $result = @($applied.results)[0]
+            $applied.outcome | Should -Be 'partial'
             $result.preserved | Should -BeTrue
             $result.preserve_reason | Should -Match 'bounded archive limit'
             $result.worktree_removed | Should -BeFalse
@@ -723,6 +767,32 @@ Describe 'Archive and finalize lifecycle' {
 }
 
 Describe 'Pre-dispatch prerequisites' {
+    It 'invalidates passed setup before restore even when restore fails (<RestoreCode>)' -TestCases @(@{ RestoreCode=0 }, @{ RestoreCode=5 }) {
+        param($RestoreCode)
+        $directory = Join-Path $TestDrive "restore-passed-$RestoreCode"
+        [IO.Directory]::CreateDirectory($directory) | Out-Null
+        $marker = Join-Path $directory 'fixture.txt'
+        $state = @{ plan_hash=('a' * 64); repo=$directory }
+        $manifest = @{ runtime=(New-TestRuntime) }
+        $plan = @{ run=@{ revision=1 }; prerequisites=@(@{ id='fixture'; executable='pwsh'; timeout_seconds=60
+            args=@('-NoProfile','-Command',"Set-Content -LiteralPath '$marker' ready")
+            restore=@{ executable='pwsh'; timeout_seconds=60
+                args=@('-NoProfile','-Command',"Remove-Item -LiteralPath '$marker'; exit $RestoreCode") } }) }
+        $null = Invoke-TeamPrerequisites $state $plan $manifest $directory
+        $oldHash = Get-TeamHash (Join-Path $directory 'prerequisites.json')
+        if ($RestoreCode) {
+            (Catch-TeamError { Invoke-TeamPrerequisites $state $plan $manifest $directory -Restore -Reason 'fixture teardown' }).Data['TeamExitCode'] | Should -Be 40
+        } else { $null = Invoke-TeamPrerequisites $state $plan $manifest $directory -Restore -Reason 'fixture teardown' }
+        (Test-TeamPrerequisitesSatisfied $directory $state.plan_hash) | Should -BeFalse
+        (Test-Path -LiteralPath $marker) | Should -BeFalse
+        $history = @(Get-ChildItem -LiteralPath (Join-Path $directory 'prerequisites/history') -Filter '*.json')
+        $history.Count | Should -Be 1
+        (Get-TeamHash $history[0].FullName) | Should -Be $oldHash
+        $result = Invoke-TeamPrerequisites $state $plan $manifest $directory
+        $result.status | Should -Be 'PASSED'
+        (Test-Path -LiteralPath $marker) | Should -BeTrue
+        @($result.attempts).Count | Should -Be 2
+    }
     It 'records NOT_DECLARED for a plan without prerequisites and admits the run' {
         $directory = Join-Path $TestDrive ('prereq-none-' + [guid]::NewGuid().ToString('N'))
         [IO.Directory]::CreateDirectory($directory) | Out-Null
@@ -822,6 +892,16 @@ Describe 'Infrastructure recovery versus business replans' {
             $manifest = @{ budget = @{ max_worker_retries = 2; max_agents_per_run = 10; max_parallel_agents_total = 6 } }
             return @{ directory = $directory; attempt = $attempt; state = $state; plan = $plan; manifest = $manifest }
         }
+    }
+    It 'keeps adapter timeout classification through real worker completion (<Kind>)' -TestCases @(@{ Kind='idle'; Eligible=$true }, @{ Kind='hard'; Eligible=$false }, @{ Kind='output'; Eligible=$false }) {
+        param($Kind, $Eligible)
+        $fixture = New-RecoveryFixture 31 $Kind
+        $fixture.state.status = 'RUNNING'
+        $fixture.state.tasks.T1.status = 'RUNNING'
+        $fixture.plan['classification'] = @{ level='routine' }
+        (Catch-TeamError { Complete-TeamWorkerSafely $fixture.state $fixture.plan.tasks[0] $fixture.directory $fixture.plan $fixture.manifest }).Data['TeamExitCode'] | Should -Be 31
+        $fixture.state.worker_failures['T1/worker_timeout'].infra_kind | Should -Be $Kind
+        (Test-TeamInfrastructureFailure $fixture.state $fixture.directory 'T1' $fixture.manifest).eligible | Should -Be $Eligible
     }
     It 'treats a recorded idle deadline as infrastructure and preserves the retired attempt' {
         $fixture = New-RecoveryFixture 31 'idle'

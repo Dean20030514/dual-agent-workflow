@@ -156,7 +156,19 @@ function Get-TeamReparseDetails([IO.FileSystemInfo]$Entry) {
     return @{ kind = $kind; link_type = $linkType; target = $target; supported = ($null -ne $kind) }
 }
 
+function Assert-TeamFinalizePhysicalPath([string]$Path) {
+    $current = [IO.Path]::GetFullPath($Path)
+    while ($current) {
+        $entry = Get-Item -LiteralPath $current -Force -ErrorAction SilentlyContinue
+        if ($entry -and ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+            Stop-TeamError 82 "Finalize refuses a linked root or ancestor: $current"
+        }
+        $current = [IO.Path]::GetDirectoryName($current)
+    }
+}
+
 function Get-TeamWorktreeLooseInventory([string]$Path, [switch]$FilesystemOnly, [switch]$IncludeTracked) {
+    Assert-TeamFinalizePhysicalPath $Path
     # Real pnpm worktrees contain many INTERNAL directory junctions. They are archived as
     # descriptors and never traversed: following one would duplicate content, and an
     # outside target would silently pull unrelated files into the archive. An entry type
@@ -234,6 +246,7 @@ function Get-TeamFinalizeInspection($State, $Target, [string]$Directory) {
     $repo = $State.repo
     $worktreesRoot = [IO.Path]::GetFullPath((Get-TeamChild $repo '.worktrees')).TrimEnd('\', '/')
     $path = [IO.Path]::GetFullPath($Target.path)
+    Assert-TeamFinalizePhysicalPath $path
     if ($Target.path -ine $path) { Stop-TeamError 82 "Recorded worktree path differs from the repository path: $($Target.path)" }
     if ($Target.path -cne $path) { Stop-TeamError 82 "Unsupported path case in the recorded worktree path: $($Target.path)" }
     if ([IO.Path]::GetDirectoryName($path) -ine $worktreesRoot) { Stop-TeamError 82 "Worktree is outside the run worktree root: $path" }
@@ -444,14 +457,17 @@ function Invoke-TeamFinalizeArchive($State, [string]$Directory, $Target, $Inspec
     $receiptPath = Join-Path $targetRoot 'receipt.json'
     $bundlePath = Join-Path $targetRoot 'branch.bundle'
     $receipt = if (Test-Path -LiteralPath $receiptPath) { Read-TeamData $receiptPath } else { $null }
-    if ($receipt -and $receipt['preserved'] -eq $true) {
-        if (-not $Inspection.bounded) { return $receipt }
-        # A failed preservation attempt is not an accepted archive. Keep all its evidence
+    $interrupted = -not $receipt -and @(Get-ChildItem -LiteralPath $targetRoot -Force).Count -gt 0
+    if ($interrupted -or ($receipt -and $receipt['preserved'] -eq $true)) {
+        if ($receipt -and -not $Inspection.bounded) { return $receipt }
+        # An interrupted or preserved attempt is not an accepted archive. Keep its evidence
         # intact, then retry from the freshly inspected current state after the obstacle clears.
         $historyRoot = Get-TeamChild $Directory 'finalize/preserved'
         $history = Get-TeamChild $historyRoot ($Target.key + '-' + [guid]::NewGuid().ToString('N'))
         $null = Get-TeamRootRelativePath $Directory $targetRoot
         $null = Get-TeamRootRelativePath $Directory $history
+        Assert-TeamFinalizePhysicalPath $targetRoot
+        Assert-TeamFinalizePhysicalPath $history
         [IO.Directory]::CreateDirectory($historyRoot) | Out-Null
         [IO.Directory]::Move($targetRoot, $history)
         [IO.Directory]::CreateDirectory($targetRoot) | Out-Null
@@ -611,6 +627,7 @@ function Invoke-TeamFinalizeArchive($State, [string]$Directory, $Target, $Inspec
 }
 
 function Remove-TeamFinalizeResidue([string]$Path, $ArchivedFiles = @(), $ArchivedLinks = @()) {
+    Assert-TeamFinalizePhysicalPath $Path
     # `git worktree remove` unregisters the worktree, deletes its files, and can still leave
     # Windows junctions and their now-empty parents behind. A surviving regular file is
     # deleted only when its bytes still match the archived entry exactly; unrecorded content
@@ -624,6 +641,7 @@ function Remove-TeamFinalizeResidue([string]$Path, $ArchivedFiles = @(), $Archiv
     $pending.Push([IO.DirectoryInfo]::new($Path))
     while ($pending.Count) {
         $current = $pending.Pop()
+        Assert-TeamFinalizePhysicalPath $current.FullName
         foreach ($child in @($current.GetFileSystemInfos())) {
             $relative = Get-TeamRootRelativePath $Path $child.FullName
             if ($child.Attributes -band [IO.FileAttributes]::ReparsePoint) {
@@ -847,7 +865,7 @@ function Invoke-TeamFinalize($State, [string]$Directory, [switch]$Apply) {
     Save-TeamState $State $Directory
     Add-TeamEvent $Directory 'run_finalized' @{ targets = $resultKeys; summary = $State.finalized }
     return @{ run_id = $State.run_id; status = $State.status; mode = 'apply'
-        outcome = $(if ($failedKeys.Count) { 'partial' } else { 'completed' })
+        outcome = $(if ($failedKeys.Count -or $preservedKeys.Count -or $pendingCount) { 'partial' } else { 'completed' })
         results = $results
         summary = @{ targets = $results.Count; worktrees_removed = $removedCount; refs_deleted = $refCount
             preserved = $preservedKeys.Count; failed = $failedKeys.Count; directory_removal_pending = $pendingCount }

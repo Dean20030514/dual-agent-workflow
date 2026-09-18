@@ -9,7 +9,7 @@ function Record-TeamWorkerFailure($State, $Plan, [string]$Directory, [string]$Ta
     $record=@{task_id=$TaskId;kind=$kind;attempt=$item.attempts;count=$count;exit_code=$Code;message=$Message;directory=$item.directory}
     # Only transport/start/idle evidence is infrastructure; the classifier never relabels
     # verification, review, business or scope failures to bypass a counter.
-    if ($InfraKind -in @('idle','hard','start','transport')) { $record['infra_kind']=$InfraKind }
+    if ($InfraKind -in @('idle','hard','output','start','transport')) { $record['infra_kind']=$InfraKind }
     $State.worker_failures[$key]=$record
     Add-TeamEvent $Directory 'worker_failure_recorded' $record
     if ($count -ge 2 -or ($Code -eq 82 -and $Plan.classification.level -eq 'critical')) {

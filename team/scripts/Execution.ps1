@@ -192,7 +192,12 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
     }
     if ($receipt.exit_code -ne 0) {
         $mapped = if ($receipt.exit_code -in @(10,31)) { $receipt.exit_code } else { 30 }
-        Stop-TeamError $mapped "Worker $($Task.id) exited $($receipt.exit_code)"
+        $failure = [InvalidOperationException]::new("Worker $($Task.id) exited $($receipt.exit_code)")
+        $failure.Data['TeamExitCode'] = $mapped
+        if ($mapped -eq 31 -and $receipt['timeout_kind'] -in @('idle','hard','output')) {
+            $failure.Data['InfraKind'] = [string]$receipt.timeout_kind
+        }
+        throw $failure
     }
     $native = Read-TeamData (Join-Path $item.directory 'agents.json')
     if ($native.agents.Count -lt 1 -or $native.agents.Count -gt $item.agent_limit) { Stop-TeamError 82 'Native agent receipt violates reservation' }
@@ -254,7 +259,7 @@ function Complete-TeamWorkerSafely($State, $Task, [string]$Directory, $Plan, $Ma
             else { 'FAILED' }
         if ($_.Exception.Data['TeamExitCode'] -eq 82) { Add-TeamEvent $Directory 'scope_violation' @{task_id=$Task.id;message=$_.Exception.Message} }
         if ($_.Exception.Data['TeamExitCode'] -eq 40) { Record-TeamVerificationFailure $State $Directory $Task.id }
-        Record-TeamWorkerFailure $State $Plan $Directory $Task.id ([int]$_.Exception.Data['TeamExitCode']) $_.Exception.Message
+        Record-TeamWorkerFailure $State $Plan $Directory $Task.id ([int]$_.Exception.Data['TeamExitCode']) $_.Exception.Message -InfraKind ([string]$_.Exception.Data['InfraKind'])
         if ($State.status -notin @('ESCALATED','CANCELLED')) { $State.status='PAUSED' }
         Save-TeamState $State $Directory
         throw
