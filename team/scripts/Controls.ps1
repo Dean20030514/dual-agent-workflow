@@ -1,4 +1,25 @@
 # The coordinator alone writes state. Concurrent cost reporters append immutable receipts.
+function Record-TeamWorkerFailure($State, $Plan, [string]$Directory, [string]$TaskId, [int]$Code, [string]$Message) {
+    $kind=switch ($Code) {82 {'scope_violation'};31 {'worker_timeout'};10 {'invalid_result'};50 {'review_failure'};80 {'missing_worker_evidence'};default {return}}
+    $item=$State.tasks[$TaskId]
+    if (-not $State['worker_failures']) { $State['worker_failures']=@{} }
+    $key="$TaskId/$kind"; $previous=$State.worker_failures[$key]
+    if ($previous -and $previous.attempt -eq $item.attempts) { return }
+    $count=1; if ($previous) { $count=[int]$previous.count+1 }
+    $record=@{task_id=$TaskId;kind=$kind;attempt=$item.attempts;count=$count;exit_code=$Code;message=$Message;directory=$item.directory}
+    $State.worker_failures[$key]=$record
+    Add-TeamEvent $Directory 'worker_failure_recorded' $record
+    if ($count -ge 2 -or ($Code -eq 82 -and $Plan.classification.level -eq 'critical')) {
+        New-TeamEscalation $State $Directory $kind 'Worker failure requires an owner decision before another attempt; original result, Git state and logs remain preserved.' $record
+    }
+}
+
+function Clear-TeamWorkerFailures($State, [string]$TaskId) {
+    if ($State['worker_failures']) {
+        foreach ($key in @($State.worker_failures.Keys)) { if ($key.StartsWith("$TaskId/",[StringComparison]::Ordinal)) { $State.worker_failures.Remove($key) } }
+    }
+}
+
 function Record-TeamVerificationFailure($State, [string]$Directory, [string]$TaskId) {
     $item=$State.tasks[$TaskId]
     $path=Join-Path $item.directory 'verification-evidence.json'

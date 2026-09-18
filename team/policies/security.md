@@ -33,3 +33,10 @@ Git 审计会拒绝已提交越界、未提交和未跟踪改动，不能恢复�
 不复制凭据或修改 DSH_HOME；Harness 使用原有登录态。只记录路由/版本和任务证据。
 stderr 含模型内部推理，仅留在本地 runtime；review 输入不包含这些日志。
 不要提交 runtime、凭据、session 或包含业务数据的原始日志。
+
+DSH Local Review 使用独立原生进程，guard 在 setup 阶段同时隐藏全部工具并注册不可放宽的执行拒绝，
+包括后续 scoped/dynamic 工具；收据必须证明单个 depth 0、read_only Agent。
+审查前后核对确切 HEAD 和干净工作树；这仍不是操作系统隔离。
+Reviewer 单独预留全局 Agent 名额；崩溃恢复读取原进程身份和持久收据，禁止未知结果下重复启动。
+stop 同时处理作者及本地 Reviewer；身份清理失败保留预留并阻断 replan，成功才结算。
+同快照失败 verdict 原样复用，不能通过重新调用模型抹去失败；额外执行请求须逐项留下处置证据。

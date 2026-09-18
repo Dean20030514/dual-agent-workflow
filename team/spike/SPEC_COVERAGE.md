@@ -7,7 +7,7 @@
 
 | 原文章节 | 对应实现/证据 | 尚需补齐或确认 |
 |---|---|---|
-| 0–4 架构、自治、Ground Truth、角色 | 原生 Codex/DSH、PS 控制面、Git/外部验证、SHA 验收 | 图中的 DSH Local Review 尚无独立执行阶段 |
+| 0–4 架构、自治、Ground Truth、角色 | 原生 Codex/DSH、PS 控制面、Git/外部验证、SHA 验收；独立 DSH Local Review 必经阶段，真实 LOCAL-NATIVE-013 完成交付 | 本地审查不替代 Critical Codex 9A/9B |
 | 5 逻辑别名、版本 pin、override | manifest、Preflight；真实 doctor 与错误版本 fixture | 当前只认证精确版本，未宣称更宽区间 |
 | 6 复用质量规则 | ReviewRounds 按已审 revision 聚合 9A/9B；逐问题归因/去重、争议裁决、streak/三轮上限/early-stop；真实两次 9A 失败→修复通过 | Team 两阶段映射不替代目标项目旧双审同 SHA 等额外要求；活动旧计数拒绝静默重置 |
 | 7–9 能力 Spike、降级矩阵 | 8 份 Spike 文档；L1/L2、fresh child、fork 空/非空前缀、Critical 真实验收；doctor 矩阵与 run/resume 准入接线；人类裁决保留明确标记的 L3 适配器扩展 | 原生 I1/O2 未改称 I3/O4；非空 fork 为专门双回合探针，不把普通单回合 Worker 声称为自动继承历史 |
@@ -17,16 +17,16 @@
 | 18–19 19 种角色与 role schema | 19 种领域能力/验证建议/指导；run 冻结定义，Task Packet 携带；真实 backend/frontend Worker 已验收 | 默认值是规划建议，不扩张具体 Task 的有效权限 |
 | 20 Integration 约束 | 完整角色合同进入 schema/packet；必须来自已记录冲突或回归，scope 绑定 conflict+显式 glue 决定；真实 Integration Worker 保留合同 | 接口/测试的语义判断由 Lead 审核，机械门负责范围和源提交祖先关系 |
 | 21–22 子 Agent 权限/深度/三种限额 | native guard 准入、实际创建记录、Result/Git 审计 | 权限为声明+原生继承，非 OS 沙箱；全局并发采取家族保守预留，尚无真实多 Worker+子 Agent 联合验收 |
-| 23–25 worktree/base/cleanup | 冻结 base、依赖从集成 SHA、MERGED 清理；Git fixture | DISCARDED 生命周期/清理尚缺 |
+| 23–25 worktree/base/cleanup | 冻结 base、依赖从集成 SHA、MERGED 清理；replan 归档 DISCARDED，干净且身份匹配才清理；Git fixture 覆盖删除任务、脏目录、重复修订与替换恢复 | 废弃分支及证据保留，不强删脏 worktree |
 | 26–30 Packet、范围、启动 | schemas、adapter、Git diff 范围审计、`scope_violation` 事件；真实 L1；确认未启动才重试一次，逐次 launch 收据及二次失败升级 | 重试为本地真实进程/故障注入验收，不声称模拟了原生服务端故障 |
 | 31–32 状态机、原子持久化 | State、Core 原子替换；state schema 约束任务状态、SHA、计数、恢复必填字段 | 各持久化步骤间的中断点尚未逐一注入 |
-| 33 恢复 | PID+UTC ticks、native PID、exit receipt、Result、Git、events、集成 checkpoint；CRASH-NATIVE-011 在真实 DSH 受控等待点终止 coordinator，存活时拒绝 resume、结束后单 attempt 接续并完成集成 | checkpoint 落盘窗口自动协调尚待补齐；一次进程崩溃点不代表全部持久化窗口 |
+| 33 恢复 | PID+UTC ticks、native PID、exit receipt、Result、Git、events、集成 checkpoint；CRASH-NATIVE-011 在真实 DSH 等待点终止 coordinator 后单 attempt 恢复并集成；独立 Local Review 的崩溃/stop 由真实进程与替身 CLI 验证 | checkpoint 落盘窗口自动协调尚待补齐；一次进程崩溃点不代表全部持久化窗口 |
 | 34–35 受影响子图、修订、保留 ACCEPTED | Contracts/Recovery；fixture 保留无关 ACCEPTED | glob overlap 的候选集需补充交叉/传递边界测试 |
 | 36–38 fresh review、输入白名单、9P/A/B | 独立 Codex exec、stdin 白名单、read-only；真实 Critical 完成 | 需核对目标仓库旧 Critical 规则兼容性，不能以隔离 fixture 代替任意项目 |
 | 39 硬停 | hard_stop、ESCALATED、禁止下游；连续两轮 yes 硬停优先于轮次出口；CLI 反例覆盖 | 硬停后新任务的重拆/架构批准仍属于人类决策，不自动清除 hard_stop |
-| 40 验证顺序 | self-check→Git→外部命令→review→accept | 无 |
+| 40 验证顺序 | self-check→Git→外部命令→独立 DSH Local Review→Critical 9A（如适用）→Lead accept | 无 |
 | 41–43 集成/定位/rollback | DAG merge、task/attempt/SHA 检查点历史；按受影响子图倒序/连续 revert；原失败与 probe 保留；生成 Regression Task 并接入 Integration Worker；隔离 CLI 和真实 DSH 修复验收 | probe 是定位线索，失败可能来自缺失功能；V1 不自动宣称因果或运行完整 git bisect |
-| 44 失败目录 | Worker escalated Result 经 Git 审计后升级，真实 ESCALATE-NATIVE-007 验收；跨 attempt 相同验证失败证据二次升级由 CLI fixture 覆盖；启动二次失败升级且不消费 Agent 计数 | Critical/重复 scope 违规升级尚缺；不同输出是否同因仍由 Lead 判断 |
+| 44 失败目录 | Worker escalated Result 真实验收；跨 attempt 相同验证失败二次升级；启动二次失败升级且不消费 Agent；同类 scope/timeout/invalid Result/review/missing evidence 二次升级，Critical scope 首次升级；重复恢复不重复计数 | 不同输出是否同因仍由 Lead 判断；故障升级由进程/Git/替身 CLI 验证 |
 | 45 返回码 | team.ps1 统一 0/10/20/30/31/40/50/60/70/80/81/82/90 | 需确保异常恢复分支不会把可诊断错误误记 90 |
 | 46、71 费用软/硬限制 | Controls 收据队列；dispatch 与 native guard 动态读取 | 原生账单仍未知，人工录入有时间差；不得把 unknown usage 宣称为金额硬上限保证 |
 | 47–48 观察命令/watch | status/watch/escalations/cost/logs，Json、Since、Task、Follow | 终止/过滤语义仍需专门 CLI 验收 |
@@ -58,6 +58,7 @@
 | Read-WorkerResult | Contracts.ps1 |
 | Invoke-Verification | Execution.ps1 的 Invoke-TeamVerification |
 | Invoke-ReviewGate | Review.ps1 的 Invoke-TeamReview |
+| DSH Local Review | LocalReview.ps1；独立 Invoke-DshWorker.ps1 local-review 模式 |
 | Invoke-Integration | Integration.ps1；冲突任务在 Conflict.ps1 |
 | Invoke-Replan / Stop-Worker | Recovery.ps1 的 Invoke-TeamReplan / Stop-TeamOwnedProcesses |
 | Resume-TeamRun / Remove-Worktree | Integration.ps1 的 Resume-TeamRun / Remove-TeamWorktrees |

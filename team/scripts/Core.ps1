@@ -238,10 +238,11 @@ function Test-TeamProcessOutputLimit($Handle, [string[]]$AdditionalFiles = @()) 
     return $false
 }
 
-function Wait-TeamProcess($Handle, [int]$TimeoutSeconds = 60, [int]$IdleTimeoutSeconds = 0, [string[]]$AdditionalFiles = @()) {
+function Wait-TeamProcess($Handle, [int]$TimeoutSeconds = 60, [int]$IdleTimeoutSeconds = 0, [string[]]$AdditionalFiles = @(), [scriptblock]$OnTick = $null) {
     $lastBytes=0L; $lastActivity=$Handle.elapsed.Elapsed.TotalSeconds
     $rootExitAt=$null
     while ($true) {
+        if ($OnTick) { & $OnTick }
         $bytes=$Handle.out_capture.BytesRead+$Handle.err_capture.BytesRead
         if ($bytes -ne $lastBytes) { $lastActivity=$Handle.elapsed.Elapsed.TotalSeconds; $lastBytes=$bytes }
         $reason=if (Test-TeamProcessOutputLimit $Handle $AdditionalFiles) {'output limit'}

@@ -185,6 +185,7 @@ function Resolve-TeamReview($State, $Plan, [string]$Directory, [string]$Stage, [
         }
     }
     if ($Stage -eq '9A') { $State.tasks[$TaskId].status='REVIEW' }
+    if ($Stage -eq 'LOCAL') { $State.tasks[$TaskId].status='LOCAL_REVIEW' }
     $State.status='PAUSED'; Save-TeamState $State $Directory
     Add-TeamEvent $Directory 'review_evidence_dispositioned' @{stage=$Stage;task_id=$TaskId}
     return @{status='PAUSED';review=$label;handled=$needed.Count}

@@ -6,11 +6,11 @@ param(
     [string]$Run, [string]$Task, [string]$TaskText, [string]$Commit, [string]$Reason,
     [string]$Escalation, [ValidateSet('approve','reject','modify-plan')][string]$Decision,
     [double]$Amount = -1, [string]$Evidence, [string]$ExpectedMode,
-    [ValidateSet('9P','9A','9B')][string]$Stage, [string]$Disposition,
+    [ValidateSet('9P','9A','9B','LOCAL')][string]$Stage, [string]$Disposition,
     [string[]]$ChangedPaths = @(), [string[]]$GlueScope = @(), [datetime]$Since = [datetime]::MinValue,
     [switch]$Json, [switch]$Follow, [switch]$AllowUnverifiedRuntime, [switch]$RepairLock
 )
-foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Integration','Recovery','ReviewRounds','Review','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
+foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
 $lock = $null; $runData = $null; $exitCode = 0
 try {
     $Repo = [IO.Path]::GetFullPath($Repo).TrimEnd([IO.Path]::DirectorySeparatorChar)

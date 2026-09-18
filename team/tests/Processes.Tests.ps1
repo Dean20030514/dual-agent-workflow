@@ -3,6 +3,7 @@ BeforeAll {
     . (Join-Path $script:TeamPath 'scripts/Core.ps1')
     . (Join-Path $script:TeamPath 'scripts/Contracts.ps1')
     . (Join-Path $script:TeamPath 'scripts/State.ps1')
+    . (Join-Path $script:TeamPath 'scripts/Controls.ps1')
     . (Join-Path $script:TeamPath 'scripts/Execution.ps1')
     . (Join-Path $script:TeamPath 'scripts/Recovery.ps1')
     $script:RealNewProcess=(Get-Command New-TeamProcess).ScriptBlock
@@ -283,6 +284,28 @@ Describe 'DSH retries only before native process creation' {
 }
 
 Describe 'Adapter startup exhaustion and coordinator handoff' {
+    It 'consumes an exited worker after delayed coordinator observation instead of timing it out' {
+        $plan=Read-TeamData (Join-Path $script:TeamPath 'tests/plans/L1-sql.yaml')
+        $manifest=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml'); $id=$plan.tasks[0].id
+        $state=@{run_id='DELAYED';status='CREATED';known_cost=0;agents_created=0;agents_reserved=0;order=@($id)
+            tasks=@{$id=@{status='READY';directory=$TestDrive;reserved=0}}}
+        $script:DelayedHandle=Start-FixtureProcess 'exit 0'
+        try {
+            $script:DelayedHandle.process.WaitForExit(10000) | Should -BeTrue
+            [IO.File]::WriteAllText((Join-Path $TestDrive 'adapter.stdout'),'')
+            $script:DelayedHandle.started=[datetime]::UtcNow.AddHours(-2)
+            $script:DelayedHandle.last_activity=[datetime]::UtcNow.AddHours(-2)
+            Mock Save-TeamState {}
+            Mock Sync-TeamCost {}
+            Mock Assert-TeamActionApproval {}
+            Mock Start-TeamWorker { $State.tasks[$Task.id].status='RUNNING'; return $script:DelayedHandle }
+            Mock Complete-TeamWorkerSafely { $State.tasks[$Task.id].status='REVIEW'; $State.status='PAUSED' }
+            $result=Invoke-TeamDispatch $state $plan $manifest $TestDrive
+            $result.status | Should -Be 'PAUSED'
+            $state.tasks[$id].status | Should -Be 'REVIEW'
+            Should -Invoke Complete-TeamWorkerSafely -Exactly 1
+        } finally { $null=Close-TeamProcess $script:DelayedHandle -Terminate }
+    }
     It 'retains two real command-resolution failures and escalates without consuming native agents' {
         $task=(Read-TeamData (Join-Path $script:TeamPath 'tests/plans/L1-sql.yaml')).tasks[0]
         $packet=@{schema_version=1;run_id='STARTUP';task_id=$task.id;role=@{id=$task.role;definition=(Get-TeamRole $task.role)}

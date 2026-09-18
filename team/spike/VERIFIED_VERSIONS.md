@@ -145,3 +145,21 @@ Lead 检查真实 diff 并按 SHA 接受，最终 integration `05e651ba2b647e054
 run=COMPLETED；final exit 0，stdout SHA-256 `d83afd5262e47eb0c5d7d7a17c6be3d038657227c048ff8fbc3960dac8986c43`。
 main 不变且干净；固定 wait/verify 脚本未改变。此验收覆盖该受控崩溃点下的真实原生连续执行，
 不代表所有 checkpoint 持久化窗口或崩溃后需要 replan 的路径均已验收。
+
+真实独立本地审查 `LOCAL-NATIVE-013`（临时根 `team-local-review-live-bd01faf9fd`，仓库位于 `repo/`）：
+DSH 0.1.5-rc.1、deepseek-official/deepseek-flash；作者 session
+`session-3048310b-6f94-43e1-b3ed-f2d8d231051d`；独立 Reviewer session
+`session-ced277e0-2357-464b-9887-6c1f0110478e`，收据 read_only=true、depth=0。
+base/main `9c3b931b6d345dfdf2d00878442e271bcd0d568f`；作者 commit
+`8d0f61f62294347701e8a4ebb4de392c70a1bd46`，只新增 `queries/health.sql`，外部验证 exit 0。
+本地 verdict=pass、无 blocking，但要求补充 Git 干净状态与唯一目标文件证据；首次 run 返回 70。
+随后 resolve-review LOCAL 实际执行所需 Git 检查，exit 0 / GIT_SNAPSHOT_PASS；resume 复用原 verdict，
+作者 attempt=1、累计 Agent=2、预留=0。Lead 按 SHA 接受后集成完成，run=COMPLETED；main 不变且干净。
+最终 integration `da2ddc7392f7256a8a4c2390cf5c18993cbed031`。
+verdict SHA-256 `80b6210f0f8f85873bfcd39e14c9aec3e410f44bc51f26f62478f47282bb2d3a`；
+输入 SHA-256 `cf68e2d282043bf240b027e7069d38339c748db90a8f8a2304472b2f44f97161`；
+补证 `VN-LOCAL-SQL-001-0-evidence.json` SHA-256
+`50c21b2cef14f11c85039e829449a669068bfebb42f7e3b9316d8fd6f2784b13`。
+临时根 acceptance.json 保留精简断言；原始审查 holding 与会话仅留在本机。
+可复用付费探针为 Test-NativeLocalReview.ps1；若模型提出 VN，脚本保留根目录并停止自动推进，
+须按实际请求 resolve-review、resume、accept、integrate，不能自动编造补证处置。

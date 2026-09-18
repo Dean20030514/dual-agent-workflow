@@ -5,6 +5,11 @@
 schema/DAG/范围/锁/进程超时的机械测试；使用替身 CLI 的 L2 DAG 与 Critical gate 接线。
 当前测试数与最终结果由本任务的实际输出记录，不把历史通过数当本次回归结论。
 
+真实独立 DSH Local Review 已由 LOCAL-NATIVE-013 验证：作者与 Reviewer 为不同原生 session，
+后者禁用工具、提出一项 Git 补证，经外部进程实跑后复用原 verdict，Lead 验收并完成集成。
+本地 Reviewer 中断/恢复、stop、拒绝写入及 DISCARDED 清理由真实进程/Git 加替身 CLI 验证，
+不将这些故障注入称为真实模型故障验收。
+
 真实 Critical 端到端已完成：`CRITICAL-SMOKE-002` 的 9P、9A、fresh 9B 均返回 pass，
 9P 的未来实现检查以技术理由逐项处置，9A 要求的 git status 检查实际执行 exit 0；
 9B 无 Blocking/VN，run=COMPLETED。首次 schema 与仓外读取失败仍保留，未伪装为通过。

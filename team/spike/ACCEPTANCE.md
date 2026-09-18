@@ -192,3 +192,34 @@ native guard **5 passed / 0 failed**、派生漂移门 17 对/292 行、git diff
 本机真实 doctor 再次 exit 0，五个必要服务均在启用列表。
 该补充之后运行 provider 负例、L3 准入/恢复和 L2/L3 冲突集成定向回归，
 **4 passed / 0 failed**，exit 0，72.54 秒。分次测试不合称一次完整 128 项回归。
+
+# 第十二批：独立本地审查、废弃任务与重复失败
+
+每个成功 Worker 在外部验证后进入独立原生 DSH Local Review，再进入 Critical 9A（如适用）
+和 Lead 验收。禁用全部工具，输入不含作者聊天或推理；verdict、输入、plan hash 与 tip 绑定。
+补证必须逐项处置并 resume，不能跳过 9A；失败审查不能靠重复模型调用覆盖。
+Reviewer 纳入全局 Agent 预留/累计数，独立保存 adapter/native PID 与退出收据。
+替身 CLI 加真实进程覆盖审查失败、无效 JSON、写入快照、补证、协调器崩溃恢复和 stop；
+崩溃恢复复用原审查，作者 attempt 不变。首次 stop 测试揭示 StrictMode 下缺失 closed 属性的
+清理异常，修复为可空键读取后，stop 与跨 attempt 重复失败定向测试 3 passed / 0 failed，exit 0。
+
+replan 把受影响的旧 attempt 归档为 DISCARDED，包含从新计划删除的任务；
+cleanup 核对 packet、路径、分支、实际 Git tip 与干净状态，只移除 worktree，保留分支和证据。
+实际 Git fixture 覆盖脏目录拒绝、重复修订不重复归档、清理后派发替换 attempt、无关 ACCEPTED 保留。
+同类 Worker 失败按不同 attempt 计数，两次升级；Critical 范围违规一次升级。
+重复 resume 不重复计数；无效 Result 的失败 run 现明确 PAUSED，避免留在 RUNNING。
+
+真实 LOCAL-NATIVE-013 首次本地审查 pass 并提出一项 Git 补证，run 返回 70，未伪装为直接通过。
+随后外部进程实跑补证 exit 0，resume 复用原 verdict，Lead 验收并集成，最终 COMPLETED。
+作者和 Reviewer 使用两个不同 DSH session，Reviewer 收据 read_only=true，累计 Agent=2，预留=0；
+main 不变且干净。具体 SHA、session 和哈希见 VERIFIED_VERSIONS。
+
+本批自查修复协调器延迟收取已退出 Worker 时的超时误判：仅对仍在运行的进程套用当前时钟，
+已退出进程仍检查输出上限并读取 adapter 的真实超时/退出收据，不跳过原生期限。
+本批完整 Pester 运行 **141 passed / 2 failed**，exit 1，947.75 秒：失败分别为进程测试漏加载
+Controls，以及旧审查文件总数断言未区分新增的两份 LOCAL verdict。前者补齐测试依赖，后者
+保留原有四份 Critical verdict 断言并另断言两份 LOCAL；没有跳过或放宽产品门禁。
+两个失败及上述并发修复均在以下后续定向运行中验证通过，不合称一次最终全量 144 项通过。
+最终进程测试 **25 passed / 0 failed**，exit 0，22.46 秒；并发 DAG 与 Critical 修复轮次
+CLI 定向回归 **2 passed / 0 failed**，exit 0，64.71 秒。
+native guard **6 passed / 0 failed**、派生漂移门 17 对/292 行均 exit 0。

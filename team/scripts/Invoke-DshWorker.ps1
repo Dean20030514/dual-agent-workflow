@@ -9,7 +9,9 @@ param(
     [string]$Profile = 'headless',
     [int]$TimeoutSeconds = 3600,
     [int]$IdleTimeoutSeconds = 900,
-    [int]$MaxSingleLogMb = 50
+    [int]$MaxSingleLogMb = 50,
+    [ValidateSet('worker','local-review')][string]$Mode = 'worker',
+    [string]$PromptFile
 )
 . (Join-Path $PSScriptRoot 'Core.ps1')
 . (Join-Path $PSScriptRoot 'Contracts.ps1')
@@ -44,6 +46,10 @@ $(Get-Content -LiteralPath $TaskFile -Raw)
 Result schema:
 $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.json') -Raw)
 "@
+    if ($Mode -eq 'local-review') {
+        if (-not $PromptFile) { Stop-TeamError 10 'Local review requires its allowlisted prompt file' }
+        $prompt=[IO.File]::ReadAllText($PromptFile)
+    }
     $handle = Start-TeamDshProcess $directory $Worktree @('--profile',$Profile,'--patch',$Patch,$prompt) ($MaxSingleLogMb * 1MB)
     $launchAttempts=$handle.launch_attempts
     Write-TeamData (Join-Path $directory 'native-process.json') @{
@@ -51,7 +57,7 @@ $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.js
     }
     $code = Wait-TeamProcess $handle $TimeoutSeconds $IdleTimeoutSeconds
     if ($code -eq 0) {
-        $parsed = Read-TeamWorkerOutput (Join-Path $directory 'worker.stdout')
+        $parsed = Read-TeamWorkerOutput (Join-Path $directory 'worker.stdout') -Schema $(if ($Mode -eq 'local-review') {'review'} else {'result'})
         Write-TeamData (Join-Path $directory 'result-source.json') @{format=$parsed.format;stdout_sha256=$parsed.stdout_sha256}
         Write-TeamData $OutputFile $parsed.packet
     }

@@ -35,6 +35,17 @@ export function installGuard(registry, config) {
       model: options.agentOptions.model, cwd: config.cwd, state: 'creating' };
     records.push(record); persist();
     try {
+      if (config.readOnly) {
+        const setup = options.setup;
+        options = { ...options, setup: (agentCtx, agent) => {
+          setup?.(agentCtx, agent);
+          // Hide inherited tools and deny even scope-local or dynamically added
+          // capabilities through the native execution guard. No inference wrapper.
+          agentCtx.tools.restrict({ allow: [] });
+          agentCtx.tools.guard(() => 'TEAM_REVIEW_NO_TOOLS');
+        } };
+        record.read_only = true; persist();
+      }
       const handle = await create(options);
       record.state = 'created'; persist();
       return handle;

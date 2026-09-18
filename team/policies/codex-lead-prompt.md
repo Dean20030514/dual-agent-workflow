@@ -8,6 +8,8 @@ L1–L3 先生成含能力、角色、DAG、write_scope、acceptance、真实验
 
 读取 status/result/logs 的证据，对 REVIEW 的确切 SHA 执行 accept 或提出新 revision。
 每次有上游 accepted，先 integrate，再 resume 依赖任务。完整回归通过才考虑交付。
+每个 Worker 的独立 DSH Local Review 是必经阶段，预算应包含其额外 Agent 名额。
+LOCAL 的补证通过 resolve-review 逐项处置后 resume；不得用 Lead accept 绕过未通过的审查。
 Critical 的 9P/9A/9B 是独立新进程；不能代写 verdict 或让同上下文批准自己。
 scope、验收、接口变更必须更新 plan revision 并写 Decision Log。
 普通开发不另开人类审批；生产、凭据、不可逆动作、业务歧义、连续失败和预算硬限制升级。

@@ -16,6 +16,26 @@ $patchIndex = [array]::IndexOf($args, '--patch')
 $patch = Get-Content -LiteralPath $args[$patchIndex + 1] -Raw | ConvertFrom-Json -AsHashtable
 $guard = @($patch | Where-Object { $_.ContainsKey('insert') })[0].insert[0].config
 $prompt = $args[-1]
+if ($prompt -match '^Perform DSH LOCAL_REVIEW') {
+    $localTask=(($prompt -split 'Task packet:',2)[1] -split '(?m)^Base:',2)[0] | ConvertFrom-Json -AsHashtable
+    if (-not $guard.readOnly -or $guard.maxAgents -ne 1 -or $guard.maxDepth -ne 0) { exit 7 }
+    @{schema_version=1;agents=@(@{id='fixture-local-review';depth=0;state='created';read_only=$true;provider='deepseek-official';model='deepseek-flash';cwd=(Get-Location).Path})} |
+        ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $guard.receipt -Encoding utf8NoBOM
+    if ($localTask.objective[0] -eq 'LOCAL_SLEEP') { Start-Sleep -Seconds 30 }
+    if ($localTask.objective[0] -eq 'LOCAL_WAIT') {
+        $release=Join-Path (Split-Path $guard.receipt -Parent) 'release.test'
+        $deadline=[DateTime]::UtcNow.AddSeconds(40)
+        while (-not (Test-Path $release) -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 100 }
+        if (-not (Test-Path $release)) { exit 8 }
+    }
+    if ($localTask.objective[0] -eq 'LOCAL_INVALID') { Write-Output 'invalid local verdict'; exit 0 }
+    if ($localTask.objective[0] -eq 'LOCAL_WRITE') { Set-Content 'forbidden-review.txt' 'invalid mutation' }
+    $issues=@(); $needed=@()
+    if ($localTask.objective[0] -eq 'LOCAL_FAIL') { $issues=@(@{id='LOCAL-001';consequence='Synthetic local defect';evidence='Fixture input counterexample';caused_by_last_fix='no'}) }
+    if ($localTask.objective[0] -eq 'LOCAL_VN') { $needed=@('Check the fixture evidence') }
+    @{verdict=$(if ($issues.Count) {'fail'} else {'pass'});blocking_issues=$issues;verification_needed=$needed;writes_performed=$false} | ConvertTo-Json -Depth 20
+    exit 0
+}
 $packet = ($prompt -split 'Task packet:',2)[1] -split 'Result schema:',2
 $task = $packet[0] | ConvertFrom-Json -AsHashtable
 if (-not $task.role.definition -or $task.role.definition.role_id -cne $task.role.id) { exit 7 }

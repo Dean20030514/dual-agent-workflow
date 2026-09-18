@@ -2,7 +2,7 @@
 
 ```text
 Codex → 合法 Plan → DSH Worker 的独立 worktree → Result → 范围审计
-      → 外部验证 → Lead accept → integration → final verification
+      → 外部验证 → 独立 DSH Local Review → Lead accept → integration → final verification
 ```
 
 当前 DSH：I1 命令行输入 / O2 正文 stdout / E2 有界退出。
@@ -59,6 +59,11 @@ pwsh -NoProfile -File ./team/scripts/team.ps1 result -Run SQL-SMOKE-001 -Task SQ
 
 到 `REVIEW` 后，Lead 阅读实际 diff、Result 和 `verification-evidence.json`。
 没有重新请求人类审批；下面的 accept 是 Lead 对确切 commit 的验收记录。
+每个成功 Worker 还需一个独立 DSH Local Reviewer，两者都计入 Agent 总量和并发预算。
+本地审查禁用原生工具，只读取冻结的 Task、diff、项目规则和外部验证证据。
+若停在 `LOCAL_REVIEW` 并提出补证，用 `resolve-review -Stage LOCAL -Task <id> -Disposition <file>`
+逐条处置，再 `resume`；它复用原 verdict，不重跑作者或审查来寻找通过答案。
+Critical 在本地审查后仍须通过独立 9A，最终集成后仍须 fresh 9B。
 
 ```powershell
 pwsh -NoProfile -File ./team/scripts/team.ps1 accept -Repo C:/path/to/test-repo -Run SQL-SMOKE-001 -Task SQL-001 -Commit <full-worker-sha> -Reason '实际 diff 和外部验证满足验收' -Json
@@ -103,6 +108,12 @@ watch 每两秒读取新增事件，支持 `-Since`、`-Task`；PAUSED/ESCALATED
 Worker 的 escalated Result 返回 70，保留证据并等待升级决定；决定后须显式 replan，
 不能直接 accept。不同 attempt 两次验证失败的命令和输出完全相同时也会升级，
 此时保留原始 exit 40。`team.enabled=false` 拒绝继续执行和验收，仍可查询及 stop 已有任务。
+同一任务跨两次 attempt 的同类超时、Result 无效、审查失败、证据缺失或范围违规也会升级；
+Critical 范围违规首次即升级。同一 attempt 的重复恢复不增加次数，完整通过任务流水线才清除计数。
+
+显式 `replan` 将受影响的旧 attempt 归档为 `DISCARDED`，包括被新计划删除的任务。
+`cleanup` 只移除身份、分支、提交均匹配且干净的废弃 worktree；保留分支及原始证据，
+脏目录返回 80，不强删。归档仍为 DISCARDED，不把未集成工作记成 CLEANED。
 
 Critical 审查按已审 plan revision 聚合 9A/9B；9P 不计入修复轮次。
 归因争议需人类逐项裁决，三轮上限/early-stop 需人类决定，连续两轮修复引入缺陷硬停。

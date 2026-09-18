@@ -168,6 +168,25 @@ Describe 'Plan and routing contracts' {
 }
 
 Describe 'Persistence, process and repository guards' {
+    It 'escalates repeated attempt failures once per attempt for code <Code>' -ForEach @(
+        @{Code=31;Kind='worker_timeout'},@{Code=10;Kind='invalid_result'},@{Code=50;Kind='review_failure'},@{Code=80;Kind='missing_worker_evidence'}
+    ) {
+        Mock Add-TeamEvent {}
+        Mock New-TeamEscalation {}
+        $state=@{tasks=@{T=@{attempts=1;directory=$TestDrive}}}
+        $plan=@{classification=@{level='routine'}}
+        Record-TeamWorkerFailure $state $plan $TestDrive 'T' $Code 'Preserved failure'
+        Record-TeamWorkerFailure $state $plan $TestDrive 'T' $Code 'Repeated observation'
+        $state.worker_failures["T/$Kind"].count | Should -Be 1
+        Should -Invoke New-TeamEscalation -Times 0 -Exactly
+        $state.tasks.T.attempts=2
+        Record-TeamWorkerFailure $state $plan $TestDrive 'T' $Code 'Second failing attempt'
+        Record-TeamWorkerFailure $state $plan $TestDrive 'T' $Code 'Do not count again'
+        $state.worker_failures["T/$Kind"].count | Should -Be 2
+        Should -Invoke New-TeamEscalation -Times 1 -Exactly
+        Clear-TeamWorkerFailures $state 'T'
+        $state.worker_failures.Count | Should -Be 0
+    }
     It 'writes atomic JSON without leaving temporary files' {
         $path = Join-Path $TestDrive 'state.json'
         Write-TeamData $path @{value=1}; Write-TeamData $path @{value=2}

@@ -152,10 +152,12 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
     # Verification may generate files, but must not change tracked source or HEAD.
     if ((Invoke-TeamGit $item.worktree @('rev-parse','HEAD')) -cne $item.commit -or
         (Invoke-TeamGit $item.worktree @('diff','HEAD','--name-only'))) { Stop-TeamError 82 'Verification modified source' }
+    if (-not (Invoke-TeamLocalReview $State $Task $Manifest $Directory)) { return }
     if ($Plan -and $Plan.classification.level -eq 'critical') {
         $null = Invoke-TeamReview $State $Plan $Manifest $Directory '9A' $item.worktree $item.base_sha $item.commit $Task.id
     }
     $item.status = 'REVIEW'; $State.status = 'PAUSED'
+    Clear-TeamWorkerFailures $State $Task.id
     Save-TeamState $State $Directory
     Add-TeamEvent $Directory 'lead_review_required' @{ task_id = $Task.id; commit = $item.commit }
 }
@@ -168,12 +170,16 @@ function Complete-TeamWorkerSafely($State, $Task, [string]$Directory, $Plan, $Ma
             # Unknown usage consumes the reservation, including a worker orphaned by a coordinator crash.
             $State.agents_created += $item.reserved; $State.agents_reserved -= $item.reserved; $item.reserved=0
         }
-        $item.status = if ($_.Exception.Data['TeamExitCode'] -eq 82) { 'FAILED_SCOPE' }
+        $item.status = if ($item['cleanup_pending']) { 'LOCAL_REVIEW' }
+            elseif ($_.Exception.Data['TeamExitCode'] -eq 82) { 'FAILED_SCOPE' }
             elseif ($item.status -eq 'ESCALATED') { 'ESCALATED' }
+            elseif ($item['local_review_pending'] -and $_.Exception.Data['TeamExitCode'] -in @(70,80)) { 'LOCAL_REVIEW' }
             elseif ($_.Exception.Data['TeamExitCode'] -eq 70 -and $State.status -eq 'ESCALATED') { 'REVIEW' }
             else { 'FAILED' }
         if ($_.Exception.Data['TeamExitCode'] -eq 82) { Add-TeamEvent $Directory 'scope_violation' @{task_id=$Task.id;message=$_.Exception.Message} }
         if ($_.Exception.Data['TeamExitCode'] -eq 40) { Record-TeamVerificationFailure $State $Directory $Task.id }
+        Record-TeamWorkerFailure $State $Plan $Directory $Task.id ([int]$_.Exception.Data['TeamExitCode']) $_.Exception.Message
+        if ($State.status -notin @('ESCALATED','CANCELLED')) { $State.status='PAUSED' }
         Save-TeamState $State $Directory
         throw
     }
@@ -236,10 +242,15 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
                 $timeout = ([DateTime]::UtcNow - $handle.started).TotalSeconds -gt ($Manifest.runtime.timeout_seconds + 10)
                 $idle = ([DateTime]::UtcNow - $handle.last_activity).TotalSeconds -gt $Manifest.runtime.idle_timeout_seconds
                 $overLog = (Test-TeamProcessOutputLimit $handle) -or @($logs | Where-Object { $_.Length -gt ($Manifest.runtime.max_single_log_mb * 1MB) }).Count -gt 0
-                if ($timeout -or $idle -or $overLog) {
+                # Synchronous verification/review can delay observing another worker.
+                # Its adapter already enforces native deadlines and persists the outcome;
+                # elapsed coordinator time must not turn an exited success into a timeout.
+                if ((-not $handle.process.HasExited -and ($timeout -or $idle)) -or $overLog) {
                     $null = Close-TeamProcess $handle -Terminate; $handles.Remove($taskId)
                     $State.agents_created += $item.reserved; $State.agents_reserved -= $item.reserved; $item.reserved=0
                     $item.status = 'FAILED'; Save-TeamState $State $Directory
+                    Record-TeamWorkerFailure $State $Plan $Directory $taskId 31 'Worker timeout, idle timeout, or output limit reached'
+                    Save-TeamState $State $Directory
                     Stop-TeamError 31 'Worker timeout, idle timeout, or output limit reached'
                 }
                 if ($handle.process.HasExited) {

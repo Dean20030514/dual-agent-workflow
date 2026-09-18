@@ -56,3 +56,16 @@ test('live cost control blocks further children without stopping an existing fam
   assert.equal(f.count(), 2);
   assert.equal(JSON.parse(readFileSync(f.config.receipt)).agents.length, 2);
 });
+
+test('local review hides native tools and rejects even newly registered scoped capabilities', async () => {
+  const f = fixture(1, 0); f.config.readOnly = true;
+  const handle = await f.registry.create(f.options('review'));
+  let filter; let guard;
+  handle.agent.setup({tools: {
+    restrict: value => { filter = value; }, guard: value => { guard = value; },
+  }}, {});
+  assert.deepEqual(filter, {allow: []});
+  assert.equal(guard({tool: 'pwsh'}), 'TEAM_REVIEW_NO_TOOLS');
+  assert.equal(guard({tool: 'new_scoped_tool'}), 'TEAM_REVIEW_NO_TOOLS');
+  assert.equal(JSON.parse(readFileSync(f.config.receipt)).agents[0].read_only, true);
+});

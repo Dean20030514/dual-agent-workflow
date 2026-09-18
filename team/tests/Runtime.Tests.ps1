@@ -48,6 +48,164 @@ BeforeAll {
 AfterAll { $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'recovers a live local reviewer after coordinator crash without launching it twice' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('LOCAL_WAIT'); Write-TeamData $f.path $f.plan
+        $handle=New-TeamProcess 'pwsh' @('-NoProfile','-File',(Join-Path $script:TeamPath 'scripts/team.ps1'),'run','-Repo',$f.repo,'-Plan',$f.path,'-Json') $f.repo (Join-Path $TestDrive 'local-crash-out') (Join-Path $TestDrive 'local-crash-err')
+        try {
+            $deadline=[datetime]::UtcNow.AddSeconds(25); $ready=$false
+            do {
+                Start-Sleep -Milliseconds 100
+                if (Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/state.json')) {
+                    $s=State $f
+                    $ready=$s.tasks.T1['local_review'] -and (Test-Path (Join-Path $s.tasks.T1.local_review.directory 'agents.json'))
+                }
+            } while (-not $ready -and [datetime]::UtcNow -lt $deadline)
+            $ready | Should -BeTrue
+            $review=$s.tasks.T1.local_review
+            $handle.process.Kill(); $handle.process.WaitForExit()
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 80 -Because $r.raw
+            Set-Content (Join-Path $review.directory 'release.test') 'continue'
+            $deadline=[datetime]::UtcNow.AddSeconds(15)
+            do { Start-Sleep -Milliseconds 100 } while (-not (Test-Path (Join-Path $review.directory 'exit.json')) -and [datetime]::UtcNow -lt $deadline)
+            Test-Path (Join-Path $review.directory 'exit.json') | Should -BeTrue
+            $adapter=Get-TeamOwnedProcess $review.pid $review.process_start
+            if ($adapter) { $adapter.WaitForExit(5000) | Should -BeTrue }
+            $null=Close-TeamProcess $handle; $handle=$null
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+            $s=State $f; $s.tasks.T1.status | Should -Be 'REVIEW'; $s.tasks.T1.attempts | Should -Be 1
+            $s.tasks.T1.local_review.directory | Should -Be $review.directory
+            $s.agents_created | Should -Be 2; $s.agents_reserved | Should -Be 0
+            Accept-All $f
+        } finally {
+            if ($handle) { $null=Close-TeamProcess $handle -Terminate }
+            if (Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/state.json')) { $null=Invoke-Cli @('stop','-Repo',$f.repo,'-Run','FIXTURE','-Json') }
+        }
+    }
+    It 'honors stop during a local review and releases only its owned processes and reservation' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('LOCAL_SLEEP'); Write-TeamData $f.path $f.plan
+        $handle=New-TeamProcess 'pwsh' @('-NoProfile','-File',(Join-Path $script:TeamPath 'scripts/team.ps1'),'run','-Repo',$f.repo,'-Plan',$f.path,'-Json') $f.repo (Join-Path $TestDrive 'local-stop-out') (Join-Path $TestDrive 'local-stop-err')
+        try {
+            $deadline=[datetime]::UtcNow.AddSeconds(25); $ready=$false
+            do {
+                Start-Sleep -Milliseconds 100
+                if (Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/state.json')) {
+                    $s=State $f; $ready=$s.tasks.T1['local_review'] -and (Test-Path (Join-Path $s.tasks.T1.local_review.directory 'agents.json'))
+                }
+            } while (-not $ready -and [datetime]::UtcNow -lt $deadline)
+            $ready | Should -BeTrue
+            $review=$s.tasks.T1.local_review
+            $r=Invoke-Cli @('stop','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+            $processExit=Wait-TeamProcess $handle 20; $handle=$null
+            $processExit | Should -Be 0 -Because ((Get-Content (Join-Path $TestDrive 'local-stop-out') -Raw) + ((State $f).tasks.T1.local_review | ConvertTo-Json -Depth 10))
+            $s=State $f; $s.status | Should -Be 'CANCELLED'; $s.agents_reserved | Should -Be 0
+            Get-TeamOwnedProcess $review.pid $review.process_start | Should -BeNullOrEmpty
+            Test-Path (Join-Path $review.directory 'worker.stdout') | Should -BeTrue
+        } finally {
+            if (Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/state.json')) { $null=Invoke-Cli @('stop','-Repo',$f.repo,'-Run','FIXTURE','-Json') }
+            if ($handle -and -not $handle['closed']) { $null=Close-TeamProcess $handle -Terminate }
+        }
+    }
+    It 'requires a bound DSH local review and preserves its failure or mutation evidence for <Objective>' -ForEach @(
+        @{Objective='LOCAL_FAIL';Code=50},@{Objective='LOCAL_INVALID';Code=50},@{Objective='LOCAL_WRITE';Code=82}
+    ) {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@($Objective); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be $Code -Because $r.raw
+        $s=State $f; $s.agents_created | Should -Be 2; $s.agents_reserved | Should -Be 0
+        $s.tasks.T1.status | Should -Not -Be 'REVIEW'
+        Test-Path (Join-Path $s.tasks.T1.local_review.directory 'exit.json') | Should -BeTrue
+        $r=Invoke-Cli @('accept','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Commit',$s.tasks.T1.commit,'-Reason','Cannot waive local review','-Json')
+        $r.code | Should -Be 50
+        (State $f).agents_created | Should -Be 2
+        if ($Objective -eq 'LOCAL_WRITE') { Test-Path (Join-Path $s.tasks.T1.worktree 'forbidden-review.txt') | Should -BeTrue }
+        (Invoke-TeamGit $f.repo @('rev-parse','main')) | Should -Be $f.base
+    }
+    It 'handles local evidence requests before Critical 9A without repeating the author or local reviewer' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('LOCAL_VN'); $f.plan.classification.level='critical'
+        $f.plan.review.require_9p=$true; $f.plan.review.require_fresh_9b=$true; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 70 -Because $r.raw
+        $s=State $f; $s.tasks.T1.status | Should -Be 'LOCAL_REVIEW'
+        $dir=Join-Path $f.repo 'team/runtime/FIXTURE'
+        Test-Path (Join-Path $dir 'reviews/9A-T1.json') | Should -BeFalse
+        $disposition=Join-Path $TestDrive 'local-disposition.json'
+        Write-TeamData $disposition @(@{index=0;action='verify';reason='Run the requested independent fact';command=@{id='fact';executable='pwsh';args=@('-NoProfile','-Command','exit 0');timeout_seconds=10}})
+        $r=Invoke-Cli @('resolve-review','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Stage','LOCAL','-Disposition',$disposition,'-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $r=Invoke-Cli @('accept','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Commit',$s.tasks.T1.commit,'-Reason','Critical review still missing','-Json')
+        $r.code | Should -Be 50
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        (State $f).tasks.T1.status | Should -Be 'REVIEW'; (State $f).agents_created | Should -Be 2
+        (State $f).tasks.T1.attempts | Should -Be 1
+        Test-Path (Join-Path $dir 'reviews/9A-T1.json') | Should -BeTrue
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r.data.status | Should -Be 'COMPLETED'
+    }
+    It 'archives replanned attempts as DISCARDED and cleans them without losing branches or result evidence' {
+        $f=New-RuntimeFixture 2
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $old=(State $f).tasks.T1; Accept-All $f
+        $f.plan.run.revision=2; $f.plan.mode='L1'; $f.plan.tasks=@($f.plan.tasks | Where-Object id -eq 'T2')
+        $f.plan.verification.final[0].args=@('-NoProfile','-Command','if (-not (Test-Path files/T2.txt)) {exit 1}')
+        Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Explicitly drop task one from the approved work','-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $s=State $f; $s.tasks.Contains('T1') | Should -BeFalse
+        $s.discarded_tasks['T1-a1-r1'].status | Should -Be 'DISCARDED'
+        Test-Path $old.worktree | Should -BeTrue
+        $r=Invoke-Cli @('cleanup','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r.data.discarded_removed | Should -Contain 'T1-a1-r1'
+        Test-Path $old.worktree | Should -BeFalse
+        Test-Path (Join-Path $old.directory 'result.yaml') | Should -BeTrue
+        (Invoke-TeamGit $f.repo @('rev-parse',$old.branch)) | Should -Be $old.commit
+        (State $f).tasks.T2.status | Should -Be 'ACCEPTED'
+        $r=Invoke-Cli @('cleanup','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0
+        $r.data.discarded_removed.Count | Should -Be 0
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r.data.status | Should -Be 'COMPLETED'
+    }
+    It 'preserves dirty discarded evidence and resumes a replacement after clean retirement' {
+        $f=New-RuntimeFixture
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $old=(State $f).tasks.T1
+        $f.plan.run.revision=2; $f.plan.tasks[0].objective=@('WRITE AGAIN'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Replace old attempt','-Json'); $r.code | Should -Be 0
+        $note=Join-Path $old.worktree 'retain-me.txt'; Set-Content $note 'Uncommitted evidence'
+        $r=Invoke-Cli @('cleanup','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 80
+        Test-Path $note | Should -BeTrue
+        $f.plan.run.revision=3; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Refine pending replacement without duplicating its retired attempt','-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        (State $f).discarded_tasks.Count | Should -Be 1
+        # Only remove the exact file created by this fixture, never runtime evidence.
+        [IO.File]::Delete($note)
+        $r=Invoke-Cli @('cleanup','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        (State $f).tasks.T1.attempts | Should -Be 2
+        (State $f).tasks.T1.worktree | Should -Not -Be $old.worktree
+    }
+    It 'escalates repeated <Objective> across distinct attempts and does not double count resume' -ForEach @(
+        @{Objective='SCOPE';Code=82;Kind='scope_violation'},@{Objective='MALFORMED';Code=10;Kind='invalid_result'}
+    ) {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@($Objective); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be $Code -Because $r.raw
+        (State $f).status | Should -Be 'PAUSED'
+        $f.plan.run.revision=2; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Plan',$f.path,'-Task','T1','-Reason','Retry the same concrete failure','-Json'); $r.code | Should -Be 0
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be $Code -Because $r.raw
+        $s=State $f; $s.status | Should -Be 'ESCALATED'; $s.worker_failures["T1/$Kind"].count | Should -Be 2
+        $r=Invoke-Cli @('escalations','-Repo',$f.repo,'-Run','FIXTURE','-Json'); @($r.data | Where-Object type -eq $Kind).Count | Should -Be 1
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 70
+        (State $f).worker_failures["T1/$Kind"].count | Should -Be 2
+    }
+    It 'escalates the first Critical scope violation before local or 9A review' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('SCOPE'); $f.plan.classification.level='critical'
+        $f.plan.review.require_9p=$true; $f.plan.review.require_fresh_9b=$true; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 82 -Because $r.raw
+        $s=State $f; $s.status | Should -Be 'ESCALATED'; $s.tasks.T1.status | Should -Be 'FAILED_SCOPE'
+        $r=Invoke-Cli @('escalations','-Repo',$f.repo,'-Run','FIXTURE','-Json'); @($r.data | Where-Object type -eq 'scope_violation').Count | Should -Be 1
+        Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/reviews/LOCAL-T1.json') | Should -BeFalse
+        Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/reviews/9A-T1.json') | Should -BeFalse
+    }
     It 'admits the observed L3 extension and rejects missing native tools before worktree creation and resume' {
         $f=New-RuntimeFixture; $f.plan.mode='L3'; $f.plan.tasks[0].subagents=@{allowed=$true;max_depth=2}; Write-TeamData $f.path $f.plan
         $old=$env:TEAM_FIXTURE_NO_NATIVE
@@ -245,7 +403,7 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
             (State $f).tasks.T1.status | Should -Be 'RUNNING' -Because ((Get-Content (Join-Path $f.repo 'team/runtime/FIXTURE/events.jsonl')) -join "`n")
             $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
             $s=State $f; $s.tasks.T1.status | Should -Be 'REVIEW'; $s.tasks.T1.attempts | Should -Be 1
-            $s.agents_created | Should -Be 1; $s.agents_reserved | Should -Be 0
+            $s.agents_created | Should -Be 2; $s.agents_reserved | Should -Be 0 # Author plus mandatory local reviewer.
         } finally {
             if ($handle) { $null=Close-TeamProcess $handle -Terminate }
             if (Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/state.json')) {
@@ -311,11 +469,11 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
             $r.code | Should -Be 10 -Because $r.raw
             $workerExit=Wait-TeamProcess $handle 25
             $handle=$null
-            $workerExit | Should -Be 0 -Because ((Get-Content (Join-Path $TestDrive "cost-$Limit-out") -Raw) + (Get-Content (Join-Path $TestDrive "cost-$Limit-err") -Raw))
-            $s=State $f; $s.status | Should -Be 'PAUSED'; $s.known_cost | Should -Be $Amount
-            $s.tasks.T1.status | Should -Be 'REVIEW'; $s.tasks.T1.attempts | Should -Be 1
+            $workerExit | Should -Be $(if ($Limit -eq 'hard') {70} else {0}) -Because ((Get-Content (Join-Path $TestDrive "cost-$Limit-out") -Raw) + (Get-Content (Join-Path $TestDrive "cost-$Limit-err") -Raw))
+            $s=State $f; $s.status | Should -Be $(if ($Limit -eq 'hard') {'ESCALATED'} else {'PAUSED'}); $s.known_cost | Should -Be $Amount
+            $s.tasks.T1.status | Should -Be $(if ($Limit -eq 'hard') {'LOCAL_REVIEW'} else {'REVIEW'}); $s.tasks.T1.attempts | Should -Be 1
             $s.tasks.T2.status | Should -Be 'READY'; $s.tasks.T2.attempts | Should -Be 0
-            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be $(if ($Limit -eq 'hard') {70} else {0}) -Because $r.raw
             (State $f).known_cost | Should -Be $Amount
             $events=Get-Content (Join-Path $f.repo 'team/runtime/FIXTURE/events.jsonl') | ForEach-Object { ConvertFrom-Json $_ }
             @($events | Where-Object event -eq "cost_${Limit}_limit_reached").Count | Should -Be 1
@@ -384,7 +542,7 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         Accept-All $f
         $r = Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
         $r.data.status | Should -Be 'COMPLETED'
-        (State $f).agents_created | Should -Be 3
+        (State $f).agents_created | Should -Be 6 # Each author has one mandatory DSH local reviewer.
         (Invoke-TeamGit $f.repo @('rev-parse','main')) | Should -Be $f.base
         $r = Invoke-Cli @('cleanup','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
         $r.data.removed.Count | Should -Be 3
@@ -483,7 +641,9 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $s=State $f; $s.tasks.T1.status | Should -Be 'REVIEW'; $s.review_rounds['2'].streak | Should -Be 0
         $review=Read-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/reviews/9A-T1.json')
         (Get-Content (Join-Path $review.holding 'prompt.txt') -Raw) | Should -Match 'Previous reviewed tip: [a-f0-9]{40}'
-        @(Get-ChildItem (Join-Path $f.repo 'team/runtime/FIXTURE/reviews') -Filter 'verdict-*.json').Count | Should -Be 4
+        $verdicts=@(Get-ChildItem (Join-Path $f.repo 'team/runtime/FIXTURE/reviews') -Filter 'verdict-*.json' | ForEach-Object { Read-TeamData $_.FullName })
+        @($verdicts | Where-Object stage -ne 'LOCAL').Count | Should -Be 4
+        @($verdicts | Where-Object stage -eq 'LOCAL').Count | Should -Be 2
     }
     It 'hard-stops two confirmed fix-introduced rounds even when other blocking issues remain' {
         $f=New-RuntimeFixture; $f.plan.classification.level='critical'; $f.plan.review.require_9p=$true; $f.plan.review.require_fresh_9b=$true
@@ -524,7 +684,7 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         Write-TeamData (Join-Path $f.repo 'team/runtime/FIXTURE/state.json') $s
         $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
         (State $f).tasks.T1.attempts | Should -Be 1
-        (State $f).agents_created | Should -Be 1
+        (State $f).agents_created | Should -Be 2 # A cached local verdict is reused on recovery.
     }
     It 'replans one failed task while preserving unrelated accepted work' {
         $f=New-RuntimeFixture 2

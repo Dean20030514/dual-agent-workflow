@@ -45,6 +45,7 @@ function Assert-TeamRecovery($State, $Plan, [string]$Directory) {
     foreach ($id in $State.order) {
         $item = $State.tasks[$id]
         $reserved += [int]$item['reserved']
+        if ($item['local_review']) { $reserved += [int]$item.local_review.reserved }
         if ($item.attempts -eq 0) {
             if ($item.worktree -or $item.directory -or $item.pid -or $item.status -ne 'READY') { Stop-TeamError 80 'Unstarted task has execution state' }
             continue
@@ -64,10 +65,16 @@ function Assert-TeamRecovery($State, $Plan, [string]$Directory) {
         }
         if ((Invoke-TeamGit $expected @('branch','--show-current')) -cne $item.branch) { Stop-TeamError 80 'Task is no longer on its assigned branch' }
         $null = Invoke-TeamGit $expected @('merge-base','--is-ancestor',$item.base_sha,'HEAD')
-        if ($item.status -in @('RUNNING','VERIFYING')) {
+        if ($item.status -in @('RUNNING','VERIFYING','LOCAL_REVIEW')) {
             $processes = @(@{pid=$item.pid;start=$item.process_start})
             $nativePath = Join-Path $item.directory 'native-process.json'
             if (Test-Path -LiteralPath $nativePath) { $processes += Read-TeamData $nativePath }
+            if ($item['local_review']) {
+                $review=$item.local_review
+                $processes+=@{pid=$review.pid;start=$review.process_start}
+                $reviewNative=Join-Path $review.directory 'native-process.json'
+                if (Test-Path $reviewNative) { $processes+=Read-TeamData $reviewNative }
+            }
             foreach ($record in $processes) {
                 if (-not $record.pid) { continue }
                 $process = Get-TeamOwnedProcess $record.pid $record.start
@@ -89,6 +96,9 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
     }
     if ($NewPlan.classification.level -cne $OldPlan.classification.level) { Stop-TeamError 10 'Replan cannot silently change Routine/Critical classification' }
     if (@($State.tasks.Values | Where-Object { $_.status -eq 'RUNNING' }).Count) { Stop-TeamError 80 'Replan requires quiescent workers' }
+    foreach ($item in $State.tasks.Values) {
+        if ($item['local_review'] -and $item.local_review.reserved) { Stop-TeamError 80 'Reconcile the local reviewer before replanning its work' }
+    }
     if (-not $State.tasks.Contains($FailedTask)) { Stop-TeamError 10 'Unknown failed task' }
     $affected = @(Get-TeamAffectedByScope $OldPlan $FailedTask)
     foreach ($task in $OldPlan.tasks) {
@@ -105,6 +115,19 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
         if ($State.tasks[$taskId].attempts -gt $Manifest.budget.max_worker_retries) { Stop-TeamError 60 'Worker retry budget exhausted' }
     }
     Assert-TeamReviewRound $State $OldPlan $Directory -Close
+    # Retire the old attempt before READY can be dispatched into a new worktree.
+    # Keep its exact Git tip and all evidence even when its task ID is removed.
+    if (-not $State['discarded_tasks']) { $State['discarded_tasks']=@{} }
+    foreach ($taskId in $affected) {
+        $item=$State.tasks[$taskId]
+        if (-not $item.attempts -or $item['worktree_removed']) { continue }
+        if (@($State.discarded_tasks.Values | Where-Object { $_.worktree -ceq $item.worktree }).Count) { continue }
+        $retired=$item | ConvertTo-Json -Depth 60 | ConvertFrom-Json -AsHashtable
+        $retired['task_id']=$taskId; $retired['retired_from']=$item.status; $retired.status='DISCARDED'
+        $retired['discard_reason']=$Reason; $retired['discard_revision']=$NewPlan.run.revision
+        $retired['discard_commit']=Invoke-TeamGit $item.worktree @('rev-parse','HEAD')
+        $State.discarded_tasks["$taskId-a$($item.attempts)-r$($State.revision)"]=$retired
+    }
     $State.replans++; $State.revision = $NewPlan.run.revision; $State.order = $order
     foreach ($task in $NewPlan.tasks) {
         if (-not $State.tasks.Contains($task.id)) {
@@ -133,6 +156,9 @@ function Stop-TeamTaskProcesses($Item) {
     $records = @(@{pid=$Item.pid;start=$Item.process_start})
     if (Test-Path -LiteralPath $nativePath) { $records += Read-TeamData $nativePath }
     $errors=@()
+    if ($Item['local_review']) {
+        try { Stop-TeamTaskProcesses $Item.local_review } catch { $errors+=$_.Exception.Message }
+    }
     foreach ($record in $records) {
         if (-not $record.pid) { continue }
         $process = Get-TeamOwnedProcess $record.pid $record.start
@@ -151,12 +177,13 @@ function Stop-TeamOwnedProcesses($State, [string]$Directory) {
     $errors=@()
     foreach ($taskId in $State.tasks.Keys) {
         $item = $State.tasks[$taskId]
-        if ($item.status -ne 'RUNNING' -and -not $item['cleanup_pending']) { continue }
+        if ($item.status -notin @('RUNNING','LOCAL_REVIEW') -and -not $item['cleanup_pending']) { continue }
         try { Stop-TeamTaskProcesses $item }
         catch { $item['cleanup_pending']=$true; $errors+=@{task_id=$taskId;error=$_.Exception.Message}; continue }
         $item['cleanup_pending']=$false
         $item.status = 'FAILED'
         if ($item['reserved']) { $State.agents_created += $item.reserved; $State.agents_reserved -= $item.reserved; $item.reserved=0 }
+        if ($item['local_review']) { Settle-TeamLocalReviewBudget $State $item.local_review; $item.local_review.status='CANCELLED' }
     }
     if ($errors.Count) {
         Save-TeamState $State $Directory; Add-TeamEvent $Directory 'process_cleanup_failed' @{errors=$errors}

@@ -5,7 +5,12 @@ DSH 的原生权限与 fresh 语义来自 `dsh/workflow/AGENTS.md`、`dsh/workfl
 Team 的结构化 Plan/Task/Result、Git SHA、验证产物取代该运行模式的散文交接输入；
 不修改旧 Routine/Critical 流程，也不要求 Routine 临时制造旧 Critical 文档。
 
-Critical：dispatch 前 9P、Worker 外部验证后 9A、集成完整回归后 fresh 9B。
+Routine/Critical 的 Worker 都先通过 Git 审计和外部验证，再执行独立 DSH Local Review。
+它使用新原生进程、禁用全部工具，仅接收 Task、精确 diff、AGENTS 快照和外部验证证据；
+不接收作者会话或推理。原生身份收据、输入与 verdict 哈希绑定 plan hash 和提交，
+Lead accept 强制核对该结论和补证处置。Local Review 不计入 Critical 的 9A/9B 修复轮数。
+
+Critical：dispatch 前 9P、Worker 本地审查通过后 9A、集成完整回归后 fresh 9B。
 每次都是新的 `codex exec --ephemeral -s read-only`，不用 resume/fork，verdict 位于仓外 holding。
 白名单：Plan/Task、目标 diff、验证结果、必要源文件、相关决策。禁止聊天、内部推理、无关日志与全仓历史。
 返回缺失/结构错误/非零 exit/写入/快照变化都不算通过。Verification Needed 要逐条处置，不能当产品缺陷。
@@ -43,7 +48,8 @@ plan hash 与 tip，同快照再调用复用失败结论，不重新花费一次
 升级前旧版本的 `review_loops` 不能静默转换为零轮；活动旧 run 返回 80，须保留证据后明确协调。
 历史已完成 run 的状态与通过记录仍可读取，不需要重跑模型。
 
-`resolve-review -Stage 9P|9A|9B [-Task id] -Disposition <file>` 逐条处理 VN：
+`resolve-review -Stage LOCAL|9P|9A|9B [-Task id] -Disposition <file>` 逐条处理 VN：
 每项含 `index`、`action`（verify/decline）、`reason`；verify 还含与 Plan 相同格式的 command。
 verify 由外部进程实跑并保存真实输出/退出码；decline 必须给技术理由。
 处置绑定 verdict hash，不能替代产品 blocking 的修复或批准不同 SHA。
+LOCAL 补证处置后须 resume，随后才可进入 Critical 9A 或 Routine Lead 验收。

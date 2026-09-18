@@ -17,7 +17,7 @@ function Test-TeamTask($Packet) {
     }
 }
 
-function Read-TeamWorkerOutput([string]$Path) {
+function Read-TeamWorkerOutput([string]$Path, [ValidateSet('result','review')][string]$Schema = 'result') {
     $raw = [IO.File]::ReadAllText($Path).Trim()
     $candidates = @([regex]::Matches($raw, '(?m)^[\t ]*\{'))
     foreach ($match in $candidates) {
@@ -30,7 +30,7 @@ function Read-TeamWorkerOutput([string]$Path) {
         if ($prefix -match '(?m)^[\t ]*[\{\[]' -or $prefix -match '```') {
             Stop-TeamError 10 'Ambiguous worker stdout contains multiple structured records or a fenced preamble'
         }
-        Test-TeamSchema $value 'result'
+        Test-TeamSchema $value $Schema
         return @{packet=$value;format=$(if ($prefix) {'plain-prefix-final-json'} else {'json'});stdout_sha256=(Get-TeamHash $Path)}
     }
     Stop-TeamError 10 'Worker stdout does not end with one valid JSON Result Packet'

@@ -6,6 +6,7 @@ function Accept-TeamTask($State, $Plan, [string]$Directory, [string]$TaskId, [st
         Stop-TeamError 50 'Lead acceptance requires REVIEW state, exact commit, and a reason'
     }
     $task = @($Plan.tasks | Where-Object { $_.id -eq $TaskId })[0]
+    if (-not (Test-TeamReviewAccepted $Directory "LOCAL-$TaskId" $State.plan_hash $Commit)) { Stop-TeamError 50 'Lead acceptance requires the bound DSH Local Review and handled evidence items' }
     if ($Plan.classification.level -eq 'critical' -and -not (Test-TeamReviewAccepted $Directory "9A-$TaskId" $State.plan_hash $Commit)) {
         Stop-TeamError 50 'Critical acceptance requires the bound independent 9A and handled evidence items'
     }
@@ -133,7 +134,10 @@ function Resume-TeamRun($State, $Plan, $Manifest, [string]$Directory) {
     }
     foreach ($task in $Plan.tasks) {
         $item = $State.tasks[$task.id]
-        if ($item.status -notin @('RUNNING','VERIFYING')) { continue }
+        # An active pre-local-review run may already be waiting for Lead acceptance.
+        # Upgrade that pending task through verification/review without rerunning its author.
+        if ($item.status -eq 'REVIEW' -and -not (Test-Path (Join-Path $Directory "reviews/LOCAL-$($task.id).json"))) { $item.status='VERIFYING' }
+        if ($item.status -notin @('RUNNING','VERIFYING','LOCAL_REVIEW')) { continue }
         if ($item.pid) {
             $process = Get-TeamOwnedProcess $item.pid $item.process_start
             if ($process) {
@@ -165,5 +169,25 @@ function Remove-TeamWorktrees($State, [string]$Directory) {
         $item.status = 'CLEANED'; $item['worktree_removed']=$true; $removed += $taskId
         Save-TeamState $State $Directory
     }
-    return @{ removed = $removed; integration_preserved = $true }
+    $discarded=@()
+    if ($State['discarded_tasks']) {
+        foreach ($key in @($State.discarded_tasks.Keys)) {
+            $item=$State.discarded_tasks[$key]
+            if ($item.status -ne 'DISCARDED' -or $item['worktree_removed']) { continue }
+            $taskId=$item.task_id; Assert-TeamId $taskId
+            $packet=Read-TeamData (Join-Path $item.directory 'task.yaml')
+            $expected=Get-TeamChild $State.repo ".worktrees/$($State.run_id)-$taskId-$($packet.role.id)-a$($item.attempts)"
+            if ($item.worktree -cne $expected -or $packet.task_id -cne $taskId -or $packet.run_id -cne $State.run_id) { Stop-TeamError 82 'Discarded worktree identity mismatch' }
+            if (Invoke-TeamGit $expected @('status','--porcelain','--untracked-files=all')) { Stop-TeamError 80 'Cleanup preserves dirty discarded worktree evidence' }
+            if ((Invoke-TeamGit $expected @('branch','--show-current')) -cne $item.branch -or
+                (Invoke-TeamGit $expected @('rev-parse','HEAD')) -cne $item.discard_commit) { Stop-TeamError 80 'Discarded worktree changed after its retirement' }
+            $null=Invoke-TeamGit $State.repo @('worktree','remove',$expected)
+            $item['worktree_removed']=$true; $discarded+=$key
+            # A replanned task may still point at its retired attempt until next dispatch.
+            if ($State.tasks.Contains($taskId) -and $State.tasks[$taskId].worktree -ceq $expected) { $State.tasks[$taskId]['worktree_removed']=$true }
+            Save-TeamState $State $Directory
+            Add-TeamEvent $Directory 'discarded_worktree_cleaned' @{task_id=$taskId;attempt=$item.attempts;commit=$item.discard_commit}
+        }
+    }
+    return @{ removed = $removed; discarded_removed=$discarded; integration_preserved = $true }
 }
