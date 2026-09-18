@@ -286,3 +286,22 @@ TOTAL 与 SUMMARY 的 Local Review 分别提出边界类型、de-DE 小数格式
 显式设置 core.autocrlf=false，避免后续探针的字节差异；未改本机全局 Git 配置。
 精确 SHA、原生身份及证据哈希见 VERIFIED_VERSIONS。该运行经过尚未提交的恢复事务工作树，
 证明正常 replan/集成路径，不代替被 Defender 阻塞的持久化中断窗口验收。
+
+# 补证历史与 fresh 审查启动参数
+
+实际 DAG-NATIVE-015 补证曾需要手工备份首次失败输出：旧 resolve-review 对同一项复用文件名。
+现每次 verify 使用独立目录，保留请求的 review/plan/tip 绑定、命令、stdout/stderr 和退出码，
+成功 disposition 指向本次证据及哈希。异常退出 7 后重试成功的 Runtime 用例确认第一次全部
+文件哈希不变、原 Reviewer 未重跑，最终可正常验收集成；与 Critical LOCAL→9A 用例合跑，
+**2 passed / 0 failed**，exit 0，37.85 秒。
+
+本机 Codex 0.153.3 help 支持所用隔离参数，features list 显示 memories 为 stable/true。
+Team 审查现显式关闭 memories、忽略用户配置与额外 execpolicy，9P medium、9A/9B high，
+不依赖个人配置默认值。9P→9A→9B CLI 接线用例检查实际传给替身进程的每组参数，
+**1 passed / 0 failed**，exit 0，14.17 秒；没有为参数调整再次调用付费 Codex 模型。
+此证据证明本机参数支持和调用接线，不声称重新完成更新参数后的真实模型审查。
+
+Worker 异常退出专项用例：替身原生 CLI 实际退出 9，Team 返回 30，保存 adapter 退出收据；
+直接 resume 返回 80 且 attempt 不变。明确 replan 后第二次完成，旧收据哈希不变、累计 Agent=3，
+最终 COMPLETED 且 main 不变。**1 passed / 0 failed**，exit 0，20.29 秒；
+这属于原文 §68 的故障模拟，未声称发生真实模型服务崩溃。

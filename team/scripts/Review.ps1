@@ -120,7 +120,9 @@ $repairContext
     $attemptId = [IO.Path]::GetFileName($holding)
     Write-TeamData (Join-Path $Directory "reviews/attempt-$attemptId.json") @{stage=$Stage;task_id=$TaskId;holding=$holding;status='started';tip=$Tip;plan_hash=$State.plan_hash}
     # Stdin carries the exact allowlisted input without granting access outside the read-only worktree.
-    $args = @('exec','--ephemeral','--ignore-user-config','-m',$Manifest.models.lead.runtime_model,
+    $effort=if ($Stage -eq '9P') {'medium'} else {'high'}
+    $args = @('exec','--ephemeral','--ignore-user-config','--ignore-rules','--disable','memories',
+        '-c',('model_reasoning_effort="'+$effort+'"'),'-m',$Manifest.models.lead.runtime_model,
         '-s','read-only','-C',$Worktree,'--output-schema',(Join-Path $script:TeamRoot 'schemas/review.schema.json'),
         '-o',$resultPath,'--json','-')
     $handle=$null; $errorText=$null; $processStarted=$false
@@ -172,7 +174,14 @@ function Resolve-TeamReview($State, $Plan, [string]$Directory, [string]$Stage, [
         $seen[[int]$entry.index]=$true
         if ($entry.action -eq 'verify') {
             $manifest=Read-TeamData (Join-Path $Directory 'manifest.yaml')
-            $null = Invoke-TeamVerification @($entry.command) $record.worktree $Directory "VN-$label-$($entry.index)" $manifest.runtime
+            $attemptDirectory=Get-TeamChild $Directory ("reviews/evidence/$label-$($entry.index)-"+[guid]::NewGuid().ToString('N'))
+            Write-TeamData (Join-Path $attemptDirectory 'request.json') @{
+                review_hash=(Get-TeamHash $reviewPath);plan_hash=$State.plan_hash;tip=$record.tip
+                index=$entry.index;reason=$entry.reason;command=$entry.command
+            }
+            $null = Invoke-TeamVerification @($entry.command) $record.worktree $attemptDirectory 'verification' $manifest.runtime
+            $entry['evidence_directory']=$attemptDirectory
+            $entry['evidence_hash']=Get-TeamHash (Join-Path $attemptDirectory 'verification-evidence.json')
         } elseif ($entry.action -ne 'decline') { Stop-TeamError 10 'Disposition action must be verify or decline' }
     }
     if ((Invoke-TeamGit $record.worktree @('rev-parse','HEAD')) -cne $record.tip -or

@@ -13,6 +13,9 @@ Lead accept 强制核对该结论和补证处置。Local Review 不计入 Critic
 
 Critical：dispatch 前 9P、Worker 本地审查通过后 9A、集成完整回归后 fresh 9B。
 每次都是新的 `codex exec --ephemeral -s read-only`，不用 resume/fork，verdict 位于仓外 holding。
+显式 `--ignore-user-config --ignore-rules --disable memories`；9P 的 reasoning effort 为 medium，
+9A/9B 为 high，沿用审查母本的隔离及推理档要求。目标 AGENTS 快照仍作为审查合同传入，
+关闭额外 execpolicy 加载不表示可以忽略目标合同。
 白名单：Plan/Task、目标 diff、验证结果、必要源文件、相关决策。禁止聊天、内部推理、无关日志与全仓历史。
 返回缺失/结构错误/非零 exit/写入/快照变化都不算通过。Verification Needed 要逐条处置，不能当产品缺陷。
 Routine 的 Lead accept 是日常验收，不是假造独立审查。
@@ -53,4 +56,6 @@ plan hash 与 tip，同快照再调用复用失败结论，不重新花费一次
 每项含 `index`、`action`（verify/decline）、`reason`；verify 还含与 Plan 相同格式的 command。
 verify 由外部进程实跑并保存真实输出/退出码；decline 必须给技术理由。
 处置绑定 verdict hash，不能替代产品 blocking 的修复或批准不同 SHA。
+每次 verify 在独立 `reviews/evidence/` 子目录保存请求、输出及真实退出码；
+再次补证不覆盖失败记录，成功 disposition 引用本次证据目录及哈希。
 LOCAL 补证处置后须 resume，随后才可进入 Critical 9A 或 Routine Lead 验收。

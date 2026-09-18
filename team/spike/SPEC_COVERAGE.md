@@ -22,7 +22,7 @@
 | 31–32 状态机、原子持久化 | State、Core 原子替换；state schema 约束任务状态、SHA、计数、恢复必填字段 | 各持久化步骤间的中断点尚未逐一注入 |
 | 33 恢复 | PID+UTC ticks、native PID、exit receipt、Result、Git、events、集成 checkpoint；CRASH-NATIVE-011 在真实 DSH 等待点终止 coordinator 后单 attempt 恢复并集成；独立 Local Review 的崩溃/stop 由真实进程与替身 CLI 验证 | checkpoint 落盘窗口自动协调尚待补齐；一次进程崩溃点不代表全部持久化窗口 |
 | 34–35 受影响子图、修订、保留 ACCEPTED | Contracts/Recovery；精确通配符交集、依赖及相交范围传递闭包；fixture 保留无关 ACCEPTED；affected 无具体路径时与 replan 使用相同候选集 | 范围是确定性候选，最终语义确认仍由 Lead 完成；计划/状态跨文件中断验收另见 31–33 |
-| 36–38 fresh review、输入白名单、9P/A/B | 独立 Codex exec、stdin 白名单、read-only；真实 Critical 完成 | 需核对目标仓库旧 Critical 规则兼容性，不能以隔离 fixture 代替任意项目 |
+| 36–38 fresh review、输入白名单、9P/A/B | 独立 Codex exec、stdin 白名单、read-only；显式禁用 memories、隔离配置/execpolicy、9P medium/9A-B high；真实 Critical 旧参数链路及新参数 CLI 接线 | 目标项目旧同 SHA/人工批准等额外条件仍由 Lead 满足，见 EXISTING_INTEGRATION_MAP；新隔离参数未另跑付费模型 |
 | 39 硬停 | hard_stop、ESCALATED、禁止下游；连续两轮 yes 硬停优先于轮次出口；CLI 反例覆盖 | 硬停后新任务的重拆/架构批准仍属于人类决策，不自动清除 hard_stop |
 | 40 验证顺序 | self-check→Git→外部命令→独立 DSH Local Review→Critical 9A（如适用）→Lead accept | 无 |
 | 41–43 集成/定位/rollback | DAG merge、task/attempt/SHA 检查点历史；按受影响子图倒序/连续 revert；原失败与 probe 保留；生成 Regression Task 并接入 Integration Worker；隔离 CLI 和真实 DSH 修复验收 | probe 是定位线索，失败可能来自缺失功能；V1 不自动宣称因果或运行完整 git bisect |
@@ -35,7 +35,7 @@
 | 52–53 单 run、锁 | coordinator 排他文件句柄、持久 run 锁、terminal stale repair；禁止 linked worktree 另建 run | 当前只允许主仓库根目录作为控制根，linked worktree 内调用必须显式指向主根目录 |
 | 54–57 Lead、AGENTS、既有规则映射 | root/codex AGENTS hook、Lead policy、Case B/map | 未部署本机全局副本；项目契约优先 |
 | 58–59 QUICKSTART/首条链路 | QUICKSTART 含能力矩阵、Task/Result 示例及操作链路，真实 SQL-SMOKE-001 | 无 |
-| 60–69 Phase 0–8 | 单/双 Worker、worktree、验证、fresh/fork 子 Agent、Critical 有真实证据；DAG-NATIVE-015 完成多 Worker 依赖串接与真实 idle timeout→replan→集成；coordinator crash 已有真实 DSH 保活/恢复/集成验收 | 真实模型 crash 后需要 replan 的组合仍待验；恢复事务落盘窗口尚未验收 |
+| 60–69 Phase 0–8 | 单/双 Worker、worktree、验证、fresh/fork 子 Agent、Critical 有真实证据；DAG-NATIVE-015 完成多 Worker 依赖串接与真实 idle timeout→replan→集成；coordinator crash 已有真实 DSH 保活/恢复/集成验收；Worker 异常退出→显式 replan 由真实进程加替身 CLI 验证 | 按 §68 分别验证所列故障，不声称穷举所有组合；恢复事务落盘窗口尚未验收 |
 | 70 A–T 验收矩阵 | 见下方明细 | 未完成项不得用相邻测试替代 |
 | 72 资源约束 | 4/6/10；Worker/验证/审查 stdout 与 stderr 写入时有界；异步 stdin、timeout/idle；所有 Team worktree 创建路径共享 12 目录限制；父进程退出后继续限时 drain、取消未完成流；Windows 按身份清理可确认的直接子进程树 | 直接 verdict 文件仅轮询上限；无法关联的退出中间进程之后代及其他平台脱离进程，不保证自动清除；不宣称任意子进程树均已受控 |
 | 73–74 Claude 定位、Windows | 核心无 Claude；PowerShell 7，安装器保持 5.1 | 无 |

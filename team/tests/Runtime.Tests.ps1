@@ -191,6 +191,39 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         if ($Objective -eq 'LOCAL_WRITE') { Test-Path (Join-Path $s.tasks.T1.worktree 'forbidden-review.txt') | Should -BeTrue }
         (Invoke-TeamGit $f.repo @('rev-parse','main')) | Should -Be $f.base
     }
+    It 'preserves a failed evidence attempt when the same review item is verified again' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('LOCAL_VN'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 70 -Because $r.raw
+        $dir=Join-Path $f.repo 'team/runtime/FIXTURE'
+        $reviewHash=Get-TeamHash (Join-Path $dir 'reviews/LOCAL-T1.json')
+        $disposition=Join-Path $TestDrive 'retry-evidence.json'
+        $entry=@{index=0;action='verify';reason='Exercise preserved failure output';command=@{id='fact';executable='pwsh';args=@('-NoProfile','-Command','Write-Output FIRST_ATTEMPT_FAILED; exit 7');timeout_seconds=10}}
+        Write-TeamData $disposition @($entry)
+        $r=Invoke-Cli @('resolve-review','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Stage','LOCAL','-Disposition',$disposition,'-Json')
+        $r.code | Should -Be 40 -Because $r.raw
+        Test-Path (Join-Path $dir 'reviews/LOCAL-T1-dispositions.json') | Should -BeFalse
+        $failed=@(Get-ChildItem (Join-Path $dir 'reviews/evidence') -Directory)
+        $failed.Count | Should -Be 1
+        $hashes=@{}; foreach($file in Get-ChildItem $failed[0].FullName -File) { $hashes[$file.Name]=Get-TeamHash $file.FullName }
+        (Read-TeamData (Join-Path $failed[0].FullName 'verification-evidence.json')).exit_code | Should -Be 7
+        $entry.command.args=@('-NoProfile','-Command','Write-Output SECOND_ATTEMPT_PASSED; exit 0')
+        $entry.reason='Correct the fixture verification command without replacing the original failure'
+        Write-TeamData $disposition @($entry)
+        $r=Invoke-Cli @('resolve-review','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Stage','LOCAL','-Disposition',$disposition,'-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        @(Get-ChildItem (Join-Path $dir 'reviews/evidence') -Directory).Count | Should -Be 2
+        foreach($name in $hashes.Keys) { Get-TeamHash (Join-Path $failed[0].FullName $name) | Should -Be $hashes[$name] }
+        $saved=Read-TeamData (Join-Path $dir 'reviews/LOCAL-T1-dispositions.json')
+        $saved.review_hash | Should -Be $reviewHash
+        $saved.items[0].evidence_directory | Should -Not -Be $failed[0].FullName
+        $saved.items[0].evidence_hash | Should -Be (Get-TeamHash (Join-Path $saved.items[0].evidence_directory 'verification-evidence.json'))
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        (State $f).tasks.T1.status | Should -Be 'REVIEW'; (State $f).agents_created | Should -Be 2
+        Get-TeamHash (Join-Path $dir 'reviews/LOCAL-T1.json') | Should -Be $reviewHash
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r.data.status | Should -Be 'COMPLETED'
+    }
     It 'handles local evidence requests before Critical 9A without repeating the author or local reviewer' {
         $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('LOCAL_VN'); $f.plan.classification.level='critical'
         $f.plan.review.require_9p=$true; $f.plan.review.require_fresh_9b=$true; Write-TeamData $f.path $f.plan
@@ -443,6 +476,32 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         (Invoke-TeamGit $g.repo @('branch','--list',$s.integration_branch)) | Should -BeNullOrEmpty
         @(Get-ChildItem (Join-Path $g.repo '.worktrees') -Directory).Count | Should -Be 12
     }
+    It 'preserves an abnormal worker exit and requires explicit replan before replacement' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('CRASH'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 30 -Because $r.raw
+        $s=State $f; $s.tasks.T1.status | Should -Be 'FAILED'; $s.tasks.T1.attempts | Should -Be 1
+        $first=$s.tasks.T1.directory
+        $receipt=Read-TeamData (Join-Path $first 'exit.json')
+        $receipt.exit_code | Should -Be 9
+        $receipt.launch_attempts | Should -Be 1
+        $receipt.startup_exhausted | Should -BeFalse
+        Test-Path (Join-Path $first 'result.yaml') | Should -BeFalse
+        $hash=Get-TeamHash (Join-Path $first 'exit.json')
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 80 -Because $r.raw
+        (State $f).tasks.T1.attempts | Should -Be 1
+        $f.plan.run.revision=2; $f.plan.tasks[0].objective=@('WRITE'); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Plan',$f.path,'-Reason','Replace the failed native fixture after inspecting its durable exit receipt','-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $s=State $f; $s.tasks.T1.attempts | Should -Be 2; $s.tasks.T1.status | Should -Be 'REVIEW'
+        $s.agents_created | Should -Be 3; $s.agents_reserved | Should -Be 0
+        Get-TeamHash (Join-Path $first 'exit.json') | Should -Be $hash
+        @($s.discarded_tasks.Values | Where-Object retired_from -eq FAILED).Count | Should -Be 1
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r.data.status | Should -Be 'COMPLETED'
+        (Invoke-TeamGit $f.repo @('rev-parse','main')) | Should -Be $f.base
+    }
     It 'recovers after an actual coordinator process crash without duplicating its orphan worker' {
         $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('WAIT_FOR_RELEASE'); Write-TeamData $f.path $f.plan
         $handle=New-TeamProcess 'pwsh' @('-NoProfile','-File',(Join-Path $script:TeamPath 'scripts/team.ps1'),'run','-Repo',$f.repo,'-Plan',$f.path,'-Json') $f.repo (Join-Path $TestDrive 'crash-out') (Join-Path $TestDrive 'crash-err')
@@ -694,6 +753,18 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
         Test-Path (Join-Path $dir 'reviews/9B.json') | Should -BeTrue
         $r.data.status | Should -Be 'COMPLETED'
+        foreach ($label in @('9P','9A-T1','9B')) {
+            $review=Read-TeamData (Join-Path $dir "reviews/$label.json")
+            $arguments=@(Read-TeamData (Join-Path $review.holding 'invocation.json'))
+            foreach ($flag in @('--ephemeral','--ignore-user-config','--ignore-rules')) { $arguments | Should -Contain $flag }
+            $memoryIndex=[array]::IndexOf($arguments,'--disable')
+            $memoryIndex | Should -BeGreaterOrEqual 0
+            $arguments[$memoryIndex+1] | Should -Be 'memories'
+            $effort=if ($label -eq '9P') {'medium'} else {'high'}
+            $arguments | Should -Contain ('model_reasoning_effort="'+$effort+'"')
+            $arguments[[array]::IndexOf($arguments,'-s')+1] | Should -Be 'read-only'
+            $arguments | Should -Not -Contain 'resume'; $arguments | Should -Not -Contain 'fork'
+        }
         $s=State $f; $s.review_rounds.Count | Should -Be 1
         $s.review_rounds['1'].number | Should -Be 1; $s.review_rounds['1'].streak | Should -Be 0
         $s.review_rounds['1'].records.Keys | Should -Contain '9A-T1'; $s.review_rounds['1'].records.Keys | Should -Contain '9B'
