@@ -305,3 +305,17 @@ Worker 异常退出专项用例：替身原生 CLI 实际退出 9，Team 返回 
 直接 resume 返回 80 且 attempt 不变。明确 replan 后第二次完成，旧收据哈希不变、累计 Agent=3，
 最终 COMPLETED 且 main 不变。**1 passed / 0 failed**，exit 0，20.29 秒；
 这属于原文 §68 的故障模拟，未声称发生真实模型服务崩溃。
+
+Defender 后续核查（2026-09-17）：获得用户明确授权后执行 Update-MpSignature，exit 0，
+安全情报由 1.459.258.0 更新为 1.459.263.0，实时防护及防病毒均保持启用。
+确认原 Persistence.Tests.ps1 的 SHA-256 与已核查文件相同后，仅复测一次。
+Pester 在 discovery 阶段仍被 AMSI 拦截，exit 1 / Container failed=1，七项测试均未执行；
+不可将输出中的 Tests Failed=0 解释为通过。新 1116 告警时间 19:54:31（本机时间），
+威胁名仍为 HackTool:PowerShell/ApexToolkit.A，1117 于 19:54:44 记录隔离动作。
+未再次重跑、改名迁移、关闭防护或添加排除项；疑似误报尚待外部复核。
+
+随后完成当前工作树的四文件回归：Pester Run.Path 显式为 Contracts.Tests.ps1、Processes.Tests.ps1、
+ReviewRounds.Tests.ps1、Runtime.Tests.ps1，Run.Exit=true、TestResult.Enabled=false。
+**158 passed / 0 failed**，exit 0，858.09 秒；四文件内 Skipped=0、NotRun=0。
+它覆盖已提交的补证/隔离修复及当前未提交恢复事务的常规路径，不包括被拦截的
+Persistence.Tests.ps1，不能称为完整 Team 套件通过或事务中断窗口已验收。

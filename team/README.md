@@ -1,6 +1,6 @@
 # Team Mode V1
 
-Codex Lead → `scripts/team.ps1` → DSH native Workers → Git 范围审计 → 外部验证 → Lead 验收 → 独立集成分支。
+Codex Lead → `scripts/team.ps1` → DSH native Workers → Git 范围审计 → 外部验证 → 独立 DSH Local Review → Lead 验收 → 独立集成分支。
 
 规格来源：`Codex_DSH_Dynamic_Agent_Team_Final_v5.md`，SHA-256
 `69cee29bb2affb98c92d3075d8c0eaa7fa63223f18ca430f488f1efbdab3c6c4`。
@@ -17,7 +17,7 @@ DSH 的正文输出可带普通说明前缀，但必须以唯一、符合 Result
 运行模型由 manifest 中逻辑别名解析。默认精确版本 pin；升级先重新运行能力验收再改 pin。
 `roles/` 的 19 个模板提供领域能力、默认读写范围、验证建议、升级触发条件和工作指导。
 run 会保存角色定义，Worker 的 Task Packet 携带该定义；模板默认值不扩张任务已声明的权限或范围。
-Integration 角色只能由记录在案的冲突生成，并绑定 conflict/glue scope；它不得更改已批准接口或验收，
+Integration 角色只能由记录在案的冲突或集成回归生成，并绑定 conflict/glue scope；它不得更改已批准接口或验收，
 只能为集成破坏的有效测试或既有已批准合同适配测试。语义判断仍由 Lead 审核，Git 范围由程序强制检查。
 `-AllowUnverifiedRuntime` 只放宽 CLI 版本，不放宽模型路由、协议、范围或审查；运行记录标记 `UNVERIFIED_RUNTIME`。
 
