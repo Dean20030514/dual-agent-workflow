@@ -165,6 +165,34 @@ Describe 'Plan and routing contracts' {
             @{id='D';dependencies=@();write_scope=@('docs/**')})}
         @(Get-TeamAffected $p 'A' @('src/shared/api.ts')) | Should -Be @('A','B','C')
     }
+    It 'intersects scope patterns using path-aware glob semantics: <Left> and <Right>' -ForEach @(
+        @{Left='src/*.ts';Right='src/*.css';Overlap=$false},
+        @{Left='src/a';Right='src/ab';Overlap=$false},
+        @{Left='src/*/api.ts';Right='src/payments/*.ts';Overlap=$true},
+        @{Left='src/*/api.ts';Right='src/payments/v2/*.ts';Overlap=$false},
+        @{Left='src/**/api.ts';Right='src/payments/v2/*.ts';Overlap=$true},
+        @{Left='src/a?.ts';Right='src/ab*.ts';Overlap=$true},
+        @{Left='src/a?.ts';Right='src/abc.ts';Overlap=$false},
+        @{Left='src/A.ts';Right='src/a.ts';Overlap=$false},
+        @{Left='src/[x].ts';Right='src/[x].*';Overlap=$true}
+    ) {
+        Test-TeamScopeOverlap $Left $Right | Should -Be $Overlap
+        Test-TeamScopeOverlap $Right $Left | Should -Be $Overlap
+    }
+    It 'closes invalidated scopes transitively without pulling in merely similar prefixes' {
+        $p=@{tasks=@(
+            @{id='A';dependencies=@();write_scope=@('src/entry.ts')},
+            @{id='B';dependencies=@('A');write_scope=@('generated/client.ts')},
+            @{id='C';dependencies=@();write_scope=@('generated/*.ts','shared/schema.json')},
+            @{id='D';dependencies=@();write_scope=@('shared/*.json')},
+            @{id='E';dependencies=@('D');write_scope=@('app/model.ts')},
+            @{id='KEEP';dependencies=@();write_scope=@('src/entry.tsx','generated/*.css')})}
+        @(Get-TeamAffectedByScope $p 'A') | Should -Be @('A','B','C','D','E')
+        $planPath=Join-Path $TestDrive 'affected-preview.json'; Write-TeamData $planPath $p
+        $preview=& pwsh -NoProfile -File (Join-Path $script:TeamPath 'scripts/team.ps1') affected -Plan $planPath -Task A -Json
+        $LASTEXITCODE | Should -Be 0
+        ($preview | ConvertFrom-Json).affected | Should -Be @('A','B','C','D','E')
+    }
 }
 
 Describe 'Persistence, process and repository guards' {

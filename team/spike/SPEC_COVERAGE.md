@@ -21,7 +21,7 @@
 | 26–30 Packet、范围、启动 | schemas、adapter、Git diff 范围审计、`scope_violation` 事件；真实 L1；确认未启动才重试一次，逐次 launch 收据及二次失败升级 | 重试为本地真实进程/故障注入验收，不声称模拟了原生服务端故障 |
 | 31–32 状态机、原子持久化 | State、Core 原子替换；state schema 约束任务状态、SHA、计数、恢复必填字段 | 各持久化步骤间的中断点尚未逐一注入 |
 | 33 恢复 | PID+UTC ticks、native PID、exit receipt、Result、Git、events、集成 checkpoint；CRASH-NATIVE-011 在真实 DSH 等待点终止 coordinator 后单 attempt 恢复并集成；独立 Local Review 的崩溃/stop 由真实进程与替身 CLI 验证 | checkpoint 落盘窗口自动协调尚待补齐；一次进程崩溃点不代表全部持久化窗口 |
-| 34–35 受影响子图、修订、保留 ACCEPTED | Contracts/Recovery；fixture 保留无关 ACCEPTED | glob overlap 的候选集需补充交叉/传递边界测试 |
+| 34–35 受影响子图、修订、保留 ACCEPTED | Contracts/Recovery；精确通配符交集、依赖及相交范围传递闭包；fixture 保留无关 ACCEPTED；affected 无具体路径时与 replan 使用相同候选集 | 范围是确定性候选，最终语义确认仍由 Lead 完成；计划/状态跨文件中断验收另见 31–33 |
 | 36–38 fresh review、输入白名单、9P/A/B | 独立 Codex exec、stdin 白名单、read-only；真实 Critical 完成 | 需核对目标仓库旧 Critical 规则兼容性，不能以隔离 fixture 代替任意项目 |
 | 39 硬停 | hard_stop、ESCALATED、禁止下游；连续两轮 yes 硬停优先于轮次出口；CLI 反例覆盖 | 硬停后新任务的重拆/架构批准仍属于人类决策，不自动清除 hard_stop |
 | 40 验证顺序 | self-check→Git→外部命令→独立 DSH Local Review→Critical 9A（如适用）→Lead accept | 无 |

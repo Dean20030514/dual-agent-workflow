@@ -96,6 +96,8 @@ function Test-TeamPlanContent($Plan, $Manifest) {
 }
 
 function Get-TeamAffected($Plan, [string]$FailedTask, [string[]]$ChangedPaths) {
+    if (-not $ChangedPaths) { return @(Get-TeamAffectedByScope $Plan $FailedTask) }
+    if (@($Plan.tasks | Where-Object id -eq $FailedTask).Count -ne 1) { Stop-TeamError 10 'Unknown failed task' }
     $affected = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $null = $affected.Add($FailedTask)
     foreach ($task in $Plan.tasks) {
@@ -113,16 +115,52 @@ function Get-TeamAffected($Plan, [string]$FailedTask, [string[]]$ChangedPaths) {
 function Get-TeamAffectedByScope($Plan, [string]$FailedTask) {
     $root=@($Plan.tasks | Where-Object id -eq $FailedTask)
     if ($root.Count -ne 1) { Stop-TeamError 10 'Unknown failed task' }
-    $affected=@(Get-TeamAffected $Plan $FailedTask @($root[0].write_scope))
-    foreach ($task in $Plan.tasks) {
-        foreach ($scope in $task.write_scope) {
-            foreach ($failedScope in $root[0].write_scope) {
-                $a=($scope -split '[*?]',2)[0]; $b=($failedScope -split '[*?]',2)[0]
-                if ($a.StartsWith($b) -or $b.StartsWith($a)) { $affected+=@(Get-TeamAffected $Plan $task.id @()) }
+    $affected=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $null=$affected.Add($FailedTask)
+    do {
+        $before=$affected.Count
+        $invalidated=@($Plan.tasks | Where-Object { $affected.Contains($_.id) } | ForEach-Object { $_.write_scope })
+        foreach ($task in $Plan.tasks) {
+            if ($affected.Contains($task.id)) { continue }
+            if (@($task.dependencies | Where-Object { $affected.Contains($_) }).Count) { $null=$affected.Add($task.id); continue }
+            foreach ($scope in $task.write_scope) {
+                foreach ($other in $invalidated) {
+                    if (Test-TeamScopeOverlap $scope $other) { $null=$affected.Add($task.id); break }
+                }
             }
         }
+    } while ($before -ne $affected.Count)
+    return @($affected | Sort-Object)
+}
+
+function Test-TeamScopeOverlap([string]$Left, [string]$Right) {
+    # Intersect the two glob automata. This uses exactly Test-TeamScope semantics:
+    # ** consumes any characters; * and ? cannot consume a path separator.
+    $a=@([regex]::Matches($Left,'\*\*|\*|\?|[^*?]') | ForEach-Object Value)
+    $b=@([regex]::Matches($Right,'\*\*|\*|\?|[^*?]') | ForEach-Object Value)
+    $queue=[Collections.Generic.Queue[object]]::new(); $queue.Enqueue(@(0,0))
+    $seen=[Collections.Generic.HashSet[string]]::new()
+    while ($queue.Count) {
+        $pair=$queue.Dequeue(); $i=[int]$pair[0]; $j=[int]$pair[1]
+        if (-not $seen.Add("$i,$j")) { continue }
+        if ($i -eq $a.Count -and $j -eq $b.Count) { return $true }
+        $x=if ($i -lt $a.Count) {$a[$i]} else {$null}
+        $y=if ($j -lt $b.Count) {$b[$j]} else {$null}
+        if ($x -in @('*','**')) { $queue.Enqueue(@(($i+1),$j)) }
+        if ($y -in @('*','**')) { $queue.Enqueue(@($i,($j+1))) }
+        if ($null -eq $x -or $null -eq $y) { continue }
+        $xWild=$x -in @('*','**','?'); $yWild=$y -in @('*','**','?')
+        $compatible=if ($xWild -and $yWild) {$true}
+            elseif ($xWild) {$x -eq '**' -or $y -cne '/'}
+            elseif ($yWild) {$y -eq '**' -or $x -cne '/'}
+            else {$x -ceq $y}
+        if ($compatible) {
+            $ni=if ($x -in @('*','**')) {$i} else {$i+1}
+            $nj=if ($y -in @('*','**')) {$j} else {$j+1}
+            $queue.Enqueue(@($ni,$nj))
+        }
     }
-    return @($affected | Sort-Object -Unique)
+    return $false
 }
 
 function Read-WorkerResult($TaskState, $Task, [string]$RunId, [switch]$AllowIncomplete) {
