@@ -1,4 +1,6 @@
 BeforeAll {
+    . (Join-Path $PSScriptRoot "LeadFixture.ps1")
+    $script:LeadEnvironment=Enable-TeamLeadFixture $TestDrive
     $script:TeamPath = Split-Path $PSScriptRoot -Parent
     . (Join-Path $script:TeamPath 'scripts/Core.ps1')
     $script:OriginalPath = $env:PATH
@@ -45,9 +47,47 @@ BeforeAll {
         }
     }
 }
-AfterAll { $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
+AfterAll { Restore-TeamLeadFixture $script:LeadEnvironment; $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'freezes a run-local role through dispatch, replan, and resume' {
+        $f=New-RuntimeFixture
+        $role=Read-TeamData (Join-Path $script:TeamPath 'roles/database.yaml'); $role.role_id='custom-query'
+        $f.plan['dynamic_roles']=@{'custom-query'=$role}; $f.plan.tasks[0].role='custom-query'
+        Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $s=State $f; $s.tasks.T1.status | Should -Be 'REVIEW'
+        $packet=Read-TeamData (Join-Path $s.tasks.T1.directory 'task.yaml')
+        $packet.role.definition.role_id | Should -Be 'custom-query'
+        $f.plan.run.revision=2
+        $f.plan.dynamic_roles.'custom-query'.guidance+=@('Check query performance')
+        Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Plan',$f.path,'-Reason','Change role specialization','-Json')
+        $r.code | Should -Be 10 -Because $r.raw
+        $newRole=$f.plan.dynamic_roles.'custom-query'; $newRole.role_id='custom-query-v2'
+        $f.plan.dynamic_roles=@{'custom-query-v2'=$newRole}; $f.plan.tasks[0].role='custom-query-v2'
+        Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Plan',$f.path,'-Reason','New role identity preserves prior evidence','-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json')
+        $r.code | Should -Be 0 -Because $r.raw
+        $s=State $f; $s.tasks.T1.status | Should -Be 'REVIEW'
+        (Read-TeamData (Join-Path $s.tasks.T1.directory 'task.yaml')).role.definition.role_id | Should -Be 'custom-query-v2'
+        $dir=Join-Path $f.repo 'team/runtime/FIXTURE/roles'
+        Test-Path (Join-Path $dir 'custom-query.yaml') | Should -BeTrue
+        Test-Path (Join-Path $dir 'custom-query-v2.yaml') | Should -BeTrue
+    }
+    It 'refuses an unidentified Lead before creating run state or worktrees' {
+        $f=New-RuntimeFixture; $saved=$env:CODEX_THREAD_ID
+        try {
+            $env:CODEX_THREAD_ID=''
+            $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
+            $r.code | Should -Be 20 -Because $r.raw
+            Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE') | Should -BeFalse
+            Test-Path (Join-Path $f.repo '.worktrees') | Should -BeFalse
+        } finally { $env:CODEX_THREAD_ID=$saved }
+    }
     It 'keeps observation collections valid and follows paused runs until cancellation' {
         $f=New-RuntimeFixture
         $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json')
@@ -594,18 +634,18 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
             } while (-not $started -and [datetime]::UtcNow -lt $deadline)
             $started | Should -BeTrue
             $evidence=Join-Path $TestDrive "bill-$Limit.txt"; Set-Content $evidence "test billing $Limit"
-            $r=Invoke-Cli @('report-cost','-Repo',$f.repo,'-Run','FIXTURE','-Amount',"$Amount",'-Evidence',$evidence,'-Json')
+            $r=Invoke-Cli @('report-cost','-Repo',$f.repo,'-Run','FIXTURE','-Amount',"$Amount",'-Evidence',$evidence,'-Ledger','deepseek','-Unit','USD','-Source','synthetic-test','-Json')
             $r.code | Should -Be 0 -Because $r.raw; $r.data.status | Should -Be 'QUEUED'
-            $r=Invoke-Cli @('report-cost','-Repo',$f.repo,'-Run','FIXTURE','-Amount',"$Amount",'-Evidence',$evidence,'-Json')
+            $r=Invoke-Cli @('report-cost','-Repo',$f.repo,'-Run','FIXTURE','-Amount',"$Amount",'-Evidence',$evidence,'-Ledger','deepseek','-Unit','USD','-Source','synthetic-test','-Json')
             $r.code | Should -Be 10 -Because $r.raw
             $workerExit=Wait-TeamProcess $handle 25
             $handle=$null
             $workerExit | Should -Be $(if ($Limit -eq 'hard') {70} else {0}) -Because ((Get-Content (Join-Path $TestDrive "cost-$Limit-out") -Raw) + (Get-Content (Join-Path $TestDrive "cost-$Limit-err") -Raw))
-            $s=State $f; $s.status | Should -Be $(if ($Limit -eq 'hard') {'ESCALATED'} else {'PAUSED'}); $s.known_cost | Should -Be $Amount
+            $s=State $f; $s.status | Should -Be $(if ($Limit -eq 'hard') {'ESCALATED'} else {'PAUSED'}); $s.cost_ledgers.deepseek.known_cost | Should -Be $Amount
             $s.tasks.T1.status | Should -Be $(if ($Limit -eq 'hard') {'LOCAL_REVIEW'} else {'REVIEW'}); $s.tasks.T1.attempts | Should -Be 1
             $s.tasks.T2.status | Should -Be 'READY'; $s.tasks.T2.attempts | Should -Be 0
             $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be $(if ($Limit -eq 'hard') {70} else {0}) -Because $r.raw
-            (State $f).known_cost | Should -Be $Amount
+            (State $f).cost_ledgers.deepseek.known_cost | Should -Be $Amount
             $events=Get-Content (Join-Path $f.repo 'team/runtime/FIXTURE/events.jsonl') | ForEach-Object { ConvertFrom-Json $_ }
             @($events | Where-Object event -eq "cost_${Limit}_limit_reached").Count | Should -Be 1
         } finally { if ($handle) { $null=Close-TeamProcess $handle -Terminate } }
@@ -890,7 +930,7 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $manifest.team.enabled=$false; $path=Join-Path $TestDrive 'disabled.json'; Write-TeamData $path $manifest
         $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$path,'-Json'); $r.code | Should -Be 20
         Test-Path (Join-Path $f.repo 'team/runtime') | Should -BeFalse
-        $manifest.team.enabled=$true; $manifest.budget.soft_limit=0; $manifest.budget.hard_limit=0; Write-TeamData $path $manifest
+        $manifest.team.enabled=$true; $manifest.budget.ledgers.deepseek.soft_limit=0; $manifest.budget.ledgers.deepseek.hard_limit=0; Write-TeamData $path $manifest
         $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$path,'-Json'); $r.code | Should -Be 0
         (State $f).status | Should -Be 'PAUSED'
         (State $f).tasks.T1.attempts | Should -Be 0

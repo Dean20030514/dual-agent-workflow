@@ -3,15 +3,11 @@
   "type": "object",
   "properties": {
     "schema_version": {
-      "const": 1
+      "const": 2
     },
     "run_id": {
       "type": "string",
       "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$"
-    },
-    "known_cost": {
-      "type": "number",
-      "minimum": 0
     },
     "unknown_usage": {
       "type": "boolean"
@@ -23,15 +19,59 @@
     "active_workers": {
       "type": "integer",
       "minimum": 0
+    },
+    "ledgers": {
+      "type": "object",
+      "properties": {
+        "astra": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "const": "credits"
+            },
+            "known_cost": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "unit",
+            "known_cost"
+          ],
+          "additionalProperties": true
+        },
+        "deepseek": {
+          "type": "object",
+          "properties": {
+            "unit": {
+              "const": "USD"
+            },
+            "known_cost": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "unit",
+            "known_cost"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "astra",
+        "deepseek"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [
     "schema_version",
     "run_id",
-    "known_cost",
     "unknown_usage",
     "agents_created",
-    "active_workers"
+    "active_workers",
+    "ledgers"
   ],
   "additionalProperties": false
 }

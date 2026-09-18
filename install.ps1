@@ -242,6 +242,9 @@ function Build-Plan {
     }
     $plan.Add((New-FileAction -Source (Join-Path $RepoRoot 'codex\AGENTS.md') -Target (Join-Path $CodexRoot 'AGENTS.md')))
     $plan.Add((New-FileAction -Source (Join-Path $RepoRoot 'codex\config.example.toml') -Target (Join-Path $CodexRoot 'config.toml') -Kind 'seed'))
+    $plan.Add((New-FileAction -Source (Join-Path $RepoRoot 'tools\check-workflow.ps1') -Target (Join-Path $CodexRoot 'tools\check-workflow.ps1')))
+    $plan.Add([pscustomobject]@{Kind='locator';Source=(Join-Path $RepoRoot 'install.ps1');Target=(Join-Path $CodexRoot 'workflow-source.json');
+        Files=@();Dirs=@();Content=((([ordered]@{schema_version=1;source_repo=$RepoRoot}) | ConvertTo-Json -Compress) + "`n")})
     # Shared Team runtime only: never deploy runtime state or test/probe scripts.
     foreach ($d in 'scripts', 'schemas', 'roles', 'policies') {
         $plan.Add((New-MirrorAction -Source (Join-Path $RepoRoot "team\$d") -Target (Join-Path $CodexRoot "team\$d")))
@@ -398,6 +401,7 @@ function Show-Plan {
     foreach ($a in $Plan) {
         switch ($a.Kind) {
             'copy' { Write-Line ('[PLAN]     copy  {0} -> {1}' -f $a.Source, $a.Target) }
+            'locator' { Write-Line ('[PLAN]     locator {0} -> {1}' -f $a.Source, $a.Target) }
             'seed' {
                 if (Test-Path -LiteralPath $a.Target) {
                     Write-Line ('[PLAN]     keep  {0} (seed-only, already present)' -f $a.Target)
@@ -610,11 +614,12 @@ function Get-ManagedFilePairs {
     $pairs = New-Object System.Collections.Generic.List[object]
     foreach ($a in $Plan) {
         switch ($a.Kind) {
-            'copy' { $pairs.Add([pscustomobject]@{ Source = $a.Source; Target = $a.Target; SeedOnly = $false }) }
-            'seed' { $pairs.Add([pscustomobject]@{ Source = $a.Source; Target = $a.Target; SeedOnly = $true }) }
+            'copy' { $pairs.Add([pscustomobject]@{ Source = $a.Source; Target = $a.Target; SeedOnly = $false; Content='' }) }
+            'seed' { $pairs.Add([pscustomobject]@{ Source = $a.Source; Target = $a.Target; SeedOnly = $true; Content='' }) }
+            'locator' { $pairs.Add([pscustomobject]@{ Source = $a.Source; Target = $a.Target; SeedOnly = $false; Content=$a.Content }) }
             'mirror' {
                 foreach ($rel in $a.Files) {
-                    $pairs.Add([pscustomobject]@{ Source = (Join-Path $a.Source $rel); Target = (Join-Path $a.Target $rel); SeedOnly = $false })
+                    $pairs.Add([pscustomobject]@{ Source = (Join-Path $a.Source $rel); Target = (Join-Path $a.Target $rel); SeedOnly = $false; Content='' })
                 }
             }
             'plugin' { }
@@ -631,9 +636,10 @@ function Test-ManagedFileMatches {
     A missing source is NOT "different": the pre-flight checks report it, and the preview
     must not try to hash a file that is not there.
     #>
-    param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Target)
+    param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Target, [string]$Content='')
     if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) { return $false }
     if (-not (Test-Path -LiteralPath $Target -PathType Leaf)) { return $false }
+    if ($Content) { return [IO.File]::ReadAllText($Target) -ceq $Content }
     return ((Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash -eq (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash)
 }
 
@@ -652,7 +658,7 @@ function Show-WritePreview {
         # A source that is not there cannot be written; Test-Plan names it separately.
         if (-not (Test-Path -LiteralPath $p.Source -PathType Leaf)) { continue }
         if ($p.SeedOnly -and (Test-Path -LiteralPath $p.Target)) { $unchanged++; continue }
-        if (Test-ManagedFileMatches -Source $p.Source -Target $p.Target) { $unchanged++; continue }
+        if (Test-ManagedFileMatches -Source $p.Source -Target $p.Target -Content $p.Content) { $unchanged++; continue }
         Write-Line ('[DIFF]     ' + $p.Target)
         $wouldWrite++
     }
@@ -670,13 +676,13 @@ function Copy-ManagedFile {
     preceded by a sibling backup, so any single file can be put back by hand. A SeedOnly
     pair whose target exists is never overwritten at all.
     #>
-    param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Target, [Parameter(Mandatory)][string]$Stamp, [switch]$SeedOnly)
+    param([Parameter(Mandatory)][string]$Source, [Parameter(Mandatory)][string]$Target, [Parameter(Mandatory)][string]$Stamp, [switch]$SeedOnly, [string]$Content='')
     if ($SeedOnly -and (Test-Path -LiteralPath $Target)) {
         Write-Line ('[SKIP]     {0} (seed-only, already present)' -f $Target)
         $script:Summary.unchanged++
         return
     }
-    if (Test-ManagedFileMatches -Source $Source -Target $Target) {
+    if (Test-ManagedFileMatches -Source $Source -Target $Target -Content $Content) {
         $script:Summary.unchanged++
         return
     }
@@ -689,7 +695,8 @@ function Copy-ManagedFile {
             $script:Summary.backups++
         }
     }
-    Copy-Item -LiteralPath $Source -Destination $Target -Force
+    if ($Content) { [IO.File]::WriteAllText($Target,$Content,(New-Object Text.UTF8Encoding($false))) }
+    else { Copy-Item -LiteralPath $Source -Destination $Target -Force }
     $script:Summary.written++
     Write-Line ('[WRITE]    ' + $Target)
 }
@@ -704,7 +711,7 @@ function Invoke-ManagedDeploy {
     #>
     param([Parameter(Mandatory)]$Plan, [Parameter(Mandatory)][string]$Stamp)
     foreach ($p in (Get-ManagedFilePairs -Plan $Plan)) {
-        Copy-ManagedFile -Source $p.Source -Target $p.Target -Stamp $Stamp -SeedOnly:$p.SeedOnly
+        Copy-ManagedFile -Source $p.Source -Target $p.Target -Stamp $Stamp -SeedOnly:$p.SeedOnly -Content $p.Content
     }
 }
 

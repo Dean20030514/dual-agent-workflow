@@ -26,6 +26,27 @@ Describe 'Deploy - updates the managed surface and deletes nothing' {
     }
     AfterEach { Remove-TestCase $case }
 
+    It 'previews and backs up a changed generated source locator then leaves it unchanged' {
+        $locator=Join-Path $case.CodexDir 'workflow-source.json'
+        Set-Content $locator '{"schema_version":1,"source_repo":"old-checkout"}'
+        $oldHash=(Get-FileHash $locator).Hash
+        $before=Get-TargetsSignature -Case $case
+        $r=Invoke-InstallerCase -Case $case -Arguments ($script:Args+@('-DryRun','-NoPluginInstall'))
+        $r.ExitCode | Should -Be 0
+        $r.OutputText | Should -Match 'would-write=1 '
+        Get-TargetsSignature -Case $case | Should -Be $before
+        $r=Invoke-InstallerCase -Case $case -Arguments ($script:Args+@('-NoPluginInstall'))
+        $r.ExitCode | Should -Be 0
+        $backups=@(Get-ChildItem $case.CodexDir -Filter 'workflow-source.json.bak-*')
+        $backups.Count | Should -Be 1
+        (Get-FileHash $backups[0].FullName).Hash | Should -Be $oldHash
+        (Get-Content $locator -Raw | ConvertFrom-Json).source_repo | Should -Be $case.RepoRoot
+        $before=Get-TargetsSignature -Case $case
+        $r=Invoke-InstallerCase -Case $case -Arguments ($script:Args+@('-NoPluginInstall'))
+        $r.ExitCode | Should -Be 0
+        Get-TargetsSignature -Case $case | Should -Be $before
+    }
+
     It 'exits 0 with RESULT=OK and really writes the managed files' {
         $script:R.ExitCode | Should -Be 0
         $script:R.OutputText | Should -Match 'RESULT=OK'
@@ -333,7 +354,14 @@ Describe 'Deploy - completeness into an empty home (ported from the stopped H3 b
                 # each value, so without it 'codex/config.toml' would also collect the generic
                 # '^codex/' path and $source would become a two-element array (its hash compare
                 # then degrades to "any differ", and the missing path spams a Get-FileHash error).
+                if ($rel -eq 'codex/workflow-source.json') {
+                    $locator=Get-Content -LiteralPath $target -Raw | ConvertFrom-Json
+                    $locator.schema_version | Should -Be 1
+                    $locator.source_repo | Should -Be (Get-RepoRoot)
+                    continue
+                }
                 $source = switch -Regex ($rel) {
+                    '^codex/tools/' { Join-Path (Get-RepoRoot) ('tools/' + $rel.Substring(12)); break }
                     '^claude/' { Join-Path (Get-RepoRoot) ('claude\' + $rel.Substring(7)); break }
                     '^codex/config\.toml$' { Join-Path (Get-RepoRoot) 'codex\config.example.toml'; break }
                     '^codex/team/' { Join-Path (Get-RepoRoot) ('team\' + $rel.Substring(11)); break }

@@ -43,10 +43,31 @@ function Record-TeamVerificationFailure($State, [string]$Directory, [string]$Tas
         New-TeamEscalation $State $Directory 'repeated_verification_failure' 'Two worker attempts failed the same verification command with identical output; inspect the preserved evidence before another attempt.' @{task_id=$TaskId;fingerprint=$fingerprint;attempt=$item.attempts}
     }
 }
-function Submit-TeamCost([string]$Directory, [double]$Amount, [string]$Evidence) {
-    if ($Amount -lt 0 -or -not [double]::IsFinite($Amount) -or -not $Evidence) {
-        Stop-TeamError 10 'Cost report requires a finite nonnegative amount and evidence file'
+function Get-TeamBudgetSnapshot($State, $Manifest) {
+    if (-not $Manifest.budget['ledgers']) { Stop-TeamError 20 'Budget has no named units; explicitly migrate the manifest before dispatch or cost reporting' }
+    if ($State['known_cost'] -gt 0) { Stop-TeamError 80 'Legacy untyped cost is retained; explicitly reconcile its units before resuming' }
+    $ledgers=@{}; $soft=$false; $hard=$false
+    foreach ($id in @('astra','deepseek')) {
+        $limit=$Manifest.budget.ledgers[$id]
+        $expected=if ($id -eq 'astra') {'credits'} else {'USD'}
+        if (-not $limit -or $limit.unit -cne $expected -or $limit.soft_limit -gt $limit.hard_limit) { Stop-TeamError 10 "Invalid budget ledger: $id" }
+        $saved=if ($State['cost_ledgers']) {$State.cost_ledgers[$id]} else {$null}
+        if ($saved -and $saved.unit -cne $limit.unit) { Stop-TeamError 80 "Persisted cost unit differs from manifest: $id" }
+        $amount=if ($saved) {[double]$saved.known_cost} else {0.0}
+        if (-not [double]::IsFinite($amount) -or $amount -lt 0) { Stop-TeamError 80 "Invalid persisted cost: $id" }
+        $ledgers[$id]=@{unit=$limit.unit;known_cost=$amount;soft_limit=$limit.soft_limit;hard_limit=$limit.hard_limit}
+        $soft=$soft -or $amount -ge $limit.soft_limit; $hard=$hard -or $amount -ge $limit.hard_limit
     }
+    return @{ledgers=$ledgers;soft_reached=$soft;hard_reached=$hard}
+}
+
+function Submit-TeamCost([string]$Directory, [double]$Amount, [string]$Evidence, [string]$Ledger, [string]$Unit, $Manifest, [string]$Source) {
+    if ($Amount -lt 0 -or -not [double]::IsFinite($Amount) -or -not $Evidence -or
+        $Ledger -cnotin @('astra','deepseek') -or [string]::IsNullOrWhiteSpace($Source)) {
+        Stop-TeamError 10 'Cost report requires amount, evidence, ledger, explicit unit and source'
+    }
+    $budget=Get-TeamBudgetSnapshot @{} $Manifest
+    if ($Unit -cne $budget.ledgers[$Ledger].unit) { Stop-TeamError 10 'Cost unit differs from its ledger; no implicit conversion or mixed-unit sum is allowed' }
     $hash = Get-TeamHash $Evidence
     $receiptDirectory = Join-Path $Directory 'cost-receipts'
     [IO.Directory]::CreateDirectory($receiptDirectory) | Out-Null
@@ -55,43 +76,42 @@ function Submit-TeamCost([string]$Directory, [double]$Amount, [string]$Evidence)
     try {
         $path = Join-Path $receiptDirectory "$hash.json"
         if (Test-Path -LiteralPath $path) { Stop-TeamError 10 'Cost evidence already recorded' }
-        Write-TeamData $path @{amount=$Amount;evidence_hash=$hash;recorded_at=[DateTime]::UtcNow.ToString('o')}
+        Write-TeamData $path @{amount=$Amount;ledger=$Ledger;unit=$Unit;source=$Source;evidence_hash=$hash;recorded_at=[DateTime]::UtcNow.ToString('o')}
     } finally { $handle.Dispose() }
     return $hash
 }
 
 function Sync-TeamCost($State, $Manifest, [string]$Directory) {
-    $receipts = @(Get-ChildItem -LiteralPath (Join-Path $Directory 'cost-receipts') -Filter '*.json' -ErrorAction SilentlyContinue)
-    $total = 0.0
-    foreach ($file in $receipts) {
+    $previous=Get-TeamBudgetSnapshot $State $Manifest
+    $totals=@{astra=0.0;deepseek=0.0}
+    foreach ($file in @(Get-ChildItem -LiteralPath (Join-Path $Directory 'cost-receipts') -Filter '*.json' -ErrorAction SilentlyContinue)) {
         $receipt = Read-TeamData $file.FullName
-        if ($receipt.evidence_hash -cne $file.BaseName -or $receipt.amount -isnot [ValueType] -or
-            -not [double]::IsFinite([double]$receipt.amount) -or $receipt.amount -lt 0) {
+        if (-not $receipt['ledger'] -or -not $receipt['unit']) { Stop-TeamError 80 'Legacy untyped receipt retained; reconcile its ledger and unit explicitly' }
+        if ($receipt.ledger -cnotin @('astra','deepseek') -or $receipt.unit -cne $previous.ledgers[$receipt.ledger].unit -or
+            [string]::IsNullOrWhiteSpace($receipt['source']) -or $receipt.evidence_hash -cne $file.BaseName -or
+            $receipt.amount -isnot [ValueType] -or -not [double]::IsFinite([double]$receipt.amount) -or $receipt.amount -lt 0) {
             Stop-TeamError 80 'Invalid cost receipt; reconcile before dispatch'
         }
-        $total += [double]$receipt.amount
+        $totals[$receipt.ledger]+=[double]$receipt.amount
     }
-    if (-not [double]::IsFinite($total) -or $total -lt $State.known_cost) { Stop-TeamError 80 'Cost ledger regressed or overflowed' }
-    $soft = $total -ge $Manifest.budget.soft_limit
-    $hard = $total -ge $Manifest.budget.hard_limit
-    # Native admission checks this control before creating another child, even in an existing worker.
-    $changed = $State.known_cost -ne $total
-    $control = Join-Path $Directory 'budget-control.json'
-    if ($changed -or -not (Test-Path -LiteralPath $control)) {
-        Write-TeamData $control @{stop_new_children=$soft;known_cost=$total}
+    $ledgers=@{}
+    foreach ($id in $totals.Keys) {
+        if (-not [double]::IsFinite($totals[$id]) -or $totals[$id] -lt $previous.ledgers[$id].known_cost) { Stop-TeamError 80 "Cost ledger regressed or overflowed: $id" }
+        $ledgers[$id]=@{unit=$previous.ledgers[$id].unit;known_cost=$totals[$id]}
     }
-    $State.known_cost = $total
+    $changed=(Get-TeamCanonicalJson $State['cost_ledgers']) -cne (Get-TeamCanonicalJson $ledgers)
+    $State['cost_ledgers']=$ledgers
+    $budget=Get-TeamBudgetSnapshot $State $Manifest
+    $control=Join-Path $Directory 'budget-control.json'
+    if ($changed -or -not (Test-Path -LiteralPath $control)) { Write-TeamData $control @{stop_new_children=$budget.soft_reached;ledgers=$ledgers} }
     foreach ($limit in @('soft','hard')) {
-        $reached = if ($limit -eq 'soft') { $soft } else { $hard }
-        $marker = "cost_${limit}_notified"
+        $reached=$budget["${limit}_reached"]; $marker="cost_${limit}_notified"
         if ($reached -and -not $State[$marker]) {
-            Add-TeamEvent $Directory "cost_${limit}_limit_reached" @{cost=$total}
-            $State[$marker] = $true; $changed = $true
+            Add-TeamEvent $Directory "cost_${limit}_limit_reached" @{ledgers=$budget.ledgers}
+            $State[$marker]=$true; $changed=$true
         }
     }
-    if ($hard -and $State.status -notin @('COMPLETED','CANCELLED','FAILED','ESCALATED')) {
-        $State.status = 'PAUSED'; $changed = $true
-    }
+    if ($budget.hard_reached -and $State.status -notin @('COMPLETED','CANCELLED','FAILED','ESCALATED')) { $State.status='PAUSED';$changed=$true }
     if ($changed) { Save-TeamState $State $Directory }
 }
 

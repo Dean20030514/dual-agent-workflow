@@ -5,7 +5,7 @@ BeforeAll {
     function Invoke-CheckFixture {
         # Reuse the existing child interlock for the checker's nested installer preview.
         $case.Installer = $CheckPath
-        $r = Invoke-InstallerCase -Case $case -Arguments @('-SourceRoot',(Get-RepoRoot),'-Repo',$project,
+        $r = Invoke-InstallerCase -Case $case -Arguments @('-SourceRoot',$case.RepoRoot,'-Repo',$project,
             '-ClaudeDir',$case.ClaudeDir,'-CodexDir',$case.CodexDir,'-DshDir',$case.DshDir)
         $json = @($r.Output | Where-Object { $_.ToString().StartsWith('{') })[-1] | ConvertFrom-Json
         return @{exit_code=$r.ExitCode;data=$json}
@@ -13,7 +13,7 @@ BeforeAll {
 }
 Describe 'Read-only workflow deployment check' {
     BeforeEach {
-        $case = New-TestCase -Name 'workflow-check' -SeedConfigToml
+        $case = New-TestCase -Name 'workflow-check' -SeedConfigToml -FakeRepo
         $project = Join-Path $case.Root 'project'
         New-Item -ItemType Directory -Path $project | Out-Null
         git -C $project init -q
@@ -22,6 +22,21 @@ Describe 'Read-only workflow deployment check' {
         $installed.ExitCode | Should -Be 0
     }
     AfterEach { Remove-TestCase $case }
+    It 'uses the installed locator for a checkout outside the Desktop default' {
+        $case.Installer=Join-Path $case.CodexDir 'tools/check-workflow.ps1'
+        $before=Get-TargetsSignature -Case $case
+        $r=Invoke-InstallerCase -Case $case -Arguments @('-Repo',$project,
+            '-ClaudeDir',$case.ClaudeDir,'-CodexDir',$case.CodexDir,'-DshDir',$case.DshDir)
+        $data=(@($r.Output | Where-Object { $_.ToString().StartsWith('{') })[-1] | ConvertFrom-Json)
+        $r.ExitCode | Should -Be 1
+        $data.source | Should -Be $case.RepoRoot
+        $data.global.status | Should -Be 'COMPLETE'
+        Get-TargetsSignature -Case $case | Should -Be $before
+        Set-Content (Join-Path $case.CodexDir 'workflow-source.json') '{"schema_version":1,"source_repo":"missing-relative-path"}'
+        $r=Invoke-InstallerCase -Case $case -Arguments @('-Repo',$project,
+            '-ClaudeDir',$case.ClaudeDir,'-CodexDir',$case.CodexDir,'-DshDir',$case.DshDir)
+        $r.ExitCode | Should -Be 2
+    }
     It 'detects an unenrolled new project without writing global or project files' {
         $before = Get-TargetsSignature -Case $case
         $projectBefore = Get-TreeSignature $project

@@ -5,6 +5,7 @@
 param([int]$TimeoutSeconds = 180)
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot '../scripts/Core.ps1')
+. (Join-Path $PSScriptRoot '../scripts/Lead.ps1')
 . (Join-Path $PSScriptRoot '../scripts/Preflight.ps1')
 $root=Join-Path ([IO.Path]::GetTempPath()) ('team-fork-inheritance-'+[guid]::NewGuid().ToString('N').Substring(0,10))
 [IO.Directory]::CreateDirectory($root) | Out-Null

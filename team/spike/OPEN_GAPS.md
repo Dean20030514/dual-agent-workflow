@@ -27,8 +27,10 @@ Defender 阻塞由用户在本机显式允许 ApexToolkit.A 检测类别后解�
 
 固有边界：
 
+- Lead 检查使用当前 Codex 会话的活动轮次元数据，不把配置字符串当作证明；本地文件不是服务端签名，也不能抵御同权限恶意修改。
+- Plan 临时角色的首次派发、独立审查和集成已由 DYNAMIC-NATIVE-016 真实 DSH 小任务验证；修订新 ID 与恢复由替身 CLI 验证。它不扩张 Task 权限，也不等于增加 OS 沙箱。
 - Worktree 不是 OS 沙箱；声明的网络/凭据权限不等于操作系统阻断。
-- CLI headless 不给出完整金额账单。cost 明确 unknown_usage=true，外部账单通过唯一 evidence hash 录入；不把未知费用记作零。
+- CLI headless 不给出完整金额账单。cost 明确 unknown_usage=true，外部账单按 Astra Credits / DeepSeek USD 分账录入，保留 source 与唯一 evidence hash；不把未知费用记作零，不合并单位。
 - 版本 pin 是已测试单版本，不代表整个语义版本区间都兼容。
 - 原生 fork 的空前缀与非空已完成父回合继承均已实测；正常 headless Worker 仍为单回合，
   不自动获得此前会话。双回合探针只验证原生继承行为，不扩张 Reviewer 的 fresh 规则。

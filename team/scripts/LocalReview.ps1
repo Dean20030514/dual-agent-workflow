@@ -42,7 +42,7 @@ function Invoke-TeamLocalReview($State, $Task, $Manifest, [string]$Directory) {
         if (-not (Test-Path (Join-Path $review.directory 'exit.json'))) { Stop-TeamError 80 'Local review launch has no durable exit receipt; preserve it for reconciliation' }
     } else {
         Sync-TeamCost $State $Manifest $Directory
-        if ($State.known_cost -ge $Manifest.budget.hard_limit -or
+        if ((Get-TeamBudgetSnapshot $State $Manifest).hard_reached -or
             ($State.agents_created+$State.agents_reserved+1) -gt $Manifest.budget.max_agents_per_run -or
             ($State.agents_reserved+1) -gt $Manifest.budget.max_parallel_agents_total) {
             New-TeamEscalation $State $Directory 'local_review_capacity' 'Mandatory local review cannot start within the remaining agent/cost budget.' @{task_id=$Task.id}

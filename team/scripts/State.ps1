@@ -67,7 +67,7 @@ function New-TeamRun($Plan, $Manifest, [string]$Repo, [string[]]$Order, [string]
     Write-TeamData (Join-Path $directory 'plan.yaml') $Plan
     Write-TeamData (Join-Path $directory 'manifest.yaml') $Manifest
     foreach ($roleId in @($Plan.tasks.role | Sort-Object -Unique)) {
-        Write-TeamData (Join-Path $directory "roles/$roleId.yaml") (Get-TeamRole $roleId)
+        Write-TeamData (Join-Path $directory "roles/$roleId.yaml") (Get-TeamRole $roleId -Plan $Plan)
     }
     New-DshPatch (Join-Path $directory 'worker.patch.yaml')
     $base = Invoke-TeamGit $Repo @('rev-parse','HEAD')
@@ -75,7 +75,9 @@ function New-TeamRun($Plan, $Manifest, [string]$Repo, [string[]]$Order, [string]
         schema_version = 1; run_id = $Plan.run.id; revision = $Plan.run.revision; repo = $Repo
         status = 'READY'; run_base_sha = $base; integration_base_sha = $base; last_good_integration_sha = $base
         integration_branch = "codex/integration/$($Plan.run.id)"; integration_worktree = ''; order = @($Order)
-        tasks = @{}; agents_created = 0; agents_reserved = 0; known_cost = 0.0; unknown_usage = $true; replans = 0
+        tasks = @{}; agents_created = 0; agents_reserved = 0
+        cost_ledgers = @{astra=@{unit='credits';known_cost=0.0};deepseek=@{unit='USD';known_cost=0.0}}
+        unknown_usage = $true; replans = 0
         plan_hash = Get-TeamHash (Join-Path $directory 'plan.yaml'); runtime_status = $RuntimeStatus
         updated_at = [DateTime]::UtcNow.ToString('o'); created_at = [DateTime]::UtcNow.ToString('o')
     }

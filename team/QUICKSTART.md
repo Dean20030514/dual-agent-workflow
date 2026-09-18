@@ -35,6 +35,37 @@ pwsh -NoProfile -File ./team/scripts/team.ps1 route -TaskText 'SQL optimization'
 pwsh -NoProfile -File ./team/scripts/team.ps1 validate -Plan ./team/tests/plans/L1-sql.yaml -Json
 ```
 
+这些命令应由当前 Codex Lead 活动会话执行。doctor 会读取当前轮次元数据并核对 manifest
+指定模型；普通终端只有配置而无活动轮次时不能通过。需要新开 CLI Lead 时，可执行
+`pwsh -NoProfile -File "$env:USERPROFILE/.codex/team/scripts/team-lead.ps1" -Repo <项目目录>`；
+自定义 CODEX_HOME 时使用其下的 `team/scripts/team-lead.ps1`。启动参数不替代后续 doctor。
+
+临时角色放在 Plan 的 `dynamic_roles`，例如先复制 `roles/database.yaml` 的完整定义，
+把 `role_id` 改为 `query-specialist`，保留全部必填字段并调整 `guidance`，再嵌入：
+
+```yaml
+dynamic_roles:
+  query-specialist: # 此处填写修改后的完整角色对象，不是文件路径或角色名字符串
+    # ...完整 role schema 字段...
+tasks:
+  - id: SQL-001
+    role: query-specialist
+    # ...原任务其余字段...
+```
+
+该片段只说明嵌入位置，不能直接作为完整 Plan 运行。`validate` 会验证角色 schema、ID、
+manifest 开关及禁止覆盖内置角色的规则。运行时冻结角色，修订其定义须使用新 ID。
+
+账单以已知增量分账录入（`$bill` 是实际账单文件路径，`$amount` 是该笔增量）：
+
+```powershell
+pwsh -NoProfile -File ./team/scripts/team.ps1 report-cost -Run <run-id> -Ledger astra -Unit credits -Source 'Astra usage statement' -Amount $amount -Evidence $bill -Json
+pwsh -NoProfile -File ./team/scripts/team.ps1 report-cost -Run <run-id> -Ledger deepseek -Unit USD -Source 'DeepSeek billing statement' -Amount $amount -Evidence $bill -Json
+```
+
+两条命令对应不同凭证，不能重复录入同一证据哈希。各账本软/硬阈值分别为 10/20；
+任一账本触限即采取相应措施，不把 Credits 与 USD 相加。旧无单位记录保留，拒绝静默换算。
+
 `route -Repo ...` 会参考固定领域路径标记，并返回 `repo_metadata`、`risk_flags` 和
 `lead_action`。模糊任务的 L1/L2 建议仍需 Lead 判断，不因仓库大而把小改动升级。
 连续误判进入 degraded 后，doctor 与 run/resume 也会返回通知；单次匹配不解除降级。

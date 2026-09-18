@@ -10,11 +10,12 @@ project-specific topics. The full phased workflow and prompt templates live in
 ## New project session: read-only deployment check
 
 Once at the start of a project session, before project work, check deployment even
-when the project has no `team/manifest.yaml`. On this machine the canonical source
-is `$env:USERPROFILE/Desktop/workflow`. Run:
+when the project has no `team/manifest.yaml`. The installed checker resolves the
+canonical checkout from `workflow-source.json` in Codex home. Run:
 
 ```powershell
-pwsh -NoProfile -File "$env:USERPROFILE/Desktop/workflow/tools/check-workflow.ps1" -Repo (Get-Location).Path
+$workflowCodexRoot = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $env:USERPROFILE '.codex' }
+pwsh -NoProfile -File (Join-Path $workflowCodexRoot 'tools/check-workflow.ps1') -Repo (Get-Location).Path
 ```
 
 This checks all installer-managed global files plus the current Git project's Team

@@ -1,6 +1,9 @@
 BeforeAll {
+    . (Join-Path $PSScriptRoot "LeadFixture.ps1")
+    $script:LeadEnvironment=Enable-TeamLeadFixture $TestDrive
     $script:TeamPath = Split-Path $PSScriptRoot -Parent
     . (Join-Path $script:TeamPath 'scripts/Core.ps1')
+    . (Join-Path $script:TeamPath 'scripts/Lead.ps1')
     . (Join-Path $script:TeamPath 'scripts/Contracts.ps1')
     . (Join-Path $script:TeamPath 'scripts/Preflight.ps1')
     . (Join-Path $script:TeamPath 'scripts/State.ps1')
@@ -416,3 +419,5 @@ Describe 'Git-backed result audit' {
         Assert-Code { Read-WorkerResult $script:Item $script:TaskData 'R1' } 82
     }
 }
+
+AfterAll { Restore-TeamLeadFixture $script:LeadEnvironment }

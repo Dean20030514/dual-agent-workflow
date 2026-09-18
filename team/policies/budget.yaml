@@ -1,7 +1,12 @@
 schema_version: 1
-lead_counted: false
+lead_counted: false # Agent concurrency only; Lead usage belongs in the Astra ledger.
 per_worker_family_reservation: 3
 soft_limit_action: serial_required_work_and_stop_optional_fanout
 hard_limit_action: pause_dispatch
 unknown_usage: report_explicitly_never_assume_zero
 cost_source: report-cost_with_unique_evidence_hash
+ledgers:
+  astra: {unit: credits, soft_limit: 10, hard_limit: 20}
+  deepseek: {unit: USD, soft_limit: 10, hard_limit: 20}
+mixed_unit_sum: forbidden
+legacy_untyped_cost: preserve_and_require_explicit_reconciliation

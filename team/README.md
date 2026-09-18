@@ -7,7 +7,7 @@ Codex Lead → `scripts/team.ps1` → DSH native Workers → Git 范围审计 �
 先读 [QUICKSTART](QUICKSTART.md)，能力证据与限制见 [spike/OPEN_GAPS.md](spike/OPEN_GAPS.md)。
 本轮已执行的测试与真实 Harness 链路见 [验收记录](spike/ACCEPTANCE.md)。
 v5 的 V1 实现与本机验收已完成，包含人类确认的 L3 适配器扩展；逐章证据及适用边界见
-[范围核对](spike/SPEC_COVERAGE.md)。运行器未部署到本机全局受管副本。
+[范围核对](spike/SPEC_COVERAGE.md)。全局共享运行器由仓库安装器部署到 `~/.codex/team/`。
 
 依赖：PowerShell ≥ 7.4、Git、DSH native CLI、Codex native CLI、powershell-yaml ≥ 0.4.12。
 YAML 模块由用户在本任务中明确批准；运行器不会安装依赖、修改全局配置或调用部署器。
@@ -16,8 +16,16 @@ DSH 的正文输出可带普通说明前缀，但必须以唯一、符合 Result
 多份结构化结果或有歧义的围栏前缀会被拒绝。`result-source.json` 记录提取方式与原始 stdout 哈希，原文保留。
 
 运行模型由 manifest 中逻辑别名解析。默认精确版本 pin；升级先重新运行能力验收再改 pin。
+doctor 和执行/验收入口读取 `CODEX_THREAD_ID` 对应的当前活动轮次元数据，核对 Lead 实际模型。
+缺少活动轮次、模型不符或只有已结束轮次时返回 20；`-AllowUnverifiedRuntime` 不绕过此检查。
+这是本地 Harness 证据，不是服务端模型证明或对同权限进程的防篡改保证。
+在普通终端可通过 `scripts/team-lead.ps1 -Repo <项目>` 显式选择 manifest 模型启动 Codex，
+再由该活动会话执行 Team。单纯启动参数、manifest 或 config.toml 不算运行证明。
 `roles/` 的 19 个模板提供领域能力、默认读写范围、验证建议、升级触发条件和工作指导。
 run 会保存角色定义，Worker 的 Task Packet 携带该定义；模板默认值不扩张任务已声明的权限或范围。
+Plan 可用 `dynamic_roles: {角色ID: 完整角色定义}` 定义本次运行的临时角色，并在 task.role 引用。
+须启用 manifest 的 dynamic_roles；禁止覆盖内置角色。同名角色跨 revision 不可改定义，变更须用新 ID，
+旧定义及任务包保留。此项是审计后授权增加的能力，原文 18–19 节列举默认模板及角色 schema。
 Integration 角色只能由记录在案的冲突或集成回归生成，并绑定 conflict/glue scope；它不得更改已批准接口或验收，
 只能为集成破坏的有效测试或既有已批准合同适配测试。语义判断仍由 Lead 审核，Git 范围由程序强制检查。
 `-AllowUnverifiedRuntime` 只放宽 CLI 版本，不放宽模型路由、协议、范围或审查；运行记录标记 `UNVERIFIED_RUNTIME`。
@@ -39,7 +47,10 @@ V1 保守预留整个 Worker 家族的并发槽位，空闲子 Agent 不提前�
 状态、事件、Result Packet 都是普通本地文件，不是对恶意同权限进程的防篡改设施。
 实际权限边界见 [security](policies/security.md)。不会以模型自报代替 Git、外部测试或 native 创建记录。
 
-`report-cost -Amount <增量金额> -Evidence <账单文件>` 可在 Worker 运行时提交。
+`report-cost -Ledger deepseek -Unit USD -Source <账单来源> -Amount <增量金额> -Evidence <账单文件>` 可在 Worker 运行时提交。
+另一个账本为 `-Ledger astra -Unit credits`，两者分别设软/硬阈值 10/20，不进行换算或合计。
+cost 输出 schema_version=2 的 ledgers。旧的无单位状态和收据保留原样，不能自动归入任一货币；
+旧运行的 status/logs 仍可查阅，继续执行须先明确费用归属和配置，或保留旧运行并另建新 run。
 同一证据哈希只接收一次；QUEUED 表示凭证已持久保存、等待 coordinator 消费，
 RECORDED 表示 state 已更新。软上限阻止 optional Worker 和新增原生子 Agent；
 硬上限暂停后续派发；已运行 Worker 继续完成。`unknown_usage=true` 仍表示账单不完整。

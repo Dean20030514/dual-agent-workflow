@@ -91,6 +91,8 @@ function Assert-TeamCapability($Plan, $Doctor) {
 function Test-TeamDoctor($Manifest, [string]$Repo, [switch]$AllowUnverifiedRuntime) {
     Test-TeamSchema $Manifest 'manifest'
     $problems = [Collections.Generic.List[string]]::new()
+    $lead = Get-TeamLeadEvidence $Manifest
+    if (-not $lead.runtime_verified) { $problems.Add("Lead: $($lead.reason)") }
     $versions = @{}; $route = @{ verified = $false }
     foreach ($command in @('dsh','codex')) {
         try {
@@ -124,7 +126,7 @@ function Test-TeamDoctor($Manifest, [string]$Repo, [switch]$AllowUnverifiedRunti
     $lockPath = Join-Path $Repo 'team/runtime/.team-lock'
     return @{
         success = ($problems.Count -eq 0); versions = $versions; powershell = $PSVersionTable.PSVersion.ToString()
-        route = $route; routing = $routing; problems = $problems.ToArray()
+        route = $route; lead = $lead; routing = $routing; problems = $problems.ToArray()
         routing_health = @{auto_route=$routingHealth.auto_route;consecutive_misroutes=$routingHealth.consecutive_misroutes;notice=$routingHealth.notice;lead_action=$routingHealth.lead_action}
         capabilities = $capabilities
         runtime_status = $(if ($AllowUnverifiedRuntime) { 'UNVERIFIED_RUNTIME' } else { 'PINNED_RUNTIME' })

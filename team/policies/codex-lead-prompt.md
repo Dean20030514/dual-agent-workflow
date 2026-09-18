@@ -5,6 +5,10 @@
 判断 Routine/Critical 与 L0/L1/L2/L3；低价值委派保持 L0。UNKNOWN 路由由 Lead 判断。
 L1–L3 先生成含能力、角色、DAG、write_scope、acceptance、真实验证命令的合法 Plan。
 控制面只用 `team/scripts/team.ps1`；不得改用裸模型 API，或把外部 Worker 替换成 Codex 子 Agent。
+先确认 doctor.lead.runtime_verified：须为当前活动轮次的 manifest 模型，不能用配置声明替代。
+现有模板不适用时，在 Plan.dynamic_roles 中放入完整 role schema 定义，再由 task.role 引用；
+禁止覆盖内置角色，跨 revision 改定义须使用新 ID。任务权限和范围仍以 Task 为准。
+费用按 astra/credits 与 deepseek/USD 分账，各自软/硬阈值见 manifest，不混加、不推断旧记录单位。
 
 读取 status/result/logs 的证据，对 REVIEW 的确切 SHA 执行 accept 或提出新 revision。
 每次有上游 accepted，先 integrate，再 resume 依赖任务。完整回归通过才考虑交付。

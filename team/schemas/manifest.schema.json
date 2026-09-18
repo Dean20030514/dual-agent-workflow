@@ -155,13 +155,59 @@
           "minimum": 0,
           "maximum": 3
         },
-        "soft_limit": {
-          "type": "number",
-          "minimum": 0
-        },
-        "hard_limit": {
-          "type": "number",
-          "minimum": 0
+        "ledgers": {
+          "type": "object",
+          "properties": {
+            "astra": {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "credits"
+                },
+                "soft_limit": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "hard_limit": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "unit",
+                "soft_limit",
+                "hard_limit"
+              ],
+              "additionalProperties": false
+            },
+            "deepseek": {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "const": "USD"
+                },
+                "soft_limit": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "hard_limit": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "unit",
+                "soft_limit",
+                "hard_limit"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "astra",
+            "deepseek"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -170,8 +216,7 @@
         "max_agents_per_run",
         "max_worker_retries",
         "max_replans",
-        "soft_limit",
-        "hard_limit"
+        "ledgers"
       ],
       "additionalProperties": false
     },

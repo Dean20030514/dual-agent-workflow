@@ -91,6 +91,16 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
     Assert-TeamCleanupSettled $State
     if (@(Get-TeamPendingIntegration $Directory).Count) { Stop-TeamError 80 'Reconcile or roll back the pending integration before replanning' }
     $order = @(Test-TeamPlan $NewPlan $Manifest)
+    # Role identities are immutable across revisions. A changed specialty gets a
+    # new ID, leaving old attempts and their frozen packets reproducible.
+    if ($OldPlan['dynamic_roles'] -and $NewPlan['dynamic_roles']) {
+        foreach ($id in $OldPlan.dynamic_roles.Keys) {
+            if ($NewPlan.dynamic_roles.Contains($id) -and
+                (Get-TeamCanonicalJson $OldPlan.dynamic_roles[$id]) -cne (Get-TeamCanonicalJson $NewPlan.dynamic_roles[$id])) {
+                Stop-TeamError 10 "Replan changed an existing dynamic role; use a new role ID: $id"
+            }
+        }
+    }
     if ($State.replans -ge $Manifest.budget.max_replans) { Stop-TeamError 60 'Replan limit reached; hard-stop' }
     if ($NewPlan.run.id -cne $State.run_id -or $NewPlan.run.revision -ne ($State.revision + 1) -or -not $Reason) {
         Stop-TeamError 10 'Replan requires same run ID, next revision, and a Decision Log reason'

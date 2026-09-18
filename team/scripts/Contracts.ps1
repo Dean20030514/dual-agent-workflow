@@ -1,8 +1,15 @@
-function Get-TeamRole([string]$Id, [string]$Directory = '') {
+function Get-TeamRole([string]$Id, [string]$Directory = '', $Plan = $null) {
     Assert-TeamId $Id
     $path = if ($Directory) { Join-Path $Directory "roles/$Id.yaml" } else { Join-Path $script:TeamRoot "roles/$Id.yaml" }
-    if (-not (Test-Path -LiteralPath $path)) { Stop-TeamError 10 "Unknown role: $Id" }
-    $role = Read-TeamData $path
+    $dynamic = if ($Plan -and $Plan['dynamic_roles'] -and $Plan.dynamic_roles.Contains($Id)) { $Plan.dynamic_roles[$Id] } else { $null }
+    if ($Directory -and (Test-Path -LiteralPath $path)) {
+        $role = Read-TeamData $path
+        if ($dynamic -and (Get-TeamCanonicalJson $role) -cne (Get-TeamCanonicalJson $dynamic)) {
+            Stop-TeamError 80 "Frozen dynamic role differs from the plan: $Id"
+        }
+    } elseif ($dynamic) { $role = $dynamic }
+    elseif (Test-Path -LiteralPath $path) { $role = Read-TeamData $path }
+    else { Stop-TeamError 10 "Unknown role: $Id" }
     Test-TeamSchema $role 'role'
     if ($role.role_id -cne $Id) { Stop-TeamError 10 'Role filename and identity differ' }
     return $role
@@ -52,10 +59,22 @@ function Test-TeamPlan($Plan, $Manifest) {
 function Test-TeamPlanContent($Plan, $Manifest) {
     Test-TeamSchema $Manifest 'manifest'
     Test-TeamSchema $Plan 'team-plan'
+    if ($Plan['dynamic_roles']) {
+        if (-not $Manifest.team.dynamic_roles) { Stop-TeamError 10 'Dynamic role definitions are disabled by the manifest' }
+        foreach ($id in $Plan.dynamic_roles.Keys) {
+            Assert-TeamId $id
+            if (Test-Path -LiteralPath (Join-Path $script:TeamRoot "roles/$id.yaml")) {
+                Stop-TeamError 10 "Dynamic role cannot shadow a built-in role: $id"
+            }
+            $null = Get-TeamRole $id -Plan $Plan
+        }
+    }
     $limits = $Manifest.budget
     if ($limits.max_active_workers -gt $limits.max_parallel_agents_total -or
-        $limits.max_parallel_agents_total -gt $limits.max_agents_per_run -or
-        $limits.soft_limit -gt $limits.hard_limit) { Stop-TeamError 10 'Invalid resource or cost ordering' }
+        $limits.max_parallel_agents_total -gt $limits.max_agents_per_run) { Stop-TeamError 10 'Invalid resource ordering' }
+    foreach ($ledger in $limits.ledgers.Values) {
+        if ($ledger.soft_limit -gt $ledger.hard_limit) { Stop-TeamError 10 'Invalid cost ordering' }
+    }
     if ($Plan.tasks.Count -gt $limits.max_agents_per_run) { Stop-TeamError 10 'Plan exceeds cumulative agent budget' }
     if ($Plan.mode -eq 'L1' -and $Plan.tasks.Count -ne 1) { Stop-TeamError 10 'L1 requires exactly one task' }
     if ($Plan.mode -eq 'L3' -and (-not $Manifest.subagents.enabled -or $limits.max_parallel_agents_total -lt 3)) {
@@ -69,7 +88,7 @@ function Test-TeamPlanContent($Plan, $Manifest) {
     foreach ($task in $Plan.tasks) {
         if ($ids.ContainsKey($task.id)) { Stop-TeamError 10 "Duplicate task: $($task.id)" }
         $ids[$task.id] = $task
-        $role = Get-TeamRole $task.role
+        $role = Get-TeamRole $task.role -Plan $Plan
         if ($task.role -eq 'integration' -and ($task.permissions.network -or $task.permissions.secrets -or $task.permissions.production)) {
             Stop-TeamError 10 'Integration role cannot request network, secrets, or production access'
         }

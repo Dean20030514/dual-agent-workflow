@@ -1,6 +1,8 @@
 BeforeAll {
+    . (Join-Path $PSScriptRoot "LeadFixture.ps1")
+    $script:LeadEnvironment=Enable-TeamLeadFixture $TestDrive
     $script:TeamPath=Split-Path $PSScriptRoot -Parent
-    foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Checkpoints','Revisions','Rollbacks','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict')) {
+    foreach ($module in @('Core','Lead','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Checkpoints','Revisions','Rollbacks','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict')) {
         . (Join-Path $script:TeamPath "scripts/$module.ps1")
     }
     $script:OriginalPath=$env:PATH; $script:OriginalDshHome=$env:DSH_HOME
@@ -259,7 +261,7 @@ Describe 'Pending integration evidence and identity' {
         (Read-TeamRun $f.repo 'PERSIST').state.tasks.T1.attempts | Should -Be 1
     }
 }
-AfterAll { $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
+AfterAll { Restore-TeamLeadFixture $script:LeadEnvironment; $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'Integration persistence boundaries on real isolated Git' {
     It 'resumes after the <Boundary> write boundary without merging twice or rerunning the author' -ForEach @(

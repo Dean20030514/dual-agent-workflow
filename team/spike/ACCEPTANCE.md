@@ -373,3 +373,45 @@ Contracts 10.46 秒、Processes 18.13 秒、ReviewRounds 0.531 秒、Runtime 838
 DAG-NATIVE-015 当前仍为 COMPLETED/revision=2，main 干净，acceptance.json 与 observations.jsonl
 的完整 SHA-256 与 VERIFIED_VERSIONS 一致。本轮没有再次调用付费模型，也没有执行全局部署。
 所有改动文件 UTF-8 无 BOM、LF，git diff --check exit 0。此前失败、首次超时及边界说明保留。
+
+## 2026-09-17 审计后四项修复验收
+
+范围由人类明确选择：Lead 绑定、运行内临时角色、费用单位、可迁移的源仓路径。
+费用裁决为 Astra Credits / DeepSeek USD 分账，两个账本各自软/硬阈值 10/20；
+旧的无单位收据和状态保留，不自动解释成任何货币。
+
+新增 `Bindings.Tests.ps1` 18 项通过（exit 0）：活动轮次/模型/缺失及残缺元数据、启动参数，
+完整动态角色合同/禁止覆盖/冻结一致性，分账不合计/单位拒绝/阈值/旧收据及回退保护。
+Runtime 新增 2 项定向通过（exit 0）：真实临时 Git 加替身 CLI 的自定义角色派发→修订新 ID→恢复，
+以及未识别 Lead 时拒绝创建运行/worktree。它们的 Codex 元数据明确标记 synthetic-fixture。
+恢复专项 30 passed（474.93 秒，exit 0）；Processes 25 与 ReviewRounds 9 全部通过。
+Contracts 66 passed（10.05 秒，exit 0）。各文件的选择与是否定向运行明确区分，重复执行不重复计数。
+原 Runtime 58 项完整回归亦通过（898.94 秒，exit 0）；加新增 2 项定向用例，
+当前 Team 的 208 个不同 Pester 用例已分批通过。所有所选用例均无跳过，未把定向批次的 NotRun 当通过。
+
+安装器首批 87 passed / 1 failed（exit 1）：失败为 planned 计数测试未包含新增 locator 动作。
+补齐动作集合后，Plan 12 + workflow.Check 7 共 19 passed（84.26 秒，exit 0）；
+新增定位文件覆盖前备份/只读预览/重跑不变的用例 1 passed（8.97 秒，exit 0）。
+PowerShell 5.1、全受管面部署、参数/校验与项目接入用例包含在首批通过项内。
+以上覆盖当前 89 个不同安装器/接入用例，未把重跑算成新增覆盖。
+Node native guard 6 passed，17 对派生漂移检查 DRIFT: none，均 exit 0。
+
+真实链路 `DYNAMIC-NATIVE-016`（非替身、实际调用 DeepSeek）：
+
+- 临时主仓位于 `%TEMP%/team-dynamic-native-da94db990c/repo`，未使用业务项目。
+- Plan 定义 `health-query-specialist`，由 database 完整角色合同派生；Worker Packet 携带该自定义定义。
+- 当前 Lead 元数据实际为 `gpt-6-astra`、活动轮次匹配；桌面 Harness 版本 `0.155.0-alpha.2.6`。
+  独立 Codex CLI pin 仍为 `0.153.3`，两者不是同一个版本证据。
+- 原生创建记录为 `deepseek-official/deepseek-flash`；一个作者加一个独立 Local Reviewer，累计 2 Agent。
+- 唯一业务文件 `queries/health.sql` 为 `SELECT 1;` 加换行；外部验证 exit 0。
+  Local verdict=pass、Blocking/VN 均空、writes_performed=false；核对 diff 后才执行 SHA 绑定 accept。
+- `run`、`accept`、`integrate` 均 exit 0，最终 COMPLETED；集成 SHA
+  `a2e70f9619ae1be6959f10d1a876ffdda5916276`。
+- Plan SHA-256 `0584596bc7d01916b73a382015325bb5d43195a1b165a0cdd92b63c5b3cc0d15`；
+  Packet `e6ca81984cec507bdd0a26bcc42d575cfee074eab73696fb535d67687d5bbde2`；
+  native agents `b3ba28d69c464e845b1e687fd488c739f55cb7716d8071427e95bd7f382f93a4`；
+  Local verdict `d5144d739e7d02564fb956790c1876b8067a4e865384bba9679b03878cbad547`。
+
+此轮真实链路证明临时角色的首次派发、外部验证、独立审查与集成；角色修订/恢复仍为替身验收。
+费用仍依赖外部账单，未宣称得到了完整服务端账单。Lead 证据来自本地 Harness 元数据，
+不是服务端模型签名，不防同权限进程修改；此次没有扩建 OS 沙箱、常驻强制入口或版本重认证机制。

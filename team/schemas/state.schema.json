@@ -36,6 +36,22 @@
     "order": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
     "agents_created": {"type": "integer", "minimum": 0},
     "agents_reserved": {"type": "integer", "minimum": 0},
+    "cost_ledgers": {
+      "type": "object",
+      "properties": {
+        "astra": {
+          "type": "object",
+          "properties": {"unit": {"const": "credits"}, "known_cost": {"type": "number", "minimum": 0}},
+          "required": ["unit", "known_cost"], "additionalProperties": true
+        },
+        "deepseek": {
+          "type": "object",
+          "properties": {"unit": {"const": "USD"}, "known_cost": {"type": "number", "minimum": 0}},
+          "required": ["unit", "known_cost"], "additionalProperties": true
+        }
+      },
+      "required": ["astra", "deepseek"], "additionalProperties": false
+    },
     "known_cost": {"type": "number", "minimum": 0},
     "unknown_usage": {"type": "boolean"},
     "replans": {"type": "integer", "minimum": 0},
@@ -66,8 +82,9 @@
     "status",
     "tasks", "revision", "repo", "run_base_sha", "integration_base_sha", "last_good_integration_sha",
     "integration_branch", "integration_worktree", "plan_hash", "order", "agents_created", "agents_reserved",
-    "known_cost", "unknown_usage", "replans"
+    "unknown_usage", "replans"
   ],
+  "anyOf": [{"required": ["known_cost"]}, {"required": ["cost_ledgers"]}],
   "definitions": {"sha": {"type": "string", "pattern": "^([a-f0-9]{40}|[a-f0-9]{64})$"}},
   "additionalProperties": true
 }

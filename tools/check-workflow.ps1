@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [string]$Repo = (Get-Location).Path,
-    [string]$SourceRoot = (Split-Path $PSScriptRoot -Parent),
+    [string]$SourceRoot,
     [string]$ClaudeDir = (Join-Path $env:USERPROFILE '.claude'),
     [string]$CodexDir = $(if ($env:CODEX_HOME) {$env:CODEX_HOME} else {Join-Path $env:USERPROFILE '.codex'}),
     [string]$DshDir = $(if ($env:DSH_HOME) {$env:DSH_HOME} else {Join-Path $env:USERPROFILE '.dsh'})
@@ -14,7 +14,17 @@ $result = [ordered]@{
     project = @{status='NOT_CHECKED';path=$Repo}; next_steps = @()
 }
 try {
+    if (-not $SourceRoot) {
+        $checkout=Split-Path $PSScriptRoot -Parent
+        if (Test-Path -LiteralPath (Join-Path $checkout 'install.ps1')) { $SourceRoot=$checkout }
+        else {
+            $locator=Get-Content -LiteralPath (Join-Path $CodexDir 'workflow-source.json') -Raw | ConvertFrom-Json
+            if ($locator.schema_version -ne 1 -or -not [IO.Path]::IsPathFullyQualified($locator.source_repo)) { throw 'Invalid workflow source locator; redeploy from the canonical checkout' }
+            $SourceRoot=$locator.source_repo
+        }
+    }
     $SourceRoot = (Resolve-Path -LiteralPath $SourceRoot).Path
+    $result.source=$SourceRoot
     $installer = Join-Path $SourceRoot 'install.ps1'
     $enroller = Join-Path $SourceRoot 'tools/enable-team-project.ps1'
     foreach ($file in @($installer,$enroller)) {

@@ -44,6 +44,19 @@ function Write-TeamTextAtomic([string]$Path, [string]$Text) {
 
 function Get-TeamHash([string]$Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
 
+function Get-TeamCanonicalJson($Value) {
+    if ($Value -is [Collections.IDictionary]) {
+        $members = @(foreach ($key in @($Value.Keys | Sort-Object -CaseSensitive)) {
+            (ConvertTo-Json -InputObject ([string]$key) -Compress) + ':' + (Get-TeamCanonicalJson $Value[$key])
+        })
+        return '{' + ($members -join ',') + '}'
+    }
+    if ($Value -is [Collections.IList]) {
+        return '[' + (@(foreach ($item in $Value) { Get-TeamCanonicalJson $item }) -join ',') + ']'
+    }
+    return ConvertTo-Json -InputObject $Value -Depth 100 -Compress
+}
+
 function Get-TeamOwnedProcess([int]$ProcessId, $StartedAt) {
     if ($ProcessId -le 0 -or -not $StartedAt) { return $null }
     $process = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue

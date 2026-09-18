@@ -138,6 +138,10 @@ function New-TestCase {
         foreach ($f in 'manifest.yaml', 'README.md', 'QUICKSTART.md') {
             Copy-Item (Join-Path $script:RepoRoot "team\$f") (Join-Path $fake "team\$f")
         }
+        New-Item -ItemType Directory -Force (Join-Path $fake 'tools') | Out-Null
+        foreach ($f in 'check-workflow.ps1', 'enable-team-project.ps1') {
+            Copy-Item (Join-Path $script:RepoRoot "tools/$f") (Join-Path $fake "tools/$f")
+        }
         if ($IncompleteSourceTree) {
             Remove-Item (Join-Path $fake 'claude\settings.json') -Force
         }
@@ -286,6 +290,8 @@ function Get-ManagedDeploySet {
         }
     }
     $set.Add('codex/AGENTS.md')
+    $set.Add('codex/tools/check-workflow.ps1')
+    $set.Add('codex/workflow-source.json')
     foreach ($f in Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'team') -File -Recurse) {
         $rel = $f.FullName.Substring((Join-Path $RepoRoot 'team').Length + 1).Replace('\', '/')
         if ($rel -match '^(scripts|schemas|roles|policies)/' -or

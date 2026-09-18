@@ -85,7 +85,7 @@ Describe 'AC2 -DryRun' {
         $actionRows = @($script:R.Output | ForEach-Object {
                 $text = $_.ToString()
                 if ($text -match '^\s*\[PLAN\]\s+(\S+)') { $matches[1] }
-            } | Where-Object { $_ -in 'copy', 'seed', 'keep', 'mirror' }).Count
+            } | Where-Object { $_ -in 'copy', 'seed', 'keep', 'mirror', 'locator' }).Count
         [int]$m.Groups[1].Value | Should -Be $actionRows -Because 'planned counts actions, and every action prints exactly one [PLAN] row'
         [int]$m.Groups[1].Value | Should -BeGreaterThan 0
     }
@@ -148,7 +148,8 @@ Describe 'AC2 -DryRun' {
                 $parts = $entry -split '/'
                 if ($parts[0] -eq 'claude') { $managed += ('claude/' + $parts[1]) }
                 elseif ($parts[0] -eq 'codex') {
-                    if ($parts[1] -ne 'team') { $managed += ('codex/' + $parts[1]) }
+                    if ($parts[1] -eq 'tools') { $managed += $entry }
+                    elseif ($parts[1] -ne 'team') { $managed += ('codex/' + $parts[1]) }
                     elseif ($parts[2] -eq 'spike') { $managed += $entry }
                     else { $managed += ('codex/team/' + $parts[2]) }
                 }

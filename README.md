@@ -11,7 +11,7 @@
 仓库新增的本地运行模式见 [Team Quickstart](team/QUICKSTART.md)：`team/scripts/team.ps1`
 负责计划校验、动态 Worker 的独立 worktree、原生子 Agent 额度、外部验证、验收、集成和恢复。
 能力与实际验收边界见 [Capability Spike](team/spike/OPEN_GAPS.md)。
-运行目录和 worktree 不进版本库；`install.ps1` 不部署 Team runtime，也不改 DSH 本机设置。
+运行目录和 worktree 不进版本库；`install.ps1` 部署共享 Team 运行器，不改 DSH 本机设置。
 
 ## 一键部署（新设备）
 
@@ -64,7 +64,10 @@ pwsh -NoProfile -File ./tools/enable-team-project.ps1 -Repo 'C:/path/to/project'
 再核对项目接入文件及 manifest：退出码 `0=READY`、`1=ATTENTION`、`2=CHECK_FAILED`。
 明确区分未接入、接入不完整、主动关闭、非 Git 项目、全局缺项和检查失败；输出 JSON 含缺项及后续动作。
 检查不修改配置、不调用付费模型，也不替代派发前的 doctor；由会话指令触发，不是后台服务。
-全局指令中的源仓路径默认为 `$env:USERPROFILE/Desktop/workflow`，迁移源仓时应同步调整。
+全局入口安装在 `$CODEX_HOME/tools/check-workflow.ps1`（未设置时为 `~/.codex/tools/`），
+通过安装器生成的 `workflow-source.json` 查找实际源仓，不依赖 Desktop 目录名。
+该定位文件记录本机绝对路径，属于安装器生成的受管元数据；迁移源仓后从新位置重新部署即可更新，
+覆盖前仍有单文件备份。找不到源仓会明确返回 `CHECK_FAILED`，不会误报部署完整。
 
 | 目录/文件 | 安装到 | 内容 |
 |------|--------|------|
@@ -74,6 +77,7 @@ pwsh -NoProfile -File ./tools/enable-team-project.ps1 -Repo 'C:/path/to/project'
 | `claude/workflow/` | `~/.claude/workflow/` | 母本核心：`AGENTS.md`（Safety Rules / Reviewer 零写入 / `[DEBT]` 零暗债 / Payback-on-Touch，禁止事项唯一出处）· `index.md`（阶段↔命令↔产出导航）· `reviewer-prompt.md`（9P 计划审 + 9A 标准审 + 9B 盲审 prompt、输出契约、双审隔离协议、审前快照绑定）· `QUALITY_GATES.md`（质量/安全/隐私/可访问性横切清单 + 设计闸门）· `AB-model-diagnostic.md` · `workflow-design-notes.md` · `templates/`（TASK_BRIEF / IMPLEMENTATION_PLAN / HANDOFF / PRODUCT_BRIEF 骨架） |
 | `claude/commands/` | `~/.claude/commands/` | 7 个阶段 slash command：`/define` `/explore` `/plan` `/design-check` `/implement` `/debug` `/final-review` |
 | `codex/AGENTS.md` | `~/.codex/AGENTS.md` | Codex 侧长期规则（Reviewer 规则 + 非审查会话比例原则） |
+| `tools/check-workflow.ps1` / 安装器生成的 locator | `~/.codex/tools/check-workflow.ps1` / `~/.codex/workflow-source.json` | 只读部署检查与本机源仓位置 |
 | `codex/config.example.toml` | `~/.codex/config.toml`（缺失时播种） | Codex 持久偏好（信任目录表等本机生成段刻意省略） |
 | `dsh/AGENTS.md` | `~/.dsh/AGENTS.md` | **DSH 每会话必载的全局指令**（跨项目策略层：Mode Routing、Author/Reviewer 角色与写权、Safety 红线、Fan-out 上限、Configuration Hierarchy；细节一律指向 `~/.dsh/workflow/` 与 `~/.dsh/skills/`，不复制判据） |
 | `dsh/workflow/` | `~/.dsh/workflow/` | DSH 侧母本：`AGENTS.md`（**判据唯一出处**——Safety Rules / Reviewer 零写入与轻量协议 / `[DEBT]` 零暗债 / Payback-on-Touch / 证据 vs 假设 / 验证三分类 / 守护有效性装置 / Fix-Loop 硬停 / review-sensitive paths + SHA 绑定 / Git Discipline）· `reviewer-prompt.md`（9P/9A/9B prompt + 输出契约 + **双审隔离协议 5 条 + DSH 调用形态**）· `fanout-toolchain.md`（**DSH 工具面事实**：委派三面、审查调用参数、派发上限、Reviewer 失败语义）· `index.md` · `QUALITY_GATES.md` · `workflow-design-notes.md` · `AB-model-diagnostic.md` · `templates/` |

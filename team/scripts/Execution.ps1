@@ -14,7 +14,7 @@ function New-TeamWorktree([string]$Repo, [string]$RunId, [string]$TaskId, [strin
     return @{ path = $path; branch = $branch }
 }
 
-function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory) {
+function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory, $Plan = $null) {
     if ($Task.role -eq 'integration') {
         if (-not $State.Contains('repairs') -or -not $State.repairs.Contains($Task.id)) {
             Stop-TeamError 10 'Integration workers must be generated from a recorded integration conflict or regression'
@@ -25,9 +25,9 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory) {
         }
     }
     $rolePath = Join-Path $Directory "roles/$($Task.role).yaml"
-    if (-not (Test-Path -LiteralPath $rolePath)) { Write-TeamData $rolePath (Get-TeamRole $Task.role) }
-    $role = Get-TeamRole $Task.role $Directory
-    $allowChildren = $Task.subagents.allowed -and $State.known_cost -lt $Manifest.budget.soft_limit
+    if (-not (Test-Path -LiteralPath $rolePath)) { Write-TeamData $rolePath (Get-TeamRole $Task.role -Plan $Plan) }
+    $role = Get-TeamRole $Task.role $Directory $Plan
+    $allowChildren = $Task.subagents.allowed -and -not (Get-TeamBudgetSnapshot $State $Manifest).soft_reached
     $reservation = if ($allowChildren) { 3 } else { 1 }
     if (($State.agents_created + $State.agents_reserved + $reservation) -gt $Manifest.budget.max_agents_per_run) { Stop-TeamError 70 'Cumulative agent budget reached' }
     $item = $State.tasks[$Task.id]
@@ -225,16 +225,16 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
                 if ($item.status -ne 'READY') { continue }
                 if (@($task.dependencies | Where-Object { $State.tasks[$_].status -notin @('MERGED','CLEANED') }).Count) { continue }
                 if ($handles.Count -ge $Manifest.budget.max_active_workers) { break }
-                $slots = if ($task.subagents.allowed -and $State.known_cost -lt $Manifest.budget.soft_limit) {3} else {1}
+                $slots = if ($task.subagents.allowed -and -not (Get-TeamBudgetSnapshot $State $Manifest).soft_reached) {3} else {1}
                 if (($State.agents_reserved + $slots) -gt $Manifest.budget.max_parallel_agents_total) { continue }
-                if ($State.known_cost -ge $Manifest.budget.hard_limit) {
+                if ((Get-TeamBudgetSnapshot $State $Manifest).hard_reached) {
                     $State.status = 'PAUSED'; break
                 }
-                if ($State.known_cost -ge $Manifest.budget.soft_limit) {
+                if ((Get-TeamBudgetSnapshot $State $Manifest).soft_reached) {
                     if ($task['optional']) { Add-TeamEvent $Directory 'optional_dispatch_skipped' @{ task_id = $taskId }; continue }
                     if ($handles.Count -gt 0) { break }
                 }
-                $handles[$taskId] = Start-TeamWorker $State $task $Manifest $Directory
+                $handles[$taskId] = Start-TeamWorker $State $task $Manifest $Directory $Plan
             }
             foreach ($taskId in @($handles.Keys)) {
                 $handle = $handles[$taskId]; $item = $State.tasks[$taskId]

@@ -6,11 +6,12 @@ param(
     [string]$Run, [string]$Task, [string]$TaskText, [string]$Commit, [string]$Reason,
     [string]$Escalation, [ValidateSet('approve','reject','modify-plan')][string]$Decision,
     [double]$Amount = -1, [string]$Evidence, [string]$ExpectedMode,
+    [string]$Ledger, [string]$Unit, [string]$Source,
     [ValidateSet('9P','9A','9B','LOCAL')][string]$Stage, [string]$Disposition,
     [string[]]$ChangedPaths = @(), [string[]]$GlueScope = @(), [datetime]$Since = [datetime]::MinValue,
     [switch]$Json, [switch]$Follow, [switch]$AllowUnverifiedRuntime, [switch]$RepairLock
 )
-foreach ($module in @('Core','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Checkpoints','Revisions','Rollbacks','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
+foreach ($module in @('Core','Lead','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Checkpoints','Revisions','Rollbacks','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict')) { . (Join-Path $PSScriptRoot "$module.ps1") }
 $lock = $null; $runData = $null; $exitCode = 0
 try {
     if ($PSBoundParameters.ContainsKey('Since')) { $Since=$Since.ToUniversalTime() }
@@ -75,6 +76,9 @@ try {
             if ($state['hard_stop'] -and $Command -in @('resume','accept','integrate','replan','repair-integration')) { Stop-TeamError 60 'Run is hard-stopped; preserve evidence and return to the owner' }
             $document = Read-TeamData (Join-Path $directory 'plan.yaml')
             $config = Read-TeamData (Join-Path $directory 'manifest.yaml')
+            if ($Command -in @('resume','accept','integrate','replan','repair-integration','resolve-review','rollback')) {
+                $leadEvidence = Assert-TeamLead $config
+            }
             if ($Command -eq 'stop') {
                 Write-TeamData (Join-Path $directory 'cancel.request.json') @{ run_id=$Run; requested_at=[DateTime]::UtcNow.ToString('o') }
                 try { $lock = Lock-TeamRepo $Repo $Run -Resume }
@@ -88,6 +92,9 @@ try {
                 Restore-TeamPlanRevision $directory $Repo $Run
                 $runData = Read-TeamRun $Repo $Run; $state = $runData.state
                 $document = Read-TeamData (Join-Path $directory 'plan.yaml')
+                if ($Command -in @('resume','accept','integrate','replan','repair-integration','resolve-review','rollback')) {
+                    Add-TeamEvent $directory 'lead_verified' $leadEvidence
+                }
                 if ($Command -in @('resume','accept','integrate','replan','rollback','repair-integration','resolve-review') -and
                     (Get-TeamHash (Join-Path $directory 'plan.yaml')) -cne $state.plan_hash) { Stop-TeamError 80 'Plan changed outside revision protocol' }
                 if ($Command -in @('resume','integrate','replan','repair-integration')) { $null=Restore-TeamRollback $state $directory }
@@ -97,7 +104,7 @@ try {
             }
             switch ($Command) {
                 'status' { $output = $state }
-                'cost' { $output = @{ schema_version = 1; run_id = $Run; known_cost = $state.known_cost; unknown_usage = $state.unknown_usage; agents_created = $state.agents_created; active_workers = @($state.tasks.Values | Where-Object { $_.status -eq 'RUNNING' }).Count } }
+                'cost' { $output = @{ schema_version = 2; run_id = $Run; ledgers = (Get-TeamBudgetSnapshot $state $config).ledgers; unknown_usage = $state.unknown_usage; agents_created = $state.agents_created; active_workers = @($state.tasks.Values | Where-Object { $_.status -eq 'RUNNING' }).Count }; Test-TeamSchema $output 'cost' }
                 'result' {
                     Assert-TeamId $Task
                     if (-not $state.tasks.Contains($Task)) { Stop-TeamError 10 'Unknown task' }
@@ -146,7 +153,7 @@ try {
                 'repair-integration' { $output = New-TeamIntegrationRepair $state $document $config $directory $GlueScope $Reason $Task }
                 'resolve-review' { $output = Resolve-TeamReview $state $document $directory $Stage $Task (Read-TeamData $Disposition) }
                 'report-cost' {
-                    $hash = Submit-TeamCost $directory $Amount $Evidence
+                    $hash = Submit-TeamCost $directory $Amount $Evidence $Ledger $Unit $config $Source
                     try { $lock = Lock-TeamRepo $Repo $Run -Resume }
                     catch {
                         if ($_.Exception.Data['TeamExitCode'] -ne 20) { throw }
@@ -156,7 +163,7 @@ try {
                     Restore-TeamPlanRevision $directory $Repo $Run
                     $runData = Read-TeamRun $Repo $Run; $state = $runData.state
                     Sync-TeamCost $state $config $directory
-                    $output=@{status='RECORDED';known_cost=$state.known_cost;unknown_usage=$state.unknown_usage;evidence_hash=$hash}
+                    $output=@{status='RECORDED';ledgers=$state.cost_ledgers;unknown_usage=$state.unknown_usage;evidence_hash=$hash}
                 }
                 'resume' {
                     $doctor = Test-TeamDoctor $config $Repo -AllowUnverifiedRuntime:$AllowUnverifiedRuntime

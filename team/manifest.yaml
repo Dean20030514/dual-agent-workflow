@@ -28,8 +28,15 @@ budget:
   max_agents_per_run: 10
   max_worker_retries: 2
   max_replans: 3
-  soft_limit: 10
-  hard_limit: 20
+  ledgers:
+    astra:
+      unit: credits
+      soft_limit: 10
+      hard_limit: 20
+    deepseek:
+      unit: USD
+      soft_limit: 10
+      hard_limit: 20
 routing:
   misroute_threshold: 3
 subagents:
