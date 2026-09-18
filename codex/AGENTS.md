@@ -7,6 +7,27 @@ project-specific topics. The full phased workflow and prompt templates live in
 `reviewer-prompt.md` + `templates/`; shared, not auto-loaded) and the per-phase
 `~/.claude/commands/*.md`.
 
+## New project session: read-only deployment check
+
+Once at the start of a project session, before project work, check deployment even
+when the project has no `team/manifest.yaml`. On this machine the canonical source
+is `$env:USERPROFILE/Desktop/workflow`. Run:
+
+```powershell
+pwsh -NoProfile -File "$env:USERPROFILE/Desktop/workflow/tools/check-workflow.ps1" -Repo (Get-Location).Path
+```
+
+This checks all installer-managed global files plus the current Git project's Team
+entry, using read-only previews. `READY` is quiet; `ATTENTION` or `CHECK_FAILED`
+must be briefly reported with the concrete missing/outdated items. A missing source
+or check script is an unavailable check, never proof of a complete deployment.
+Honor `DISABLED`; do not repeat the check every turn. Detection does not authorize
+enrollment, configuration replacement, Git initialization or commits; proceed with
+repairs when the user has already authorized them, otherwise report the needed action.
+This is an instruction-triggered check, not an OS startup hook. It neither verifies
+live model access nor replaces Team `doctor` before dispatch. Unrelated ordinary
+work can continue when Team is unavailable, subject to project rules.
+
 ## Scope: sessions without a review prompt
 
 If your prompt asks for no review at all — no 9P/9A/9B mode, no request to assess a diff or plan — the Reviewer-specific rules below (role, review modes, lightweight protocol, zero-write, verdict format) do not apply: you are an ordinary assistant and may write code and files. The Safety Rules still do. A prompt that asks you to assess something but names no mode is a review: see Review modes.

@@ -59,6 +59,13 @@ pwsh -NoProfile -File ./tools/enable-team-project.ps1 -Repo 'C:/path/to/project'
 项目配置属于项目自身，之后全局部署不会覆盖它。新开该项目的 Codex 会话即可加载入口；
 实际分派前仍须 doctor、任务分类、合法 Plan 及目标项目 Git/安全约束。
 
+全局 Codex 指令还要求每个项目会话首次工作前运行 `tools/check-workflow.ps1 -Repo <项目目录>`，
+即使新项目尚无 Team manifest 也会检查。脚本用部署器的只读预览核对全部受管文件，
+再核对项目接入文件及 manifest：退出码 `0=READY`、`1=ATTENTION`、`2=CHECK_FAILED`。
+明确区分未接入、接入不完整、主动关闭、非 Git 项目、全局缺项和检查失败；输出 JSON 含缺项及后续动作。
+检查不修改配置、不调用付费模型，也不替代派发前的 doctor；由会话指令触发，不是后台服务。
+全局指令中的源仓路径默认为 `$env:USERPROFILE/Desktop/workflow`，迁移源仓时应同步调整。
+
 | 目录/文件 | 安装到 | 内容 |
 |------|--------|------|
 | `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | 全局指令（跨项目红线 + 工作流导航，每会话自动加载） |
