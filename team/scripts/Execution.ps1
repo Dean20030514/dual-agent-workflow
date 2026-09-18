@@ -27,9 +27,10 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory, $Plan = 
     $rolePath = Join-Path $Directory "roles/$($Task.role).yaml"
     if (-not (Test-Path -LiteralPath $rolePath)) { Write-TeamData $rolePath (Get-TeamRole $Task.role -Plan $Plan) }
     $role = Get-TeamRole $Task.role $Directory $Plan
-    $allowChildren = $Task.subagents.allowed -and -not (Get-TeamBudgetSnapshot $State $Manifest).soft_reached
-    $reservation = if ($allowChildren) { 3 } else { 1 }
-    if (($State.agents_created + $State.agents_reserved + $reservation) -gt $Manifest.budget.max_agents_per_run) { Stop-TeamError 70 'Cumulative agent budget reached' }
+    if (-not $Plan) { $Plan=@{tasks=@($Task)} }
+    $admission=Get-TeamAgentAdmission $State $Plan $Manifest $Task
+    if (-not $admission.admitted) { Stop-TeamError 70 'Remaining required authors and mandatory reviewers exceed the cumulative agent budget; replan before dispatch' }
+    $allowChildren=$admission.allow_children; $reservation=$admission.slots
     $item = $State.tasks[$Task.id]
     $base = if ($Task.dependencies.Count -or $Task.role -eq 'integration') { $State.last_good_integration_sha } else { $State.run_base_sha }
     if ($Task.dependencies.Count) {
@@ -49,7 +50,7 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory, $Plan = 
         objective = $Task.objective; dependencies = $Task.dependencies; permissions = $Task.permissions
         write_scope = $Task.write_scope; acceptance = $Task.acceptance; subagents = @{allowed=$allowChildren;max_depth=$(if ($allowChildren) {2} else {0})}
         verification = $Task.verification
-        base_sha = $base; result_schema = 'team/schemas/result.schema.json'
+        base_sha = $base; result_schema = 'result-v1'; result_schema_sha256 = Get-TeamHash (Join-Path $script:TeamRoot 'schemas/result.schema.json')
     }
     Test-TeamTask $packet
     $taskPath = Join-Path $item.directory 'task.yaml'
@@ -66,7 +67,8 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory, $Plan = 
     $args = @('-TaskFile',$taskPath,'-Worktree',$item.worktree,'-OutputFile',(Join-Path $item.directory 'result.yaml'),
         '-Patch',$patchPath,'-Profile',$Manifest.runtime.profile,
         '-TimeoutSeconds',[string]$Manifest.runtime.timeout_seconds,
-        '-IdleTimeoutSeconds',[string]$Manifest.runtime.idle_timeout_seconds,'-MaxSingleLogMb',[string]$Manifest.runtime.max_single_log_mb)
+        '-IdleTimeoutSeconds',[string]$Manifest.runtime.idle_timeout_seconds,'-MaxSingleLogMb',[string]$Manifest.runtime.max_single_log_mb,
+        '-MaxPromptChars',[string]$(if ($Manifest.runtime['max_dsh_prompt_chars']) {$Manifest.runtime.max_dsh_prompt_chars} else {24000}))
     $handle = New-TeamProcess (Join-Path $PSScriptRoot 'Invoke-DshWorker.ps1') $args $item.worktree (Join-Path $item.directory 'adapter.stdout') (Join-Path $item.directory 'adapter.stderr') -MaxOutputBytes ($Manifest.runtime.max_single_log_mb * 1MB)
     $item.pid = $handle.process.Id; $item.process_start = $handle.process.StartTime.ToUniversalTime().ToString('o')
     Save-TeamState $State $Directory
@@ -108,6 +110,11 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
     $receiptPath = Join-Path $item.directory 'exit.json'
     if (-not (Test-Path -LiteralPath $receiptPath)) { Stop-TeamError 80 'Worker process ended without exit receipt; evidence retained' }
     $receipt = Read-TeamData $receiptPath
+    if ($receipt['input_too_large']) {
+        $State.agents_reserved-=$item.reserved; $item.reserved=0; $item.status='FAILED'; $State.status='PAUSED'
+        Save-TeamState $State $Directory
+        Stop-TeamInputCapacity 'DSH input too large; replan/split the task. No launch retry or model charge was recorded'
+    }
     if ($receipt['startup_exhausted']) {
         # Both launch attempts are known not to have created a native process.
         $State.agents_reserved -= $item.reserved; $item.reserved=0; $item.status='ESCALATED'
@@ -153,7 +160,9 @@ function Complete-TeamWorker($State, $Task, [string]$Directory, $Plan = $null, $
     if ((Invoke-TeamGit $item.worktree @('rev-parse','HEAD')) -cne $item.commit -or
         (Invoke-TeamGit $item.worktree @('diff','HEAD','--name-only'))) { Stop-TeamError 82 'Verification modified source' }
     if (-not (Invoke-TeamLocalReview $State $Task $Manifest $Directory)) { return }
-    if ($Plan -and $Plan.classification.level -eq 'critical') {
+    $item['governance_sensitive']=Test-TeamGovernanceChange $item.worktree $item.base_sha $item.commit
+    Save-TeamState $State $Directory
+    if ($Plan -and ($Plan.classification.level -eq 'critical' -or $item.governance_sensitive)) {
         $null = Invoke-TeamReview $State $Plan $Manifest $Directory '9A' $item.worktree $item.base_sha $item.commit $Task.id
     }
     $item.status = 'REVIEW'; $State.status = 'PAUSED'
@@ -225,13 +234,21 @@ function Invoke-TeamDispatch($State, $Plan, $Manifest, [string]$Directory) {
                 if ($item.status -ne 'READY') { continue }
                 if (@($task.dependencies | Where-Object { $State.tasks[$_].status -notin @('MERGED','CLEANED') }).Count) { continue }
                 if ($handles.Count -ge $Manifest.budget.max_active_workers) { break }
-                $slots = if ($task.subagents.allowed -and -not (Get-TeamBudgetSnapshot $State $Manifest).soft_reached) {3} else {1}
+                $admission=Get-TeamAgentAdmission $State $Plan $Manifest $task
+                if (-not $admission.admitted) {
+                    if ($task['optional'] -and $task.id -notin @(Get-TeamRequiredTasks $Plan)) {
+                        Add-TeamEvent $Directory 'optional_dispatch_skipped' @{task_id=$taskId;reason='preserve required author and reviewer capacity'}
+                        continue
+                    }
+                    Stop-TeamError 70 'Required author/reviewer capacity exhausted; replan before dispatch'
+                }
+                $slots=$admission.slots
                 if (($State.agents_reserved + $slots) -gt $Manifest.budget.max_parallel_agents_total) { continue }
                 if ((Get-TeamBudgetSnapshot $State $Manifest).hard_reached) {
                     $State.status = 'PAUSED'; break
                 }
                 if ((Get-TeamBudgetSnapshot $State $Manifest).soft_reached) {
-                    if ($task['optional']) { Add-TeamEvent $Directory 'optional_dispatch_skipped' @{ task_id = $taskId }; continue }
+                    if ($task['optional'] -and $task.id -notin @(Get-TeamRequiredTasks $Plan)) { Add-TeamEvent $Directory 'optional_dispatch_skipped' @{ task_id = $taskId }; continue }
                     if ($handles.Count -gt 0) { break }
                 }
                 $handles[$taskId] = Start-TeamWorker $State $task $Manifest $Directory $Plan

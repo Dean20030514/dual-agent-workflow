@@ -415,3 +415,58 @@ Node native guard 6 passed，17 对派生漂移检查 DRIFT: none，均 exit 0�
 此轮真实链路证明临时角色的首次派发、外部验证、独立审查与集成；角色修订/恢复仍为替身验收。
 费用仍依赖外部账单，未宣称得到了完整服务端账单。Lead 证据来自本地 Harness 元数据，
 不是服务端模型签名，不防同权限进程修改；此次没有扩建 OS 沙箱、常驻强制入口或版本重认证机制。
+
+## 2026-09-17 第二轮审计八项修复验收
+
+人类授权“核验后修复全部问题”。范围为必需审查预算、输入容量、冻结治理规则、
+持久审查证据、作者 risks 传递、认证记录、增量 watch、逻辑 Result schema 身份。
+
+本轮实际运行的不同 Team Pester 用例共 **227 项已分批通过**，不称为一次全目录通过：
+
+- Contracts 66 + Bindings 18 + Hardening 12：96 passed，exit 0，14.25 秒。
+  封存改为原始字节原子复制后，Hardening 12 再次通过（2.40 秒），包含 UTF-8 BOM 保真反例。
+- Persistence：30 passed，exit 0，484.01 秒；此轮未修改 Defender 设置。
+- Runtime/Processes/ReviewRounds/Hardening 首批：106 passed / 3 failed，exit 3，987.22 秒。
+  Runtime 的 63 项中仅补证目录计数失败：新归档原先占用 `reviews/evidence/`，
+  改为独立 `reviews/archives/` 后，该用例与超长作者输入用例定向 2 passed（29.49 秒）。
+  Processes 失败因新增 shim 检查提前抛出命令缺失，绕过原有两次可证明未启动的重试/收据；
+  已让命令缺失仍进入原有启动处理。ReviewRounds 失败为旧 fixture 缺少新增冻结/封存证据，
+  补齐真实证据构造后保留原断言：失败 verdict 复用、不发新模型调用、不新增审查轮。
+  两文件完整复测 **34 passed / 0 failed**，exit 0，19.44 秒。
+- Runtime 另增 4 项（文件当前共 67 项）：五个必需任务/10 名额完成、超长 Local 输入不创建 Reviewer、
+  软预算不跳过必需 optional 前置、已花费预算不足时拒绝 replan 并保留旧 revision。
+  五任务首测错误假设单次 run 会派发全部，实际正常在首波后返回 Lead 决策点；
+  测试补上既定 resume 后 1 passed（36.79 秒），未改变派发流程。
+  超长 Local 输入 1 passed（所属首批 23.48 秒，另 1 项为上述五任务测试失败）。
+  optional 前置与治理规则/原始证据丢失用例定向 2 passed（24.60 秒，另 1 项配置错误）；
+  replan 首测把累计额度设为 2 却保留并发上限 6，被正确拒为无效配置。
+  配齐 1/2/2 后定向 1 passed（10.25 秒），确认候选 revision 没有落盘。
+
+所有所选用例均 Skipped=0；定向批次的 NotRun 不计入通过数，重跑不重复计数。
+测试均使用隔离 Git/测试进程；没有把替身审查质量当真实模型验收。
+安装器 `tests/`：**89 passed / 0 failed**，exit 0，291.13 秒，包含 PS 5.1、
+新增 certifications 的全受管面部署和项目接入。Node native guard **6 passed**，exit 0；
+17 对派生文件、292 行登记差异一致，drift check exit 0。
+
+真实 `HARDENING-NATIVE-017`（实际 DeepSeek，非替身）：
+
+- 隔离主仓 `%TEMP%/team-hardening-native-921483797e/repo`，基线提交含冻结 AGENTS。
+- 独立原生作者和 Local Reviewer 都为 deepseek-official/deepseek-flash，累计 Agent=2、预留=0。
+- 精确 diff 仅新增 `queries/health.sql` 的 `SELECT 1;`；外部验证 exit 0。
+  stdout 原件 52,502 字节完整保存，审查 prompt 6,877 UTF-16 单元，带有摘录、完整哈希与截断标志。
+- Local verdict=pass，Blocking/VN 空、writes_performed=false；原始 holding 实际位于
+  `~/.codex/team-review-holding/6f10c406fb051af05436ae0e/HARDENING-NATIVE-017/`，
+  prompt/verdict 另保存到 runtime 的 `reviews/archives/`。
+- 核对 diff/验证/审查后执行 SHA 绑定 accept 和 integrate，均 exit 0，最终 COMPLETED。
+  集成 SHA `4b1f681d88ff1d29ce502f0e644fe5ee3183632a`；主仓 main SHA 不变且干净。
+- authority SHA-256 `0740c9e3ee893f1538aa283a685664e5a08626f62e09a47973dc07d3976571ef`；
+  Plan `ff90fd8c4b8b89a21391fa2c84e29f7cedd6bb8c8568b9f462ff6702aed09b5d`；
+  Packet `ec9d14da8db59b050b6a67ab1b4505f307d7095a109f97d4b73cb35c9ace7f92`；
+  prompt `2dd85f622fea9178efee4dcbe5197d1da210adc9a4bdd9f06cbc866e21cc69bf`；
+  verdict `d5144d739e7d02564fb956790c1876b8067a4e865384bba9679b03878cbad547`。
+
+真实 doctor exit 0：活动 Lead gpt-6-astra、桌面 Harness 0.155.0-alpha.2.6，
+独立 Codex CLI 0.153.3 / DSH 0.1.5-rc.1；从 JSON certification 匹配路由、guard 哈希与验收索引，
+准入 L0–L3。认证引用既有 DAG-NATIVE-015 证据，不声称本轮重演了全部 L3 行为。
+治理文件触发 fresh 9A、原始 holding 丢失后继续验收、预算/超长输入失败路径均由替身用例验证；
+本轮未追加真实付费 Codex 审查，也未扩展 OS 安全隔离或完整账单采集。

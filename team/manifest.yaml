@@ -22,6 +22,9 @@ runtime:
   timeout_seconds: 3600
   idle_timeout_seconds: 900
   max_single_log_mb: 50
+  max_dsh_prompt_chars: 24000
+  max_review_input_bytes: 4000000
+  max_diff_bytes: 2000000
 budget:
   max_active_workers: 4
   max_parallel_agents_total: 6

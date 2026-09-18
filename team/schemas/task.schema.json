@@ -2,6 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "properties": {
+    "result_schema_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
     "schema_version": {
       "const": 1
     },

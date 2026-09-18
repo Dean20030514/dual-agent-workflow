@@ -7,7 +7,7 @@ function Accept-TeamTask($State, $Plan, [string]$Directory, [string]$TaskId, [st
     }
     $task = @($Plan.tasks | Where-Object { $_.id -eq $TaskId })[0]
     if (-not (Test-TeamReviewAccepted $Directory "LOCAL-$TaskId" $State.plan_hash $Commit)) { Stop-TeamError 50 'Lead acceptance requires the bound DSH Local Review and handled evidence items' }
-    if ($Plan.classification.level -eq 'critical' -and -not (Test-TeamReviewAccepted $Directory "9A-$TaskId" $State.plan_hash $Commit)) {
+    if (($Plan.classification.level -eq 'critical' -or (Test-TeamGovernanceChange $item.worktree $item.base_sha $Commit)) -and -not (Test-TeamReviewAccepted $Directory "9A-$TaskId" $State.plan_hash $Commit)) {
         Stop-TeamError 50 'Critical acceptance requires the bound independent 9A and handled evidence items'
     }
     $null = Read-WorkerResult $item $task $State.run_id

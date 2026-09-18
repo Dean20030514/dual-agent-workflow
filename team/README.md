@@ -33,12 +33,41 @@ Integration 角色只能由记录在案的冲突或集成回归生成，并绑�
 L0 不建立 run。L1 单 Worker；L2 按 DAG 并行调度；L3 可由 Worker 使用 DSH 原生
 `subagent` / `subagent_fork`，每个 Worker 最多两个子 Agent、深度最多 2。
 Native guard 在原生 registry 创建前同步预留额度，不调用模型、不替代 Harness。
+Plan 的最低 Agent 需求按每个必需任务的作者和 Local Reviewer 共 2 个计算，
+依赖链中必需的 optional 前置任务同样计入。默认总额 10 最多容纳 5 个必需任务的首次执行；
+重试和子 Agent 另耗额度。派发与 replan 还会核对已花费、已预留和剩余必需审查，
+先缩减可选 fan-out，再跳过会挤占必需额度的 optional 任务。被跳过的任务仍须显式 replan 处置。
 V1 保守预留整个 Worker 家族的并发槽位，空闲子 Agent 不提前归还槽位，避免并发超发。
 `workflow` / `ralph` 在 Team profile overlay 中关闭，避免绕过同一预算入口。
 
 运行目录在目标仓库 `team/runtime/<run-id>`，Worktree 在 `.worktrees/`，分支使用 `codex/` 前缀。
 完成只产出集成分支与证据；主分支的发布、推送、合并由目标仓库自己的契约决定。
 本 workflow 仓库仍由人类 commit，仍禁止 Agent push/pull/merge；测试仅在临时仓库运行 Git 集成。
+
+审查规则冻结在 run 基线提交的 `authority.json`，涵盖根/嵌套 AGENTS、AGENTS.override、
+`team/manifest.yaml` 和 `team/policies/`，以哈希绑定 state 与 verdict。待审 diff 中的规则改动
+不能成为其自身的审查依据；实际修改这些治理文件的 Routine 任务也须 fresh 9A，分类仍保持 Routine。
+Worker risks 以待核实声明传给 Local/9A/9B，不传作者聊天或推理。
+原始审查 holding 位于 `$CODEX_HOME/team-review-holding/`（默认 `~/.codex/team-review-holding/`），
+按项目/run/attempt 隔离；prompt 和 verdict 另封存在运行目录 `reviews/archives/`，
+accept 以封存哈希为准，不依赖系统临时目录。`reviews/evidence/` 保留给独立补证执行。
+未含冻结规则/封存证据的旧 run 可查询，但不能自动继承为新审查通过，须保留现场并另建明确计划的 run。
+
+DSH 当前仍使用 I1 命令行输入。默认 prompt 上限为 24,000 个 UTF-16 单元，
+另在 Windows 原生启动前计算完整参数转义长度（含可识别 npm shim 的二次启动）。
+审查完整 diff 默认上限 2,000,000 UTF-8 字节，聚合输入上限 4,000,000 字节；
+DSH 还须满足更小的命令行限制。验证日志仅传每文件前 1,024、合计 4,096 字符摘录，
+同时给出完整日志大小、SHA-256 和截断标记，原日志不改写。diff 不静默截断。
+超限返回 70 / `input_too_large`，PAUSED 等待 Lead 拆分/replan，不重试原生启动或计未创建的 Agent。
+三个 runtime 配置项分别为 `max_dsh_prompt_chars`、`max_diff_bytes`、`max_review_input_bytes`；
+旧项目 manifest 未填写时使用上述默认值，不需要覆盖项目配置。
+
+`certifications/*.json` 登记精确版本/profile/provider/model、I/O/E 轴、guard 哈希和历史验收索引；
+doctor 从记录准入，不硬编码版本元组。更换 native guard 后须重验并更新记录，版本 pin 本身不构成认证。
+该记录是本地可审计登记，不是服务端证明，也不会自动重跑付费模型。
+新 Task Packet 使用逻辑 `result_schema: result-v1` 与 `result_schema_sha256`，
+适配器核对共享运行器的实际 schema；历史无哈希 Packet 仍可读取。
+watch 使用文件字节偏移读取新增事件，保留跨读取边界的 UTF-8 字符和未结束行。
 
 返回码：0 成功/已到 Lead 决策点；10 协议错误；20 前置校验/锁失败；30 Worker 失败；
 31 超时；40 验证失败；50 审查失败；60 硬停；70 升级；80 恢复冲突；81 集成冲突；

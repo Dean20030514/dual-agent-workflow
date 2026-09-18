@@ -114,6 +114,13 @@ Describe 'Critical review round aggregation' {
         $record.holding=Join-Path $script:Dir 'holding'
         Write-TeamData (Join-Path $record.holding 'verdict.json') $record.verdict
         $record.verdict_hash=Get-TeamHash (Join-Path $record.holding 'verdict.json')
+        Write-TeamTextAtomic (Join-Path $record.holding 'prompt.txt') 'Bound failing review fixture'
+        $record['input_hash']=Get-TeamHash (Join-Path $record.holding 'prompt.txt')
+        Write-TeamData (Join-Path $script:Dir 'authority.json') @{base_sha=('b'*40);documents=@()}
+        $record['authority_hash']=Get-TeamHash (Join-Path $script:Dir 'authority.json')
+        $script:StateData['authority_hash']=$record.authority_hash; $script:StateData['run_base_sha']=('b'*40)
+        Write-TeamData (Join-Path $script:Dir 'state.json') $script:StateData
+        Save-TeamReviewEvidence $record $script:Dir
         Write-TeamData (Join-Path $script:Dir 'reviews/9A-T1.json') $record
         Mock New-TeamProcess { throw 'Must not launch another reviewer' }
         foreach ($attempt in 1..2) {

@@ -45,7 +45,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 ## 布局与安装位置
 
 Team Mode 全局运行器由 `install.ps1` 安装到 `~/.codex/team/`：受管范围为
-`scripts/`、`schemas/`、`roles/`、`policies/`、顶层 manifest/README/QUICKSTART 和 `spike/*.md`。
+`scripts/`、`schemas/`、`roles/`、`policies/`、`certifications/`、顶层 manifest/README/QUICKSTART 和 `spike/*.md`。
 不部署 `team/runtime/`、测试或探针脚本。每个项目只需首次运行：
 
 ```powershell

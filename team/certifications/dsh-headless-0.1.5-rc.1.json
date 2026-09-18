@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "version": "0.1.5-rc.1",
+  "profile": "headless",
+  "provider": "deepseek-official",
+  "model": "deepseek-flash",
+  "input_axis": "I1",
+  "output_axis": "O2",
+  "exit_axis": "E2",
+  "adapter_l3_extension": true,
+  "native_guard_sha256": "36465d941f177a1d0b6574030b14954d804f4230d83c8a4424b612ac10413824",
+  "acceptance_evidence": {"document": "spike/VERIFIED_VERSIONS.md", "anchor": "DAG-NATIVE-015"}
+}

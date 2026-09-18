@@ -9,6 +9,12 @@ function Stop-TeamError([int]$Code, [string]$Message) {
     throw $errorObject
 }
 
+function Stop-TeamInputCapacity([string]$Message) {
+    $failure=[InvalidOperationException]::new($Message)
+    $failure.Data['TeamExitCode']=70; $failure.Data['TeamEvent']='input_too_large'; $failure.Data['InputTooLarge']=$true
+    throw $failure
+}
+
 function Read-TeamData([string]$Path) {
     try {
         $stream = [IO.File]::Open([IO.Path]::GetFullPath($Path), 'Open', 'Read', ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
@@ -43,6 +49,26 @@ function Write-TeamTextAtomic([string]$Path, [string]$Text) {
 }
 
 function Get-TeamHash([string]$Path) { (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
+
+function Read-TeamEventTail([string]$Path,$Cursor) {
+    $stream=[IO.File]::Open($Path,'Open','Read',([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+    try {
+        if ($stream.Length -lt $Cursor.offset) { Stop-TeamError 80 'Event history was truncated while watching' }
+        $null=$stream.Seek($Cursor.offset,[IO.SeekOrigin]::Begin)
+        $remaining=$stream.Length-$Cursor.offset; $buffer=[byte[]]::new(65536); $characters=[char[]]::new(65536)
+        while ($remaining -gt 0) {
+            $count=$stream.Read($buffer,0,[int][Math]::Min($remaining,$buffer.Length)); if ($count -eq 0) {break}
+            $Cursor.offset+=$count; $remaining-=$count
+            $decoded=$Cursor.decoder.GetChars($buffer,0,$count,$characters,0,$false)
+            $Cursor.pending+=[string]::new($characters,0,$decoded)
+            while (($end=$Cursor.pending.IndexOf("`n")) -ge 0) {
+                $line=$Cursor.pending.Substring(0,$end).TrimEnd("`r")
+                $Cursor.pending=$Cursor.pending.Substring($end+1)
+                if ($line) {Write-Output $line}
+            }
+        }
+    } finally {$stream.Dispose()}
+}
 
 function Get-TeamCanonicalJson($Value) {
     if ($Value -is [Collections.IDictionary]) {
@@ -124,6 +150,28 @@ function Test-TeamSchema($Value, [string]$Name) {
     if (-not $valid) { Stop-TeamError 10 "Invalid $Name document" }
 }
 
+function Get-TeamWindowsArgumentLength([string]$Argument) {
+    if ($Argument.Length -gt 0 -and $Argument -notmatch '[\s"]') { return $Argument.Length }
+    $length=2; $slashes=0
+    foreach ($character in $Argument.ToCharArray()) {
+        if ($character -eq '\') { $slashes++; continue }
+        if ($character -eq '"') { $length+=2*$slashes+2 } else {$length+=$slashes+1}
+        $slashes=0
+    }
+    return $length+2*$slashes
+}
+
+function Assert-TeamCommandLine([string]$Executable,[string[]]$Arguments,[int]$Limit=32767) {
+    $length=$Executable.Length+3 # Quoted executable plus terminating NUL.
+    foreach ($argument in $Arguments) { $length+=1+(Get-TeamWindowsArgumentLength $argument) }
+    if ($length -gt $Limit) {
+        $errorObject=[InvalidOperationException]::new("Command-line input too large ($length characters, limit $Limit); split/replan before dispatch")
+        $errorObject.Data['TeamExitCode']=70; $errorObject.Data['ProcessStarted']=$false; $errorObject.Data['InputTooLarge']=$true; $errorObject.Data['TeamEvent']='input_too_large'
+        throw $errorObject
+    }
+    return $length
+}
+
 function New-TeamProcess([string]$Executable, [string[]]$Arguments, [string]$Directory, [string]$Stdout, [string]$Stderr, [string]$InputText = '', [long]$MaxOutputBytes = 50MB) {
     if ($MaxOutputBytes -lt 1) { Stop-TeamError 10 'Output limit must be positive' }
     if (-not ('TeamRuntime.BoundedCopy' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'ProcessStreams.cs') }
@@ -136,6 +184,7 @@ function New-TeamProcess([string]$Executable, [string[]]$Arguments, [string]$Dir
         $info.FileName = $Executable
         foreach ($arg in $Arguments) { $info.ArgumentList.Add($arg) }
     }
+    if ($IsWindows) { $null=Assert-TeamCommandLine $info.FileName @($info.ArgumentList) }
     $info.WorkingDirectory = $Directory
     $info.UseShellExecute = $false
     $info.CreateNoWindow = $true
@@ -304,6 +353,10 @@ function Start-TeamDshProcess([string]$Directory, [string]$Worktree, [string[]]$
             $started=if (-not $resolved) {$false} elseif ($failure.Data.Contains('ProcessStarted')) {[bool]$failure.Data['ProcessStarted']} else {$null}
             if ($handle) { $null=Close-TeamProcess $handle -Terminate; $started=$true }
             $notStarted=$started -eq $false
+            if ($failure.Data['InputTooLarge']) {
+                $failure.Data['StartupExhausted']=$true; $failure.Data['LaunchAttempts']=0
+                throw $failure
+            }
             Write-TeamData (Join-Path $Directory "launch-$attempt.json") @{attempt=$attempt;started=$started;retryable=$notStarted;error=$failure.Message;timestamp=[DateTime]::UtcNow.ToString('o')}
             if (-not $notStarted -or $attempt -eq 2) {
                 $failure.Data['StartupExhausted']=$notStarted; $failure.Data['LaunchAttempts']=$attempt

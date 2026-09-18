@@ -17,6 +17,7 @@ function Get-TeamRole([string]$Id, [string]$Directory = '', $Plan = $null) {
 
 function Test-TeamTask($Packet) {
     Test-TeamSchema $Packet 'task'
+    if ($Packet['result_schema_sha256'] -and $Packet.result_schema -cne 'result-v1') { Stop-TeamError 10 'A hashed Result schema must use its logical result-v1 identity' }
     # Historical packets contain only the ID. New dispatches always include the frozen definition.
     if ($Packet.role['definition']) {
         Test-TeamSchema $Packet.role.definition 'role'
@@ -56,6 +57,39 @@ function Test-TeamPlan($Plan, $Manifest) {
     }
 }
 
+function Get-TeamRequiredTasks($Plan) {
+    $required=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($task in $Plan.tasks) { if (-not $task['optional']) { $null=$required.Add($task.id) } }
+    do {
+        $before=$required.Count
+        foreach ($task in $Plan.tasks) {
+            if ($required.Contains($task.id)) { foreach ($dep in $task.dependencies) { $null=$required.Add($dep) } }
+        }
+    } while ($required.Count -ne $before)
+    return @($required)
+}
+
+function Get-TeamAgentAdmission($State, $Plan, $Manifest, $Task) {
+    $required=@(Get-TeamRequiredTasks $Plan)
+    $remaining=0
+    foreach ($entry in $Plan.tasks) {
+        $item=$State.tasks[$entry.id]
+        if ($item.status -in @('REVIEW','ACCEPTED','MERGED','CLEANED')) { continue }
+        if ($item.status -in @('RUNNING','SELF_CHECK','RESULT_READY','VERIFYING')) { $remaining++; continue }
+        if ($item.status -eq 'LOCAL_REVIEW') {
+            if (-not $item['local_review'] -or (-not $item.local_review['reserved'] -and $item.local_review['status'] -ne 'EXITED')) { $remaining++ }
+            continue
+        }
+        if ($entry.id -in $required -or $entry.id -eq $Task.id) { $remaining+=2 }
+    }
+    $minimum=[int]$State.agents_created+[int]$State.agents_reserved+$remaining
+    $admitted=$minimum -le $Manifest.budget.max_agents_per_run
+    $children=$admitted -and $Task.subagents.allowed -and
+        -not (Get-TeamBudgetSnapshot $State $Manifest).soft_reached -and
+        ($minimum+2) -le $Manifest.budget.max_agents_per_run
+    return @{admitted=$admitted;minimum_required=$minimum;allow_children=$children;slots=$(if ($children) {3} else {1})}
+}
+
 function Test-TeamPlanContent($Plan, $Manifest) {
     Test-TeamSchema $Manifest 'manifest'
     Test-TeamSchema $Plan 'team-plan'
@@ -75,7 +109,9 @@ function Test-TeamPlanContent($Plan, $Manifest) {
     foreach ($ledger in $limits.ledgers.Values) {
         if ($ledger.soft_limit -gt $ledger.hard_limit) { Stop-TeamError 10 'Invalid cost ordering' }
     }
-    if ($Plan.tasks.Count -gt $limits.max_agents_per_run) { Stop-TeamError 10 'Plan exceeds cumulative agent budget' }
+    if ((@(Get-TeamRequiredTasks $Plan).Count*2) -gt $limits.max_agents_per_run) {
+        Stop-TeamError 10 'Required tasks and their mandatory local reviewers exceed the cumulative agent budget'
+    }
     if ($Plan.mode -eq 'L1' -and $Plan.tasks.Count -ne 1) { Stop-TeamError 10 'L1 requires exactly one task' }
     if ($Plan.mode -eq 'L3' -and (-not $Manifest.subagents.enabled -or $limits.max_parallel_agents_total -lt 3)) {
         Stop-TeamError 20 'Native delegation is disabled or cannot reserve three agent slots'

@@ -11,6 +11,17 @@ Routine/Critical 的 Worker 都先通过 Git 审计和外部验证，再执行�
 不接收作者会话或推理。原生身份收据、输入与 verdict 哈希绑定 plan hash 和提交，
 Lead accept 强制核对该结论和补证处置。Local Review 不计入 Critical 的 9A/9B 修复轮数。
 
+AGENTS 快照来自 run 基线提交，包含嵌套及 override 文件和 Team manifest/policies，
+不是待审 tip 的规则；state 与每次审查都绑定 authority.json 哈希。提案中的治理改动仅作 diff 证据，
+且触发 fresh 9A（Routine 分类不自动改变）。Local/9A 接收该任务 risks，9B 接收运行中各任务 risks，
+明确标为作者待核实声明。验证 stdout 只传有界摘录及完整日志哈希，必要补证仍走 VN。
+输入超限时拒绝启动审查、保留原始数据并交 Lead 拆分，不截断 diff 或把未读内容当已审。
+
+原始 holding 持久保存到 `$CODEX_HOME/team-review-holding/`，未设置时为 `~/.codex/team-review-holding/`。
+`reviews/archives/` 封存 prompt/verdict 并校验哈希，后续验收使用此副本；
+原始 holding 丢失不使已封存审查失效，封存被改或缺失则返回 80。旧 run 缺少此证据链时
+不补造过去的 authority/verdict，保留旧现场并另建明确计划的运行。
+
 Critical：dispatch 前 9P、Worker 本地审查通过后 9A、集成完整回归后 fresh 9B。
 每次都是新的 `codex exec --ephemeral -s read-only`，不用 resume/fork，verdict 位于仓外 holding。
 显式 `--ignore-user-config --ignore-rules --disable memories`；9P 的 reasoning effort 为 medium，

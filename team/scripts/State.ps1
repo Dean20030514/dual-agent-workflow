@@ -1,3 +1,4 @@
+. (Join-Path $PSScriptRoot 'ReviewEvidence.ps1')
 function Save-TeamState($State, [string]$Directory) {
     $State.updated_at = [DateTime]::UtcNow.ToString('o')
     Test-TeamSchema $State 'state'
@@ -71,6 +72,7 @@ function New-TeamRun($Plan, $Manifest, [string]$Repo, [string[]]$Order, [string]
     }
     New-DshPatch (Join-Path $directory 'worker.patch.yaml')
     $base = Invoke-TeamGit $Repo @('rev-parse','HEAD')
+    $authorityHash=New-TeamAuthority $Repo $base $directory
     $state = @{
         schema_version = 1; run_id = $Plan.run.id; revision = $Plan.run.revision; repo = $Repo
         status = 'READY'; run_base_sha = $base; integration_base_sha = $base; last_good_integration_sha = $base
@@ -78,7 +80,7 @@ function New-TeamRun($Plan, $Manifest, [string]$Repo, [string[]]$Order, [string]
         tasks = @{}; agents_created = 0; agents_reserved = 0
         cost_ledgers = @{astra=@{unit='credits';known_cost=0.0};deepseek=@{unit='USD';known_cost=0.0}}
         unknown_usage = $true; replans = 0
-        plan_hash = Get-TeamHash (Join-Path $directory 'plan.yaml'); runtime_status = $RuntimeStatus
+        plan_hash = Get-TeamHash (Join-Path $directory 'plan.yaml'); runtime_status = $RuntimeStatus; authority_hash=$authorityHash
         updated_at = [DateTime]::UtcNow.ToString('o'); created_at = [DateTime]::UtcNow.ToString('o')
     }
     foreach ($task in $Plan.tasks) { $state.tasks[$task.id] = @{ status = 'READY'; attempts = 0; commit = ''; pid = 0; process_start = ''; directory = ''; worktree = ''; branch = ''; base_sha = '' } }

@@ -118,7 +118,10 @@
         "max_single_log_mb": {
           "type": "integer",
           "minimum": 1
-        }
+        },
+        "max_dsh_prompt_chars": {"type": "integer", "minimum": 1000, "maximum": 30000},
+        "max_review_input_bytes": {"type": "integer", "minimum": 1000, "maximum": 16000000},
+        "max_diff_bytes": {"type": "integer", "minimum": 1000, "maximum": 8000000}
       },
       "required": [
         "dsh_version",

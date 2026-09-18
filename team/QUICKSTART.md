@@ -132,6 +132,11 @@ pwsh -NoProfile -File ./team/scripts/team.ps1 resolve -Repo C:/path/to/test-repo
 ```
 
 watch 每两秒读取新增事件，支持 `-Since`、`-Task`；PAUSED/ESCALATED 默认返回，`-Follow` 才持续等候。
+读取按字节偏移推进，不反复扫描完整历史。默认累计预算 10 需同时容纳作者及必需 Local Reviewer，
+所以最多 5 个必需任务的首次执行；子 Agent 和重试另留余量。治理文件变更的 Routine 任务也要求 fresh 9A。
+70 / `input_too_large` 表示完整输入超过传输上限：检查保留的 diff/authority/日志，
+拆分任务后 replan。运行器不静默截断 diff，也不会重试或收费记账未创建的原生 Agent。
+共享运行器新增输入限制有兼容默认值，已有项目 manifest 无须迁移；限制和证据目录详见 README。
 一个 Local Review 请求补证时，已经派发的其他作者可在原有期限内完成；结果保存为
 `RESULT_READY`，暂停新增作者和审查。处置补证后 `resume` 核验这些结果，不重复派发作者。
 常用错误：10 修正 schema；20 检查 doctor/锁；31 检查超时证据；40 修正验证失败；

@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["schema_version", "version", "profile", "provider", "model", "input_axis", "output_axis", "exit_axis", "adapter_l3_extension", "native_guard_sha256", "acceptance_evidence"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "version": {"type": "string", "minLength": 1},
+    "profile": {"type": "string", "minLength": 1},
+    "provider": {"type": "string", "minLength": 1},
+    "model": {"type": "string", "minLength": 1},
+    "input_axis": {"enum": ["I0", "I1", "I2", "I3"]},
+    "output_axis": {"enum": ["O0", "O1", "O2", "O3", "O4"]},
+    "exit_axis": {"enum": ["E0", "E1", "E2"]},
+    "adapter_l3_extension": {"type": "boolean"},
+    "native_guard_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "acceptance_evidence": {
+      "type": "object", "required": ["document", "anchor"],
+      "properties": {"document": {"type": "string", "minLength": 1}, "anchor": {"type": "string", "minLength": 1}},
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

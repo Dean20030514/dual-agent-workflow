@@ -32,6 +32,11 @@ Defender 阻塞由用户在本机显式允许 ApexToolkit.A 检测类别后解�
 - Worktree 不是 OS 沙箱；声明的网络/凭据权限不等于操作系统阻断。
 - CLI headless 不给出完整金额账单。cost 明确 unknown_usage=true，外部账单按 Astra Credits / DeepSeek USD 分账录入，保留 source 与唯一 evidence hash；不把未知费用记作零，不合并单位。
 - 版本 pin 是已测试单版本，不代表整个语义版本区间都兼容。
+- certifications 将已登记版本/profile/路由/guard 哈希与历史验收索引数据化；更换记录不等于自动重验，也不是服务端签名。
+- 默认累计预算包含必需作者和 Local Reviewer，但不保证任意重试次数都能完成；可选任务因余量不足而未派发时仍需 Lead 明确 replan。
+- DSH I1 输入仍受命令行长度约束，已在启动前拒绝超限，日志摘录不会替代完整 diff；超大规则或 diff 需拆分任务，未新增文件/stdin Harness 输入能力。
+- run-base 规则冻结和治理变更新鲜审查已接线；本轮治理自审反例由替身 CLI 验证，未再次付费运行 Codex 9A。不能把规则隔离提示当作对任意提示注入的安全证明。
+- 新审查双份保存原始 holding 与规范封存，不依赖系统临时目录；缺少冻结规则/封存证据的旧运行须保留并另建明确计划的 run，不能伪造历史通过链。
 - 原生 fork 的空前缀与非空已完成父回合继承均已实测；正常 headless Worker 仍为单回合，
   不自动获得此前会话。双回合探针只验证原生继承行为，不扩张 Reviewer 的 fresh 规则。
 - 替身 Critical 接线测试不代表真实模型审查质量，更不等于用户项目的业务验收。

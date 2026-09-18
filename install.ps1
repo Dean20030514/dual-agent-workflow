@@ -246,7 +246,7 @@ function Build-Plan {
     $plan.Add([pscustomobject]@{Kind='locator';Source=(Join-Path $RepoRoot 'install.ps1');Target=(Join-Path $CodexRoot 'workflow-source.json');
         Files=@();Dirs=@();Content=((([ordered]@{schema_version=1;source_repo=$RepoRoot}) | ConvertTo-Json -Compress) + "`n")})
     # Shared Team runtime only: never deploy runtime state or test/probe scripts.
-    foreach ($d in 'scripts', 'schemas', 'roles', 'policies') {
+    foreach ($d in 'scripts', 'schemas', 'roles', 'policies', 'certifications') {
         $plan.Add((New-MirrorAction -Source (Join-Path $RepoRoot "team\$d") -Target (Join-Path $CodexRoot "team\$d")))
     }
     foreach ($f in 'manifest.yaml', 'README.md', 'QUICKSTART.md') {

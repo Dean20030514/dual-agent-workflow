@@ -132,7 +132,7 @@ function New-TestCase {
         }
         # Exclude private run state when building the isolated installer fixture.
         New-Item -ItemType Directory -Force (Join-Path $fake 'team') | Out-Null
-        foreach ($d in 'scripts', 'schemas', 'roles', 'policies', 'spike') {
+        foreach ($d in 'scripts', 'schemas', 'roles', 'policies', 'certifications', 'spike') {
             Copy-Item (Join-Path $script:RepoRoot "team\$d") (Join-Path $fake "team\$d") -Recurse -Force
         }
         foreach ($f in 'manifest.yaml', 'README.md', 'QUICKSTART.md') {
@@ -294,7 +294,7 @@ function Get-ManagedDeploySet {
     $set.Add('codex/workflow-source.json')
     foreach ($f in Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'team') -File -Recurse) {
         $rel = $f.FullName.Substring((Join-Path $RepoRoot 'team').Length + 1).Replace('\', '/')
-        if ($rel -match '^(scripts|schemas|roles|policies)/' -or
+        if ($rel -match '^(scripts|schemas|roles|policies|certifications)/' -or
             $rel -match '^spike/[^/]+\.md$' -or $rel -in @('manifest.yaml', 'README.md', 'QUICKSTART.md')) {
             $set.Add('codex/team/' + $rel)
         }

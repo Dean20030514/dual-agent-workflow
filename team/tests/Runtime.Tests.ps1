@@ -50,6 +50,92 @@ BeforeAll {
 AfterAll { Restore-TeamLeadFixture $script:LeadEnvironment; $env:PATH=$script:OriginalPath; $env:DSH_HOME=$script:OriginalDshHome }
 
 Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
+    It 'keeps an optional ancestor of a required task runnable at the soft limit' {
+        $f=New-RuntimeFixture 2; $f.plan.tasks[0]['optional']=$true; $f.plan.tasks[1].dependencies=@('T1'); Write-TeamData $f.path $f.plan
+        $manifest=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml'); $manifest.budget.ledgers.deepseek.soft_limit=0
+        $path=Join-Path $TestDrive 'soft-required-ancestor.json'; Write-TeamData $path $manifest
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        (State $f).tasks.T1.status | Should -Be 'REVIEW'; (State $f).tasks.T2.status | Should -Be 'READY'
+    }
+    It 'refuses an unfunded replan without committing the candidate revision' {
+        $f=New-RuntimeFixture
+        $manifest=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml')
+        $manifest.budget.max_active_workers=1; $manifest.budget.max_parallel_agents_total=2; $manifest.budget.max_agents_per_run=2
+        $path=Join-Path $TestDrive 'replan-minimum.json'; Write-TeamData $path $manifest
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $old=State $f; $f.plan.run.revision=2; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('replan','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Plan',$f.path,'-Manifest',$path,'-Reason','Must account for already spent agents','-Json')
+        $r.code | Should -Be 70 -Because $r.raw
+        $current=State $f; $current.revision | Should -Be 1; $current.plan_hash | Should -Be $old.plan_hash
+        $current.tasks.T1.commit | Should -Be $old.tasks.T1.commit; $current.agents_created | Should -Be 2
+        Test-Path (Join-Path $f.repo 'team/runtime/FIXTURE/revision-pending.json') | Should -BeFalse
+    }
+    It 'finishes five required authors and reviews at the default ten-agent budget' {
+        $f=New-RuntimeFixture 5
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        # Dispatch returns at a Lead decision point after its active wave drains.
+        if (@((State $f).tasks.Values | Where-Object status -eq 'READY').Count) {
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        }
+        $state=State $f; $state.agents_created | Should -Be 10; $state.agents_reserved | Should -Be 0
+        @($state.tasks.Values | Where-Object status -eq 'REVIEW').Count | Should -Be 5
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r.data.status | Should -Be 'COMPLETED'
+    }
+    It 'rejects oversized local review authority without charging a reviewer' {
+        $f=New-RuntimeFixture
+        Set-Content (Join-Path $f.repo 'AGENTS.md') ('Base authority. '*2000)
+        $null=Invoke-TeamGit $f.repo @('add','AGENTS.md'); $null=Invoke-TeamGit $f.repo @('commit','-qm','test: large base authority')
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 70 -Because $r.raw
+        $r.data.event | Should -Be 'input_too_large'
+        $state=State $f; $state.agents_created | Should -Be 1; $state.agents_reserved | Should -Be 0
+        $state.status | Should -Be 'PAUSED'
+        $receipt=Read-TeamData (Join-Path $state.tasks.T1.local_review.directory 'exit.json')
+        $receipt.input_too_large | Should -BeTrue; $receipt.launch_attempts | Should -Be 0
+        Test-Path (Join-Path $state.tasks.T1.local_review.directory 'native-process.json') | Should -BeFalse
+    }
+    It 'reviews governance against frozen base rules and accepts durable evidence after raw loss' {
+        $f=New-RuntimeFixture
+        Set-Content (Join-Path $f.repo 'AGENTS.md') 'BASE_RULE: inspect changes independently.'
+        $null=Invoke-TeamGit $f.repo @('add','AGENTS.md'); $null=Invoke-TeamGit $f.repo @('commit','-qm','test: seed governing rules')
+        $f.plan.tasks[0].objective=@('GOVERNANCE'); $f.plan.tasks[0].write_scope=@('AGENTS.md')
+        $f.plan.tasks[0].verification[0].args=@('-NoProfile','-Command','if ((Get-Content AGENTS.md -Raw) -notmatch "TIP_RULE") {exit 1}')
+        $f.plan.verification.final=$f.plan.tasks[0].verification; Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $dir=Join-Path $f.repo 'team/runtime/FIXTURE'; $state=State $f
+        foreach($label in @('LOCAL-T1','9A-T1')) {
+            $record=Read-TeamData (Join-Path $dir "reviews/$label.json")
+            $record.holding.StartsWith((Join-Path $env:CODEX_HOME 'team-review-holding')) | Should -BeTrue
+            $prompt=Get-Content (Join-Path $record.holding 'prompt.txt') -Raw
+            $authorityPart=($prompt -split 'Frozen AGENTS authority:',2)[1] -split '(External verification:|Worker-declared risks)',2
+            $authorityPart[0] | Should -Match 'BASE_RULE'; $authorityPart[0] | Should -Not -Match 'TIP_RULE'
+            $prompt | Should -Match 'TIP_RULE'; $prompt | Should -Match 'FIXTURE_WORKER_RISK'
+            [IO.File]::Delete((Join-Path $record.holding 'verdict.json'))
+            [IO.File]::Delete((Join-Path $record.holding 'prompt.txt'))
+        }
+        Accept-All $f
+        $r=Invoke-Cli @('integrate','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $r.data.status | Should -Be 'COMPLETED'
+    }
+    It 'rejects oversized worker input without native launches or agent charges' {
+        $f=New-RuntimeFixture; $f.plan.tasks[0].objective=@('x'*25000); Write-TeamData $f.path $f.plan
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 70 -Because $r.raw
+        $r.data.event | Should -Be 'input_too_large'
+        $state=State $f; $state.status | Should -Be 'PAUSED'; $state.agents_created | Should -Be 0; $state.agents_reserved | Should -Be 0
+        $receipt=Read-TeamData (Join-Path $state.tasks.T1.directory 'exit.json')
+        $receipt.input_too_large | Should -BeTrue; $receipt.launch_attempts | Should -Be 0
+        Test-Path (Join-Path $state.tasks.T1.directory 'native-process.json') | Should -BeFalse
+    }
+    It 'reserves mandatory reviewer capacity before admitting L3 fan-out' {
+        $f=New-RuntimeFixture; $f.plan.mode='L3'; $f.plan.tasks[0].subagents=@{allowed=$true;max_depth=2}; Write-TeamData $f.path $f.plan
+        $manifest=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml')
+        $manifest.budget.max_active_workers=1; $manifest.budget.max_parallel_agents_total=3; $manifest.budget.max_agents_per_run=3
+        $path=Join-Path $TestDrive 'tight-agent-budget.json'; Write-TeamData $path $manifest
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        $state=State $f; $state.tasks.T1.status | Should -Be 'REVIEW'; $state.agents_created | Should -Be 2
+        (Read-TeamData (Join-Path $state.tasks.T1.directory 'task.yaml')).subagents.allowed | Should -BeFalse
+    }
     It 'freezes a run-local role through dispatch, replan, and resume' {
         $f=New-RuntimeFixture
         $role=Read-TeamData (Join-Path $script:TeamPath 'roles/database.yaml'); $role.role_id='custom-query'

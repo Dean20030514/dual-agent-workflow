@@ -155,6 +155,12 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
         if ($oldId -notin @($NewPlan.tasks | ForEach-Object { $_.id })) { $State.tasks.Remove($oldId) }
     }
     $State.status = 'PAUSED'
+    foreach ($task in $NewPlan.tasks) {
+        if ($State.tasks[$task.id].status -eq 'READY' -and -not $task['optional'] -and
+            -not (Get-TeamAgentAdmission $State $NewPlan $Manifest $task).admitted) {
+            Stop-TeamError 70 'Revised plan cannot fund its remaining required authors and reviewers'
+        }
+    }
     Save-TeamPlanRevision $State $OldPlan $NewPlan $Directory "DEC-Replan-$($State.revision)" @{
         decision='replan'; reason=$Reason; affected=$affected; revision=$State.revision
     }

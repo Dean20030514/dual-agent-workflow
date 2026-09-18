@@ -50,6 +50,21 @@ V2+ 长期演进不在 V1 范围内；全局部署与七项目接入随后已完
 所有原文 CLI 入口已存在：`doctor route validate run status watch escalations resolve result logs cost stop resume cleanup`。
 新增决策入口：`accept integrate affected replan rollback report-cost record-route revalidate-route repair-integration resolve-review`。
 
+2026-09-17 第二轮代码审计补强（人类授权核验后修复全部问题）：
+
+| 审计问题 | 实现与验收定位 |
+|---|---|
+| 最低 Agent 预算遗漏审查 | Contracts 必需依赖闭包与派发/replan 余量，Hardening/Runtime 边界用例 |
+| 命令行和聚合输入无界 | Core Windows 参数计数、DSH 启动前拒绝、ReviewEvidence 有界日志摘录和完整 diff 限制 |
+| 规则可由待审 tip 改写 | State 冻结 run-base authority，Local/Fresh 绑定哈希，治理改动要求 fresh 9A |
+| 临时 holding 生命周期 | CODEX_HOME 仓外 holding + runtime/reviews/archives，原始文件丢失后的验收/篡改反例 |
+| Reviewer 缺少作者风险 | Local/9A/9B 传递 risks 并标明为待核实声明 |
+| 认证元组硬编码 | certifications JSON + schema + guard 哈希 + 历史验收索引，doctor 数据驱动 |
+| watch 重读历史 | FileStream 字节偏移、跨块 UTF-8 和不完整行测试 |
+| Result schema 路径误导 | result-v1 逻辑 ID + 实际 schema SHA-256，适配器核验 |
+
+这些补强不增加 OS 沙箱或服务端身份签名；测试与真实模型证据层级见 ACCEPTANCE。
+
 原文按函数拆分的脚本在此实现中按职责合并；统一 CLI 不变，不添加空包装文件：
 
 | 原文入口 | 当前实现 |

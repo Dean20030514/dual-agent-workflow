@@ -10,6 +10,7 @@ param(
     [int]$TimeoutSeconds = 3600,
     [int]$IdleTimeoutSeconds = 900,
     [int]$MaxSingleLogMb = 50,
+    [int]$MaxPromptChars = 24000,
     [ValidateSet('worker','local-review')][string]$Mode = 'worker',
     [string]$PromptFile
 )
@@ -17,10 +18,11 @@ param(
 . (Join-Path $PSScriptRoot 'Contracts.ps1')
 $directory = Split-Path $OutputFile -Parent
 $code = 30
-$handle=$null; $startupExhausted=$false; $launchAttempts=0
+$handle=$null; $startupExhausted=$false; $launchAttempts=0; $inputTooLarge=$false
 try {
     $task = Read-TeamData $TaskFile
     Test-TeamTask $task
+    if ($task['result_schema_sha256'] -and $task.result_schema_sha256 -cne (Get-TeamHash (Join-Path $script:TeamRoot 'schemas/result.schema.json'))) { Stop-TeamError 80 'Result schema differs from the frozen task schema identity' }
     $prompt = @"
 Execute the attached task packet using the DSH native harness. Read the target
 repository AGENTS.md first. The packet is the exact scope of this assignment.
@@ -50,7 +52,23 @@ $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.js
         if (-not $PromptFile) { Stop-TeamError 10 'Local review requires its allowlisted prompt file' }
         $prompt=[IO.File]::ReadAllText($PromptFile)
     }
-    $handle = Start-TeamDshProcess $directory $Worktree @('--profile',$Profile,'--patch',$Patch,$prompt) ($MaxSingleLogMb * 1MB)
+    if ($prompt.Length -gt $MaxPromptChars) {
+        $startupExhausted=$true; $inputTooLarge=$true
+        Stop-TeamInputCapacity "DSH prompt input too large ($($prompt.Length) characters, limit $MaxPromptChars); split/replan the task"
+    }
+    $dshArguments=@('--profile',$Profile,'--patch',$Patch,$prompt)
+    # Check the second native launch made by the installed npm PowerShell shim too.
+    if ($IsWindows) {
+        $shimCommand=Get-Command dsh -ErrorAction SilentlyContinue
+        $shim=if ($shimCommand) {$shimCommand.Source} else {''}
+        $bin=if ($shim) {Join-Path (Split-Path $shim -Parent) 'node_modules/@deepseek-ai/dsh/lib/bin.js'} else {''}
+        if ($bin -and (Test-Path -LiteralPath $bin)) {
+            $node=Join-Path (Split-Path $shim -Parent) 'node.exe'
+            if (-not (Test-Path -LiteralPath $node)) {$node=(Get-Command node -ErrorAction Stop).Source}
+            $null=Assert-TeamCommandLine $node (@($bin)+$dshArguments)
+        }
+    }
+    $handle = Start-TeamDshProcess $directory $Worktree $dshArguments ($MaxSingleLogMb * 1MB)
     $launchAttempts=$handle.launch_attempts
     Write-TeamData (Join-Path $directory 'native-process.json') @{
         pid = $handle.process.Id; start = $handle.process.StartTime.ToUniversalTime().ToString('o')
@@ -63,7 +81,8 @@ $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.js
     }
 } catch {
     $code = if ($_.Exception.Data.Contains('TeamExitCode')) { [int]$_.Exception.Data['TeamExitCode'] } else { 30 }
-    $startupExhausted=$_.Exception.Data['StartupExhausted'] -eq $true
+    $inputTooLarge=$inputTooLarge -or $_.Exception.Data['InputTooLarge'] -eq $true
+    $startupExhausted=$inputTooLarge -or $_.Exception.Data['StartupExhausted'] -eq $true
     if ($_.Exception.Data.Contains('LaunchAttempts')) { $launchAttempts=[int]$_.Exception.Data['LaunchAttempts'] }
     [Console]::Error.WriteLine($_.Exception.Message)
 } finally {
@@ -71,7 +90,7 @@ $(Get-Content -LiteralPath (Join-Path $script:TeamRoot 'schemas/result.schema.js
     finally {
         Write-TeamData (Join-Path $directory 'exit.json') @{
             exit_code=$code;native_exit_code=$(if ($handle) {$handle['exit_code']} else {$null})
-            startup_exhausted=$startupExhausted;launch_attempts=$launchAttempts
+            startup_exhausted=$startupExhausted;input_too_large=$inputTooLarge;launch_attempts=$launchAttempts
             transport_cleanup=(Get-TeamProcessCleanupEvidence $handle);finished_at=[DateTime]::UtcNow.ToString('o')
         }
     }

@@ -1,7 +1,7 @@
 # Snapshot-first authority contract — task record
 
 > **2026-09-17 Team 部署增补**：`install.ps1` 新增受管目标 `~/.codex/team/` 下的
-> `scripts/`、`schemas/`、`roles/`、`policies/`、manifest/README/QUICKSTART 与 `spike/*.md`。
+> `scripts/`、`schemas/`、`roles/`、`policies/`、`certifications/`、manifest/README/QUICKSTART 与 `spike/*.md`。
 > 不含私有运行状态、测试和探针脚本。`tools/enable-team-project.ps1` 在目标项目播种的
 > `team/manifest.yaml` 属于各项目配置，后续接入不覆盖；不是全局部署器的受管目标。
 > 全局自检入口 `~/.codex/tools/check-workflow.ps1` 也受管；`~/.codex/workflow-source.json`

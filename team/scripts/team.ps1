@@ -112,14 +112,13 @@ try {
                 }
                 'logs' { $output = @(Get-Content -LiteralPath (Join-Path $directory 'events.jsonl') | ForEach-Object { ConvertFrom-Json $_ -AsHashtable } | Where-Object { [datetime]$_.timestamp -ge $Since -and (-not $Task -or $_.details['task_id'] -eq $Task) }) }
                 'watch' {
-                    $seen = 0
+                    $cursor=@{offset=0L;pending='';decoder=[Text.UTF8Encoding]::new($false,$true).GetDecoder()}
                     do {
-                        $entries = @(Get-Content -LiteralPath (Join-Path $directory 'events.jsonl'))
-                        foreach ($line in ($entries | Select-Object -Skip $seen)) {
+                        foreach ($line in @(Read-TeamEventTail (Join-Path $directory 'events.jsonl') $cursor)) {
                             $entry = ConvertFrom-Json $line -AsHashtable
                             if ([datetime]$entry.timestamp -ge $Since -and (-not $Task -or $entry.details['task_id'] -eq $Task)) { Write-Output $line }
                         }
-                        $seen = $entries.Count; $state = Read-TeamData (Join-Path $directory 'state.json')
+                        $state = Read-TeamData (Join-Path $directory 'state.json')
                         if ($state.status -in @('COMPLETED','FAILED','CANCELLED')) { break }
                         if ($state.status -in @('ESCALATED','PAUSED') -and -not $Follow) { break }
                         Start-Sleep -Seconds 2
@@ -197,7 +196,7 @@ try {
         if (-not $preserveRevision -and $exitCode -eq 60) {
             $runData.state['hard_stop']=$true
             New-TeamEscalation $runData.state $runData.directory 'hard_stop' $_.Exception.Message
-        } elseif (-not $preserveRevision -and $exitCode -eq 70 -and $runData.state.status -ne 'ESCALATED' -and
+        } elseif (-not $preserveRevision -and $exitCode -eq 70 -and $_.Exception.Data['TeamEvent'] -ne 'input_too_large' -and $runData.state.status -ne 'ESCALATED' -and
             -not @(Get-ChildItem -LiteralPath (Join-Path $runData.directory 'escalations') -Filter '*.yaml' -ErrorAction SilentlyContinue | ForEach-Object { Read-TeamData $_.FullName } | Where-Object { $_.status -in @('pending','modify-plan') }).Count) {
             New-TeamEscalation $runData.state $runData.directory 'capacity_or_budget' $_.Exception.Message
         }
@@ -207,8 +206,12 @@ try {
             Save-TeamState $runData.state $runData.directory
         }
         Add-TeamEvent $runData.directory 'command_failed' @{ command = $Command; exit_code = $exitCode; message = $_.Exception.Message }
+        if (-not $preserveRevision -and $_.Exception.Data['TeamEvent'] -eq 'input_too_large' -and $runData.state.status -notin @('COMPLETED','CANCELLED')) {
+            $runData.state.status='PAUSED'; Save-TeamState $runData.state $runData.directory
+        }
     }
     $errorOutput=@{ success = $false; exit_code = $exitCode; error = $_.Exception.Message }
+    if ($_.Exception.Data['TeamEvent'] -eq 'input_too_large') { $errorOutput['event']='input_too_large'; $errorOutput['next']='Lead must split/replan; complete source evidence is retained' }
     if ($exitCode -eq 10 -and $_.Exception.Data['TeamEvent'] -eq 'plan_invalid') {
         $errorOutput['event']='plan_invalid'
         if ($runData -and $lock) { Add-TeamEvent $runData.directory 'plan_invalid' @{command=$Command;message=$_.Exception.Message} }

@@ -88,6 +88,22 @@ function Assert-TeamCapability($Plan, $Doctor) {
     }
 }
 
+function Get-TeamCertification([string]$Version,$Manifest,$Route) {
+    $matches=@()
+    foreach ($file in @(Get-ChildItem (Join-Path $script:TeamRoot 'certifications') -Filter '*.json' -ErrorAction SilentlyContinue)) {
+        $record=Read-TeamData $file.FullName; Test-TeamSchema $record 'certification'
+        if ($record.version -cne $Version -or $record.profile -cne $Manifest.runtime.profile -or
+            $record.provider -cne $Route['provider'] -or $record.model -cne $Route['model']) {continue}
+        $evidence=Get-TeamChild $script:TeamRoot $record.acceptance_evidence.document
+        if ((Get-TeamHash (Join-Path $PSScriptRoot 'native-guard.mjs')) -cne $record.native_guard_sha256 -or
+            -not (Test-Path $evidence) -or -not ([IO.File]::ReadAllText($evidence).Contains($record.acceptance_evidence.anchor))) {continue}
+        $matches+=@{record=$record;sha256=(Get-TeamHash $file.FullName);file=$file.Name}
+    }
+    if ($matches.Count -gt 1) {Stop-TeamError 20 'Ambiguous runtime certifications'}
+    if ($matches.Count -eq 1) {return $matches[0]}
+    return $null
+}
+
 function Test-TeamDoctor($Manifest, [string]$Repo, [switch]$AllowUnverifiedRuntime) {
     Test-TeamSchema $Manifest 'manifest'
     $problems = [Collections.Generic.List[string]]::new()
@@ -110,12 +126,13 @@ function Test-TeamDoctor($Manifest, [string]$Repo, [switch]$AllowUnverifiedRunti
     $routingHealth = Get-TeamRoute '' $Repo $Manifest
     # The certified transport profile is tied to the actual version, not merely a
     # user-edited manifest pin. An override keeps diagnostics available, not L3 proof.
-    $certified=$versions['dsh'] -ceq '0.1.5-rc.1' -and $Manifest.runtime.profile -ceq 'headless'
+    $certification=Get-TeamCertification $versions['dsh'] $Manifest $route
+    $certified=$null -ne $certification
     $native=$Manifest.subagents.enabled -and $route['native_available'] -eq $true
     $observable=Test-Path -LiteralPath (Join-Path $PSScriptRoot 'native-guard.mjs')
-    $adapterVerified=$certified -and $route['provider'] -ceq 'deepseek-official' -and $route['model'] -ceq 'deepseek-flash'
-    $capabilities=Get-TeamCapabilityDecision $(if ($certified) {'I1'} else {'UNKNOWN'}) $(if ($certified) {'O2'} else {'UNKNOWN'}) `
-        $(if ($certified) {'E2'} else {'UNKNOWN'}) ($route.verified -eq $true) $native $observable $adapterVerified
+    $adapterVerified=$certified -and $certification.record.adapter_l3_extension
+    $capabilities=Get-TeamCapabilityDecision $(if ($certified) {$certification.record.input_axis} else {'UNKNOWN'}) $(if ($certified) {$certification.record.output_axis} else {'UNKNOWN'}) `
+        $(if ($certified) {$certification.record.exit_axis} else {'UNKNOWN'}) ($route.verified -eq $true) $native $observable $adapterVerified
     $capabilities['unverified_transport_override']=$false
     if (-not $certified -and $AllowUnverifiedRuntime -and $route.verified -eq $true -and $Manifest.runtime.profile -ceq 'headless') {
         $capabilities.allowed_modes=@('L0','L1','L2')
@@ -126,7 +143,7 @@ function Test-TeamDoctor($Manifest, [string]$Repo, [switch]$AllowUnverifiedRunti
     $lockPath = Join-Path $Repo 'team/runtime/.team-lock'
     return @{
         success = ($problems.Count -eq 0); versions = $versions; powershell = $PSVersionTable.PSVersion.ToString()
-        route = $route; lead = $lead; routing = $routing; problems = $problems.ToArray()
+        route = $route; lead = $lead; routing = $routing; problems = $problems.ToArray(); certification=$certification
         routing_health = @{auto_route=$routingHealth.auto_route;consecutive_misroutes=$routingHealth.consecutive_misroutes;notice=$routingHealth.notice;lead_action=$routingHealth.lead_action}
         capabilities = $capabilities
         runtime_status = $(if ($AllowUnverifiedRuntime) { 'UNVERIFIED_RUNTIME' } else { 'PINNED_RUNTIME' })
