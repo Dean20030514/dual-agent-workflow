@@ -26,7 +26,12 @@ for ($index=0; $index -lt $args.Count-1; $index++) {
     }
 }
 if ($prompt -match '^Perform DSH LOCAL_REVIEW') {
-    $localTask=(($prompt -split 'Task packet:',2)[1] -split '(?m)^Base:',2)[0] | ConvertFrom-Json -AsHashtable
+    # Accept both task headings and stop before the separate reuse facts section.
+    # A broken fixture input must fail, never silently emit a passing review.
+    $section=[regex]::Match($prompt,'(?ms)^Task packet(?: \([^\r\n]*\))?:\r?\n(?<packet>.*?)\r?\n(?:Reuse decision and declarations[^\r\n]*:|Base:)')
+    if (-not $section.Success) { throw 'Local review task section is missing' }
+    $localTask=$section.Groups['packet'].Value | ConvertFrom-Json -AsHashtable -ErrorAction Stop
+    if ($localTask -isnot [Collections.IDictionary] -or -not $localTask['objective']) { throw 'Local review task objective is missing' }
     if (-not $guard.readOnly -or $guard.maxAgents -ne 1 -or $guard.maxDepth -ne 0) { exit 7 }
     @{schema_version=1;agents=@(@{id='fixture-local-review';depth=0;state='created';read_only=$true;provider='deepseek-official';model='deepseek-flash';cwd=(Get-Location).Path})} |
         ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $guard.receipt -Encoding utf8NoBOM
