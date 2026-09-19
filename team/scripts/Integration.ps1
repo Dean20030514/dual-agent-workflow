@@ -1,6 +1,8 @@
 function Accept-TeamTask($State, $Plan, [string]$Directory, [string]$TaskId, [string]$Commit, [string]$Reason) {
     Assert-TeamId $TaskId
     if (-not $State.tasks.Contains($TaskId)) { Stop-TeamError 10 'Unknown task' }
+    # Acceptance mutates run state, so the frozen reuse protocol identity is verified first.
+    $null = Assert-TeamReuseRunProtocol $State $Directory
     $item = $State.tasks[$TaskId]
     if ($item.status -ne 'REVIEW' -or $item.commit -cne $Commit -or -not $Reason.Trim()) {
         Stop-TeamError 50 'Lead acceptance requires REVIEW state, exact commit, and a reason'
@@ -25,6 +27,8 @@ function Accept-TeamTask($State, $Plan, [string]$Directory, [string]$TaskId, [st
 }
 
 function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $null) {
+    # Integration restores and extends run-owned worktrees: the frozen protocol must hold first.
+    $null = Assert-TeamReuseRunProtocol $State $Directory
     if ($State.status -in @('CANCELLED','COMPLETED','ESCALATED')) { Stop-TeamError 80 'Run is not available for integration' }
     if (-not $Manifest) { $Manifest=Read-TeamData (Join-Path $Directory 'manifest.yaml') }
     Initialize-TeamIntegrationTree $State $Directory
@@ -101,6 +105,10 @@ function Invoke-TeamIntegration($State, $Plan, [string]$Directory, $Manifest = $
 function Resume-TeamRun($State, $Plan, $Manifest, [string]$Directory) {
     if ($State.status -in @('COMPLETED','CANCELLED')) { Stop-TeamError 80 'Terminal run cannot resume' }
     if ((Get-TeamHash (Join-Path $Directory 'plan.yaml')) -cne $State.plan_hash) { Stop-TeamError 80 'Plan changed outside revision protocol' }
+    # Admission runs before any restore, prerequisite or dispatch step: a legacy run, a plan
+    # without reuse, or a blocked decision without a valid exact-plan owner exception pauses
+    # here and nothing else moves.
+    $null = Assert-TeamReuseAdmission $State $Plan $Directory
     $null = Test-TeamPlan $Plan $Manifest
     if (-not $Manifest.team.enabled) { Stop-TeamError 20 'Team disabled' }
     if (Test-Path -LiteralPath (Join-Path $Directory 'cancel.request.json')) { Stop-TeamError 80 'Cancelled run cannot resume' }

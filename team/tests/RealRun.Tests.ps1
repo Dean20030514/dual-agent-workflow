@@ -878,9 +878,12 @@ Describe 'Infrastructure recovery versus business replans' {
                 input_too_large = $false; launch_attempts = 1; timeout_kind = $TimeoutKind
                 transport_cleanup = @{ streams_settled = $true; drain_expired = $false } }
             Write-TeamData (Join-Path $attempt 'agents.json') @{ agents = @(@{ id = 'a1'; depth = 0; state = 'created' }) }
+            # Recovery mutates a run that froze the reuse protocol; freeze real evidence here.
+            $reuseProtocol = New-TeamReuseProtocolEvidence $directory
             $state = @{ schema_version = 1; run_id = $runId; revision = 1; repo = $TestDrive; status = 'FAILED'
                 run_base_sha = ('a' * 40); integration_base_sha = ('a' * 40); last_good_integration_sha = ('a' * 40)
                 integration_branch = "codex/integration/$runId"; integration_worktree = ''; plan_hash = ('b' * 64); order = @('T1')
+                reuse_protocol = $reuseProtocol
                 tasks = @{ T1 = @{ status = 'FAILED'; attempts = 1; commit = ''; pid = 0; process_start = ''
                     directory = $attempt; worktree = ''; branch = ''; base_sha = ('a' * 40); reserved = 0 } }
                 agents_created = 1; agents_reserved = 0

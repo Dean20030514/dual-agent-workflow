@@ -104,6 +104,16 @@
       "type": "string",
       "minLength": 1
     },
+    "reuse": {
+      "type": "object",
+      "description": "Task-level reuse declaration copied from the frozen plan. Historical packets omit it; new dispatches always include it.",
+      "additionalProperties": true
+    },
+    "reuse_context": {
+      "type": "object",
+      "description": "Derived bounded reuse context (protocol identity, plan hash, decision fields, task declaration and only the referenced candidates). Present for every new dispatch; the Result must then carry a matching reuse declaration.",
+      "additionalProperties": true
+    },
     "result_schema": {
       "type": "string",
       "minLength": 1

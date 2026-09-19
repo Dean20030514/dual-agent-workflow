@@ -28,6 +28,18 @@ function Get-TeamLocalReviewMaterial($State, $Task, $Item, $Manifest, [string]$D
     $agents=ConvertTo-Json $authority -Depth 20
     $evidence=Read-TeamData (Join-Path $Item.directory 'verification-evidence.json')
     $workerResult=Read-TeamData (Join-Path $Item.directory 'result.yaml')
+    # The reviewer gets the packet the author actually received, so its bounded reuse context
+    # is reviewed instead of only the plan-side task. Historical dispatches have no packet and
+    # keep the plan task as their material.
+    $taskPacketPath=Join-Path $Item.directory 'task.yaml'
+    $taskPacket=if (Test-Path -LiteralPath $taskPacketPath -PathType Leaf) { Read-TeamData $taskPacketPath } else { $Task }
+    $reuseFacts=@{ available = $false; reason = 'no frozen reuse decision is available to this review' }
+    $planPath=Join-Path $Directory 'plan.yaml'
+    if (Test-Path -LiteralPath $planPath -PathType Leaf) {
+        $runPlan=Read-TeamData $planPath
+        $planTask=@($runPlan.tasks | Where-Object { $_.id -eq $Task.id })[0]
+        if ($planTask) { $reuseFacts=Get-TeamReuseReviewFacts $runPlan $planTask (Join-Path $Item.directory 'result.yaml') }
+    } else { $reuseFacts=Get-TeamReuseReviewFacts @{reuse=@{}} $Task (Join-Path $Item.directory 'result.yaml') }
     $nativeFacts=@((Read-TeamData (Join-Path $Item.directory 'agents.json')).agents | Select-Object id,depth,state,provider,model,cwd)
     $testOutput=Get-TeamReviewOutput $Item.directory 'verification'
     $changeSummary=Get-TeamChangeSummary $Item.worktree $Item.base_sha $Item.commit
@@ -47,8 +59,10 @@ additional evidence in verification_needed. Complete logs remain preserved with 
 Report concrete product consequences as blocking issues, never missing evidence alone.
 Put necessary additional execution in verification_needed for the coordinator to disposition.
 Return only JSON matching the supplied schema. This local stage never replaces Critical 9A/9B.
-Task packet:
-$($Task | ConvertTo-Json -Depth 40)
+Task packet (the exact bounded packet the author received, including its derived reuse_context):
+$($taskPacket | ConvertTo-Json -Depth 40)
+Reuse decision and declarations (bounded; search logs and decision rationale are not supplied):
+$($reuseFacts | ConvertTo-Json -Depth 20)
 Base: $($Item.base_sha)
 Tip: $($Item.commit)
 Observed Git snapshot (coordinator commands exited 0):
@@ -80,7 +94,8 @@ Review schema:
 $([IO.File]::ReadAllText((Join-Path $script:TeamRoot 'schemas/review.schema.json')))
 "@
     return @{ prompt=$prompt; diff=$diff; diff_bytes=$diffBytes; authority=$authority; head=$head; snapshot_status=$snapshot
-        change_summary=$changeSummary; issue_map=$issueMap; command_summary=$commandSummary; evidence=$evidence; test_output=$testOutput }
+        change_summary=$changeSummary; issue_map=$issueMap; command_summary=$commandSummary; evidence=$evidence; test_output=$testOutput
+        reuse_facts=$reuseFacts }
 }
 
 function Invoke-TeamLocalReview($State, $Task, $Manifest, [string]$Directory) {

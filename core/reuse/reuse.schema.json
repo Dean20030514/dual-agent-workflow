@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Reuse-first protocol documents",
+  "description": "Structural contract for the three reuse documents: a plan level decision, a task level reuse declaration and a task level result declaration. One and only one branch matches a document. Cross-field rules (skip precedence, blocked pausing, reference and deviation integrity) live in core/reuse/Reuse.ps1; the README freezes both.",
+  "oneOf": [
+    {
+      "title": "reuse decision",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": 1},
+        "applicability": {"enum": ["required", "skipped"]},
+        "status": {"enum": ["completed", "blocked", "skipped"]},
+        "reason": {"type": "string", "minLength": 1},
+        "searches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "source": {"enum": ["github_repositories", "github_code", "primary_docs", "package_registry"]},
+              "query": {"type": "string", "minLength": 1},
+              "outcome": {"enum": ["results", "no_results", "unavailable"]},
+              "summary": {"type": "string", "minLength": 1},
+              "evidence": {
+                "type": "array",
+                "items": {"type": "string", "minLength": 1},
+                "description": "Links or receipt references. Required non-empty for 'results' and 'unavailable'; a genuine 'no_results' search may cite nothing."
+              }
+            },
+            "required": ["source", "query", "outcome", "summary", "evidence"]
+          }
+        },
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$"},
+              "url": {"type": "string", "minLength": 1},
+              "revision": {"type": "string", "minLength": 1},
+              "decision": {"enum": ["adopt", "port", "wrap", "reference", "reject"]},
+              "rationale": {"type": "string", "minLength": 1},
+              "borrow": {"type": "string", "description": "What is borrowed from this candidate. Must be non-blank unless the candidate is rejected."},
+              "constraints": {"type": "array", "items": {"type": "string", "minLength": 1}}
+            },
+            "required": ["id", "url", "revision", "decision", "rationale", "borrow", "constraints"]
+          }
+        },
+        "strategy": {"enum": ["adopt", "port", "wrap", "reference", "build"]},
+        "rationale": {"type": "string", "minLength": 1},
+        "constraints": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "required": ["version", "applicability", "status", "reason", "searches", "candidates", "strategy", "rationale", "constraints"]
+    },
+    {
+      "title": "task reuse declaration",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "applicability": {"enum": ["required", "skipped"]},
+        "reason": {"type": "string", "minLength": 1},
+        "change_kinds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["new_implementation", "new_dependency", "architecture", "protocol", "docs_only", "diagnosed_local_bug", "established_repo_pattern", "data_only"]}
+        },
+        "refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$"},
+          "description": "Candidate ids prescribed for this task. May be empty when the decision strategy is build or the task is skipped."
+        },
+        "skip_reason": {
+          "enum": ["docs_only", "diagnosed_local_bug", "established_repo_pattern", "data_only"],
+          "description": "Required when applicability is skipped and forbidden otherwise. Names the skip category taken from the four non-capability change kinds; the free-form explanation belongs to 'reason'."
+        }
+      },
+      "required": ["applicability", "reason", "change_kinds", "refs"]
+    },
+    {
+      "title": "result reuse declaration",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "references_used": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$"}
+        },
+        "deviations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "reference": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$"},
+              "reason": {"type": "string", "minLength": 1}
+            },
+            "required": ["reference", "reason"]
+          }
+        }
+      },
+      "required": ["references_used", "deviations"]
+    }
+  ]
+}

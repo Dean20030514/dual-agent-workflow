@@ -7,9 +7,10 @@ BeforeAll {
         $keys = New-Object System.Collections.Generic.List[string]
         foreach ($line in $Output) {
             if (-not $line.ToString().StartsWith('[PLAN]')) { continue }
-            $m = [regex]::Match($line.ToString(), '([A-Za-z]:\\[^ ]+)')
-            if ($m.Success) {
-                $full = $m.Groups[1].Value.TrimEnd('\')
+            # Every Windows path on the row: a mirror row prints BOTH the source folder and
+            # the destination folder, and the managed-surface assertions need each of them.
+            foreach ($m in [regex]::Matches($line.ToString(), '[A-Za-z]:\\[^ ]+')) {
+                $full = $m.Value.TrimEnd('\')
                 $keys.Add(($full -replace '\\', '/'))
             }
         }
@@ -59,7 +60,7 @@ Describe 'AC2 -DryRun' {
 
     It 'covers exactly the managed surface of the old script (A3) and keeps config.toml out of [STALE]' {
         $planned = @(Get-PlanPathKeys -Output $script:R.Output)
-        foreach ($needle in 'claude/CLAUDE.md', 'claude/rules', 'claude/workflow', 'claude/commands', 'codex/AGENTS.md', 'codex/config.toml', 'dsh/AGENTS.md', 'dsh/workflow', 'dsh/skills/dual-agent-workflow', 'dsh/skills/independent-review') {
+        foreach ($needle in 'claude/CLAUDE.md', 'claude/rules', 'claude/workflow', 'claude/commands', 'codex/AGENTS.md', 'codex/config.toml', 'dsh/AGENTS.md', 'dsh/workflow', 'dsh/skills/dual-agent-workflow', 'dsh/skills/independent-review', 'claude/workflow-core', 'codex/workflow-core', 'dsh/workflow-core') {
             @($planned | Where-Object { $_ -like ('*' + $needle + '*') }).Count | Should -BeGreaterThan 0 -Because "$needle must appear in the plan"
         }
         @(Get-TaggedLines -Output $script:R.Output -Tag '[STALE]' | Where-Object { $_ -like '*config.toml*' }).Count | Should -Be 0
@@ -146,6 +147,13 @@ Describe 'AC2 -DryRun' {
             $managed = @()
             foreach ($entry in (Get-ManagedDeploySet -RepoRoot (Get-RepoRoot))) {
                 $parts = $entry -split '/'
+                # A nested mirror is ONE action whose printed target is the leaf folder
+                # (<root>/workflow-core/reuse), so the oracle keeps that spelling instead of
+                # collapsing it to the first path segment.
+                if ($parts.Count -gt 2 -and $parts[1] -eq 'workflow-core') {
+                    $managed += ('{0}/workflow-core/{1}' -f $parts[0], $parts[2])
+                    continue
+                }
                 if ($parts[0] -eq 'claude') { $managed += ('claude/' + $parts[1]) }
                 elseif ($parts[0] -eq 'codex') {
                     if ($parts[1] -eq 'tools') { $managed += $entry }

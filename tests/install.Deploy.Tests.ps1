@@ -344,10 +344,14 @@ Describe 'Deploy - completeness into an empty home (ported from the stopped H3 b
             $missing = New-Object System.Collections.Generic.List[string]
             $mismatch = New-Object System.Collections.Generic.List[string]
             foreach ($rel in $expected) {
+                # Native separators: the oracle names paths with '/' while Join-Path/Test-Path
+                # want the platform form, and workflow-core is just another subdirectory below
+                # each root, so one normalization covers all three destinations.
+                $relNative = $rel.Replace('/', '\')
                 $target = switch -Regex ($rel) {
-                    '^claude/' { Join-Path $fresh.ClaudeDir $rel.Substring(7); break }
-                    '^codex/' { Join-Path $fresh.CodexDir $rel.Substring(6); break }
-                    '^dsh/' { Join-Path $fresh.DshDir $rel.Substring(4); break }
+                    '^claude/' { Join-Path $fresh.ClaudeDir $relNative.Substring(7); break }
+                    '^codex/' { Join-Path $fresh.CodexDir $relNative.Substring(6); break }
+                    '^dsh/' { Join-Path $fresh.DshDir $relNative.Substring(4); break }
                 }
                 if (-not (Test-Path -LiteralPath $target -PathType Leaf)) { $missing.Add($rel); continue }
                 # `break` is load-bearing: switch -Regex runs EVERY matching branch and emits
@@ -361,6 +365,8 @@ Describe 'Deploy - completeness into an empty home (ported from the stopped H3 b
                     continue
                 }
                 $source = switch -Regex ($rel) {
+                    # All three homes get the same file set from the one canonical source.
+                    '^(claude|codex|dsh)/workflow-core/' { Join-Path (Get-RepoRoot) ('core\reuse\' + (($rel -split '/workflow-core/reuse/', 2)[1]).Replace('/', '\')); break }
                     '^codex/tools/' { Join-Path (Get-RepoRoot) ('tools/' + $rel.Substring(12)); break }
                     '^claude/' { Join-Path (Get-RepoRoot) ('claude\' + $rel.Substring(7)); break }
                     '^codex/config\.toml$' { Join-Path (Get-RepoRoot) 'codex\config.example.toml'; break }

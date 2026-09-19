@@ -62,6 +62,11 @@
       },
       "minItems": 1
     },
+    "reuse": {
+      "type": "object",
+      "description": "Frozen plan-level reuse decision. Optional here so historical plans stay readable; Test-TeamPlanContent requires it for every new plan and validates it against core/reuse/reuse.schema.json.",
+      "additionalProperties": true
+    },
     "tasks": {
       "type": "array",
       "items": {
@@ -198,6 +203,11 @@
           },
           "optional": {
             "type": "boolean"
+          },
+          "reuse": {
+            "type": "object",
+            "description": "Task-level reuse declaration. Optional here so historical plans stay readable; Test-TeamPlanContent requires one per task and validates it against core/reuse/reuse.schema.json.",
+            "additionalProperties": true
           },
           "issue_acceptance_map": {
             "type": "array",

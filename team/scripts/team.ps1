@@ -12,7 +12,7 @@ param(
     [switch]$Json, [switch]$Follow, [switch]$AllowUnverifiedRuntime, [switch]$RepairLock,
     [switch]$Apply, [switch]$ReuseVerification, [switch]$Restore
 )
-foreach ($module in @('Core','Lead','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Checkpoints','Revisions','Rollbacks','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict','Activity','Reuse','Prerequisites','Archive','Report')) { . (Join-Path $PSScriptRoot "$module.ps1") }
+foreach ($module in @('Core','PriorArt','Lead','Contracts','Preflight','State','Controls','Execution','IntegrationRecovery','Checkpoints','Revisions','Rollbacks','Integration','Recovery','ReviewRounds','Review','LocalReview','Conflict','Activity','Reuse','Prerequisites','Archive','Report')) { . (Join-Path $PSScriptRoot "$module.ps1") }
 $lock = $null; $runData = $null; $exitCode = 0
 try {
     if ($PSBoundParameters.ContainsKey('Since')) { $Since=$Since.ToUniversalTime() }
@@ -62,6 +62,11 @@ try {
             if (Test-Path -LiteralPath (Get-TeamChild $Repo "team/runtime/$($document.run.id)")) { Stop-TeamError 20 'Run already exists; use resume' }
             $lock = Lock-TeamRepo $Repo $document.run.id
             $runData = New-TeamRun $document $config $Repo $order $doctor.runtime_status
+            # First dispatch gate: the plan documents, the frozen protocol identity and, for a
+            # blocked decision, an exact-plan owner exception are verified before any
+            # prerequisite, 9P review or dispatch step. A blocked decision may create run
+            # metadata and one reuse_unavailable escalation, never a worktree or a worker.
+            $null = Assert-TeamReuseAdmission $runData.state $document $runData.directory
             Write-TeamData (Join-Path $runData.directory 'preflight.json') $doctor
             $null = Test-DshRoute $config $Repo (Join-Path $runData.directory 'worker.patch.yaml')
             if ($ReuseVerification) { $runData.state['verification_reuse']=$true; Save-TeamState $runData.state $runData.directory }
@@ -151,6 +156,14 @@ try {
                     Save-TeamState $state $directory
                     if ($Decision -eq 'reject') { Unlock-TeamRepo $Repo $Run }
                     Add-TeamEvent $directory 'escalation_resolved' @{ id = $Escalation; decision = $Decision }
+                    if ($Decision -eq 'approve' -and $record.type -ceq 'reuse_unavailable') {
+                        # The owner exception is recorded once, bound to the plan hash and to the
+                        # frozen protocol identity it was granted against.
+                        $reuseIdentity = if ($record['context']) { $record['context']['reuse_identity'] } else { $null }
+                        Add-TeamEvent $directory 'reuse_exception_approved' @{ escalation = $Escalation
+                            plan_hash = $record['plan_hash']; reuse_identity = $reuseIdentity
+                            expires_at = $record['expires_at'] }
+                    }
                     $output = @{ status = $state.status; next = 'Approval does not rewrite permissions or resume dispatch; revise plan explicitly.' }
                 }
                 'accept' { Accept-TeamTask $state $document $directory $Task $Commit $Reason; $output = @{ status = 'ACCEPTED'; task_id = $Task } }
@@ -173,6 +186,12 @@ try {
                     $output=@{status='RECORDED';ledgers=$state.cost_ledgers;unknown_usage=$state.unknown_usage;evidence_hash=$hash}
                 }
                 'resume' {
+                    # A terminal run is refused first, unchanged; only then does the frozen reuse
+                    # admission gate run, before environment probing and before any
+                    # restore/prerequisite step, so a legacy run or a blocked decision never
+                    # looks like a temporarily broken environment and nothing else moves.
+                    if ($state.status -in @('COMPLETED','CANCELLED')) { Stop-TeamError 80 'Terminal run cannot resume' }
+                    $null = Assert-TeamReuseAdmission $state $document $directory
                     $doctor = Test-TeamDoctor $config $Repo -AllowUnverifiedRuntime:$AllowUnverifiedRuntime
                     if (-not $doctor.success) { Stop-TeamError 20 ($doctor.problems -join '; ') }
                     Assert-TeamCapability $document $doctor

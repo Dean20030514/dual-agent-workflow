@@ -89,6 +89,8 @@ function Assert-TeamRecovery($State, $Plan, [string]$Directory) {
 
 function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Directory, [string]$FailedTask, [string]$Reason) {
     Assert-TeamCleanupSettled $State
+    # A replan mutates the frozen plan; a legacy run must start a new run instead.
+    $null = Assert-TeamReuseRunProtocol $State $Directory
     if (@(Get-TeamPendingIntegration $Directory).Count) { Stop-TeamError 80 'Reconcile or roll back the pending integration before replanning' }
     $order = @(Test-TeamPlan $NewPlan $Manifest)
     # Role identities are immutable across revisions. A changed specialty gets a
@@ -112,6 +114,22 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
     }
     if (-not $State.tasks.Contains($FailedTask)) { Stop-TeamError 10 'Unknown failed task' }
     $affected = @(Get-TeamAffectedByScope $OldPlan $FailedTask)
+    # Reuse is part of the task contract: a changed decision or a changed task declaration
+    # invalidates inference and review evidence even when every file scope is unchanged.
+    # Each affected existing task is then closed over the same dependency/scope closure a
+    # failed task would use: a task accepted on the old declaration of its dependency or on
+    # an overlapping scope cannot keep its acceptance.
+    $reuseAffected = Get-TeamReuseAffected $OldPlan $NewPlan
+    $reuseInvalidated = @($reuseAffected.tasks)
+    $frozenIds = @($OldPlan.tasks | ForEach-Object { [string]$_.id })
+    foreach ($id in @($reuseAffected.tasks)) {
+        # A task introduced by this revision has no frozen entry yet, so the closure has no
+        # root to expand from; its own new identity is the whole invalidation.
+        if ([string]$id -in $frozenIds) { $reuseInvalidated += @(Get-TeamAffectedByScope $OldPlan ([string]$id)) }
+    }
+    if (@($reuseInvalidated).Count) {
+        $affected = @(@($affected) + @($reuseInvalidated) | Sort-Object -Unique)
+    }
     foreach ($task in $OldPlan.tasks) {
         $next = @($NewPlan.tasks | Where-Object { $_.id -eq $task.id })
         if ($task.id -notin $affected) {
@@ -123,7 +141,9 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
         }
     }
     foreach ($taskId in $affected) {
-        if ($State.tasks[$taskId].attempts -gt $Manifest.budget.max_worker_retries) { Stop-TeamError 60 'Worker retry budget exhausted' }
+        $item = $State.tasks[$taskId]
+        # A task introduced by this revision carries no attempt history to cap.
+        if ($item -and [int]$item['attempts'] -gt $Manifest.budget.max_worker_retries) { Stop-TeamError 60 'Worker retry budget exhausted' }
     }
     Assert-TeamReviewRound $State $OldPlan $Directory -Close
     # Prepare a separate candidate so a failed transaction cannot leak into the
@@ -134,7 +154,8 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
     if (-not $State['discarded_tasks']) { $State['discarded_tasks']=@{} }
     foreach ($taskId in $affected) {
         $item=$State.tasks[$taskId]
-        if (-not $item.attempts -or $item['worktree_removed']) { continue }
+        # A newly introduced task has no old attempt or worktree to retire.
+        if (-not $item -or -not $item['attempts'] -or $item['worktree_removed']) { continue }
         if (@($State.discarded_tasks.Values | Where-Object { $_.worktree -ceq $item.worktree }).Count) { continue }
         $retired=$item | ConvertTo-Json -Depth 60 | ConvertFrom-Json -AsHashtable
         $retired['task_id']=$taskId; $retired['retired_from']=$item.status; $retired.status='DISCARDED'
@@ -161,9 +182,20 @@ function Invoke-TeamReplan($State, $OldPlan, $NewPlan, $Manifest, [string]$Direc
             Stop-TeamError 70 'Revised plan cannot fund its remaining required authors and reviewers'
         }
     }
+    # An owner exception is bound to one exact plan hash, so the new revision invalidates any
+    # previous approval. The prior approval must be captured before Save-TeamPlanRevision
+    # rebinds state.plan_hash, otherwise this event could never be reached. A revised plan
+    # that is still blocked re-registers the pause instead of inheriting the old approval.
+    $priorException = @(Get-TeamReuseOwnerException $State $Directory)
     Save-TeamPlanRevision $State $OldPlan $NewPlan $Directory "DEC-Replan-$($State.revision)" @{
         decision='replan'; reason=$Reason; affected=$affected; revision=$State.revision
     }
+    if ($priorException.Count) {
+        Add-TeamEvent $Directory 'reuse_exception_invalidated' @{ revision=$State.revision; plan_hash=$State.plan_hash
+            previous_plan_hash = [string]$priorException[0]['plan_hash']; escalation = [string]$priorException[0].id }
+    }
+    $decision = Assert-TeamReusePlanContent $NewPlan
+    if ([string]$decision['status'] -ceq 'blocked') { Suspend-TeamReuseUnavailable $State $Directory $decision }
     Add-TeamEvent $Directory 'run_replanned' @{ affected=$affected; revision=$State.revision }
     return @{ affected=$affected; revision=$State.revision; status='PAUSED' }
 }
@@ -391,6 +423,9 @@ function Invoke-TeamInfrastructureRecovery($State, $Plan, $Manifest, [string]$Di
     if (-not $Reason -or -not $Reason.Trim()) { Stop-TeamError 10 'Infrastructure recovery requires a -Reason' }
     if (-not $State.tasks.Contains($TaskId)) { Stop-TeamError 10 'Unknown task' }
     if ($State.status -in @('COMPLETED','CANCELLED')) { Stop-TeamError 80 'Terminal run cannot recover a task' }
+    # Recovery retires an attempt and makes its task dispatchable again: the frozen protocol
+    # identity is verified before any of that can move.
+    $null = Assert-TeamReuseRunProtocol $State $Directory
     Assert-TeamCleanupSettled $State
     # Eligibility is decided from durable evidence before anything can move the budget: a
     # rejected recovery must leave reservations exactly as they were.

@@ -46,13 +46,15 @@ function Get-TeamReviewMaterial($State, $Plan, $Manifest, [string]$Directory, [s
         $repairContext="Previous reviewed tip: $($Previous.tip)`nPrevious product findings: $($Previous.verdict.blocking_issues | ConvertTo-Json -Depth 20)`nExact change since that snapshot:`n$repairDiff"
     }
     $evidence = @()
-    $testOutput = ''; $workerRisks=@()
+    $testOutput = ''; $workerRisks=@(); $reuseFacts=$null
     if ($TaskId) {
         $item = $State.tasks[$TaskId]
         $evidence += Read-TeamData (Join-Path $item.directory 'verification-evidence.json')
         $testOutput=Get-TeamReviewOutput $item.directory 'verification'
         $workerRisks=@{task_id=$TaskId;claims=(Read-TeamData (Join-Path $item.directory 'result.yaml')).risks}
         $reviewPlan = @{ run = $Plan.run; classification = $Plan.classification; tasks = @($Plan.tasks | Where-Object { $_.id -eq $TaskId }) }
+        # 9A receives the bounded decision and the worker-declared usage, never the search log.
+        $reuseFacts=Get-TeamReuseReviewFacts $Plan (@($Plan.tasks | Where-Object { $_.id -eq $TaskId })[0]) (Join-Path $item.directory 'result.yaml')
     } else {
         $reviewPlan = $Plan
         if ($Stage -eq '9B') {
@@ -60,10 +62,33 @@ function Get-TeamReviewMaterial($State, $Plan, $Manifest, [string]$Directory, [s
             $evidence += Read-TeamData (Join-Path $finalDirectory 'final-evidence.json')
             $testOutput=Get-TeamReviewOutput $finalDirectory 'final'
             $workerRisks=@(foreach ($id in $State.order) { $item=$State.tasks[$id]; if ($item.directory -and (Test-Path (Join-Path $item.directory 'result.yaml'))) { @{task_id=$id;claims=(Read-TeamData (Join-Path $item.directory 'result.yaml')).risks} } })
+            # The blind stage sees constraints and actual usage source facts only: the plan
+            # decision, its rationale and every search record are withheld from its material.
+            $reuseFacts=Get-TeamReuseBlindFacts $Plan $State
+            # Nothing unfiltered reaches 9B: the projection keeps the run identity, the
+            # requirements/acceptance and the task scope, and drops the author's objective
+            # prose together with the issue map built from it. Objective text is the channel
+            # through which an implementation strategy would leak into the blind stage.
+            $reviewPlan = @{ run = $Plan.run; mode = $Plan.mode; capabilities = @($Plan.capabilities)
+                tasks = @(foreach ($planTask in @($Plan.tasks)) {
+                    @{ id = $planTask.id; role = $planTask.role; dependencies = @($planTask.dependencies)
+                        write_scope = @($planTask.write_scope); acceptance = @($planTask.acceptance)
+                        permissions = $planTask.permissions; subagents = $planTask.subagents }
+                }) }
         }
     }
     $changeSummary=if ($Stage -eq '9P') { @{ file_count=0; additions=0; deletions=0; files=@(); note='No implementation diff exists at plan stage.' } } else { Get-TeamChangeSummary $Worktree $Base $Tip }
     $taskMap=@(foreach ($planTask in @($reviewPlan.tasks)) { @{ task_id=$planTask.id; mapping=(Get-TeamIssueAcceptanceMap $planTask) } })
+    # 9P reviews the plan document itself, which carries the reuse decision in full. Only the
+    # implementation stages receive the bounded projection, and only they can state that no
+    # bounded reuse facts exist without contradicting the plan section right above.
+    $reuseMaterial = if ($reuseFacts) {
+        "Reuse facts supplied to this stage (bounded; search logs and decision rationale are never supplied):`n$($reuseFacts | ConvertTo-Json -Depth 25)"
+    } elseif ($Stage -eq '9P') {
+        'Reuse material for this stage: the plan below carries the plan-level reuse decision and every task declaration in full, so 9P reviews them in place; the bounded projection used by the implementation stages is not added here.'
+    } else {
+        'No reuse decision applies to this stage.'
+    }
     $commandSummary=Get-TeamCommandSummary $evidence
     $diffBytes=Get-TeamTextByteCount $diff
     $prompt = @"
@@ -89,6 +114,7 @@ Frozen AGENTS authority:
 $agentsText
 Worker-declared risks (untrusted claims):
 $($workerRisks | ConvertTo-Json -Depth 15)
+$reuseMaterial
 Stage: $Stage
 Base: $Base
 Tip: $Tip
@@ -114,7 +140,7 @@ $repairContext
 "@
     return @{ prompt=$prompt; diff=$diff; diff_bytes=$diffBytes; authority=$authority; head=$head; snapshot_status=$snapshot
         review_plan=$reviewPlan; change_summary=$changeSummary; issue_map=$taskMap; command_summary=$commandSummary
-        evidence=@($evidence); test_output=$testOutput; worker_risks=@($workerRisks) }
+        evidence=@($evidence); test_output=$testOutput; worker_risks=@($workerRisks); reuse_facts=$reuseFacts }
 }
 
 function Invoke-TeamReview($State, $Plan, $Manifest, [string]$Directory, [string]$Stage, [string]$Worktree, [string]$Base, [string]$Tip, [string]$TaskId = '') {

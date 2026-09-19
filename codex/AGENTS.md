@@ -36,6 +36,19 @@ If your prompt asks for no review at all — no 9P/9A/9B mode, no request to ass
 - Do the smallest action that satisfies the literal request, re-deriving scope from the current request rather than from memory notes of what was done last time; when one approach fails twice, stop and offer two options instead of escalating to a broader mechanism.
 - Ask for an explicit yes before: elevation/UAC, system-wide network/proxy/certificate settings, registry writes, killing or restarting user applications or VPNs, runtime major-version jumps, or reinstalling/renaming install directories.
 
+Ordinary (non-review) development follows the reuse-first protocol: a **new
+implementation, new dependency, architecture choice or new protocol** requires a
+recorded prior-art pass before code is written, while a pure doc fix, an
+already-diagnosed local bug fix, a change following an established in-repo pattern, or a
+data-only change may be skipped with an explicit `skip_reason`. Prefer adopting, porting,
+wrapping or referencing a proven approach over writing net-new code. The single canonical
+source — semantics, frozen field shapes and the validators — is
+`$CODEX_HOME/workflow-core/reuse/README.md` (default
+`~/.codex/workflow-core/reuse/README.md`, deployed by `install.ps1` from `core/reuse/`);
+do not restate its rules here. Record the conclusion inline in the conversation. A
+Reviewer never re-runs the search: it only checks the declared constraints against the
+references actually used.
+
 For implementation tasks in repositories with `team/manifest.yaml`, read that
 manifest and the Team lead policy. The runtime is the repository's `team/` when
 `team/scripts/Core.ps1` exists; otherwise use `$CODEX_HOME/team` (default

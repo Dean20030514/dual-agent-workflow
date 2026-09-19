@@ -5,6 +5,18 @@ classification:
   reasons: [isolated SQL health-query fixture]
 mode: L1
 capabilities: [database]
+# Honest fixture decision: this plan only writes a local SQL fixture file, so no prior-art
+# question is raised. New plans must always carry this top-level decision.
+reuse:
+  version: 1
+  applicability: skipped
+  status: skipped
+  reason: Every task in this fixture plan only writes one local SQL fixture file.
+  searches: []
+  candidates: []
+  strategy: build
+  rationale: A fixture health query adds no capability, dependency, protocol or architecture decision.
+  constraints: []
 tasks:
   - id: SQL-001
     role: database
@@ -16,6 +28,12 @@ tasks:
     acceptance: [queries/health.sql contains SELECT 1; and the worktree is clean after commit]
     permissions: {shell: true, network: false, secrets: false, production: false}
     subagents: {allowed: false, max_depth: 0}
+    reuse:
+      applicability: skipped
+      reason: Follows the repository's existing fixture pattern for tiny SQL health queries.
+      change_kinds: [established_repo_pattern]
+      refs: []
+      skip_reason: established_repo_pattern
     verification:
       - id: query-content
         executable: pwsh

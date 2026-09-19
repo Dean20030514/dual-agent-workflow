@@ -4,6 +4,13 @@
 接口、相关测试和近期决策。逐步取上下文，不读整个仓库，也不传完整聊天历史。
 判断 Routine/Critical 与 L0/L1/L2/L3；低价值委派保持 L0。UNKNOWN 路由由 Lead 判断。
 L1–L3 先生成含能力、角色、DAG、write_scope、acceptance、真实验证命令的合法 Plan。
+复用检索：Lead 在写 Plan 前先做一次有记录的检索，**完整结论写入计划顶层 `Plan.reuse`**（检索来源 / 结论 / 候选 / 策略 /
+约束），**每个任务的适用性与候选引用写入该任务的 `task.reuse`**；Worker 从派发包携带的 `reuse_context` 消费被引用的
+候选，并在 `Result.reuse` 声明实际使用与偏差。scope/验收变更时随 Decision Log 一并留痕；语义、字段形状与校验入口的
+唯一来源 = 部署副本 `$CODEX_HOME/workflow-core/reuse/README.md`（源 = 仓内 `core/reuse/`，校验器 `Reuse.ps1`）；
+`new_implementation`/`new_dependency`/`architecture`/`protocol` 四类任务不得跳过，检索不可用（`blocked`）时不得创建
+worker worktree / 进程。运行器已在准入、结果摄取与审查材料上机械校验这三个字段；阻塞决策只有绑定**本次计划确切
+plan hash** 的 owner 例外（`reuse_unavailable` 升级获批并 `resolve ... -Decision approve`）才能派发，replan 后例外失效。
 控制面只用 `team/scripts/team.ps1`；不得改用裸模型 API，或把外部 Worker 替换成 Codex 子 Agent。
 先确认 doctor.lead.runtime_verified：须为当前活动轮次的 manifest 模型，不能用配置声明替代。
 现有模板不适用时，在 Plan.dynamic_roles 中放入完整 role schema 定义，再由 task.role 引用；

@@ -33,6 +33,11 @@
     "integration_branch": {"type": "string", "minLength": 1},
     "integration_worktree": {"type": "string"},
     "plan_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "reuse_protocol": {
+      "type": "object",
+      "description": "Frozen reuse protocol identity of this run plus the copied protocol evidence under the run directory. Runs written before the protocol have no marker; they stay readable, stoppable and cleanable but are not executable.",
+      "additionalProperties": true
+    },
     "order": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
     "agents_created": {"type": "integer", "minimum": 0},
     "agents_reserved": {"type": "integer", "minimum": 0},
