@@ -41,7 +41,7 @@ Critical 路径（命令 = 本项目的 skill 正文，用到才读；**DSH 没�
 
 **证据先于断言（两模式恒适用）**：任何"通过了 / 修好了 / 能满足"的说法都必须附**真实执行的命令 + 完整输出 + 退出码**；失败或未跑的要明说。verdict 的产出者（Reviewer）不是它的执行者（Author）——**Author 不得自证**（自编 mutation harness / "删码后测试变红"不能单独证明实现正确）。
 
-**Reuse-first（先找轮子）**：对新实现、新依赖或架构选择，开工前先查成熟可复用方案（官方文档 / 包注册表 / 仓内既有实现）；**纯文档修正、已定位 bug 修复、沿用仓内既有模式的改动可跳过**。结论（找到什么、采用或不采用及理由）：Routine 在对话里简记，Critical 写进探索与规划阶段。
+**Reuse-first（先找轮子）**：**新实现、新依赖、架构选择、新协议**四类改动强制先做一次有记录的复用检索；纯文档修正、已定位的本地缺陷修复、沿用仓内既有模式、纯数据改动可**显式**跳过（跳过须给出规范要求的 `skip_reason`）。成熟方案优先**采用 / 移植 / 包装 / 引用**而非从零写，从零自建须写明否决理由。**语义、字段形状与校验入口的唯一规范来源 = `~/.dsh/workflow-core/reuse/README.md`**（`install.ps1` 部署的核心协议；本文件与 phase 正文只留触发与指针，不复述细则）。检索结论：Routine 在对话里留**一句 inline 结论**；Critical 写进 `/explore` 的 Reuse Findings 与 `IMPLEMENTATION_PLAN.md` 的 **Reuse / Prior Art** 小节；**Reviewer 不重跑检索**，只核声明与真实使用。
 
 **Fan-out 上限（两模式恒适用，机器可读定义 = `~/.dsh/workflow/fanout-toolchain.md` → 派发上限）**：一次 fan-out ≤ 10 个 agent、并发 ≤ 6、一轮 ≤ 3 个 `workflow`；**不得一事一 agent**（按批分组，一组一个 agent）；对抗性复核每批一个复核者，不做 loop-until-dry。只有人类在本次请求里写了显式预算才可超过。理由不是账单而是可审性：实测一次 97 个 agent 的 fan-out 烧光配额，而真正有用的是 4–10 个。
 

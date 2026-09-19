@@ -127,7 +127,7 @@ function New-TestCase {
         $fake = Join-Path $root 'fakerepo'
         New-Item -ItemType Directory -Force $fake | Out-Null
         Copy-Item (Join-Path $script:RepoRoot 'install.ps1') (Join-Path $fake 'install.ps1') -Force
-        foreach ($d in 'claude', 'codex', 'dsh') {
+        foreach ($d in 'claude', 'codex', 'dsh', 'core') {
             Copy-Item (Join-Path $script:RepoRoot $d) (Join-Path $fake $d) -Recurse -Force
         }
         # Exclude private run state when building the isolated installer fixture.
@@ -309,6 +309,13 @@ function Get-ManagedDeploySet {
             $rel = $f.FullName.Substring($skillDir.FullName.Length + 1).Replace('\', '/')
             $set.Add(('dsh/skills/{0}/{1}' -f $skillDir.Name, $rel))
         }
+    }
+    # The shared reuse protocol is deployed under EVERY root (one canonical source, three
+    # managed copies), so the oracle names all three destinations explicitly.
+    $reuseSource = Join-Path $RepoRoot 'core\reuse'
+    foreach ($f in Get-ChildItem -LiteralPath $reuseSource -File -Recurse) {
+        $rel = $f.FullName.Substring($reuseSource.Length + 1).Replace('\', '/')
+        foreach ($root in 'claude', 'codex', 'dsh') { $set.Add(('{0}/workflow-core/reuse/{1}' -f $root, $rel)) }
     }
     return ($set | Sort-Object)
 }

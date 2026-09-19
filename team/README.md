@@ -153,6 +153,49 @@ pwsh -NoProfile -File ./team/scripts/team.ps1 resume -Run <run-id> -Repo <repo> 
 会被改名保留而不是覆盖，也永远不会被当作命中。
 每次尝试的日志都保留（重名自动加 `-rN` 后缀），失败与被取代的尝试不会被覆盖。
 
+## 复用准入：先找轮子（2026-09-19）
+
+语义与字段形状的唯一规范来源是仓内 `core/reuse/`（README + `reuse.schema.json` + 纯校验器
+`Reuse.ps1`）。Team 侧只引用、不复制规则，适配器是**一个**有界模块
+`team/scripts/PriorArt.ps1`；它按 `team/scripts` 的固定位置解析协议
+（源仓同级 `core/reuse`，安装副本同级 `workflow-core/reuse`），**从不**读调用方工作目录或
+个人绝对路径。协议文件缺失时只有需要准入的命令失败，`status`/`logs`/`cost`/`result`/
+`escalations`/`stop`/`cleanup` 等只读与收尾路径照常可用。
+
+* **新计划必须带复用文档**：顶层 `reuse`（decision）+ 每个 task 的 `reuse`（task 声明），
+  `Test-TeamPlanContent` 逐条用 `core/reuse` 校验。缺任何一条都在 `validate`/`run`/`replan`
+  阶段以 10 明确拒绝，**不会**静默派发一个没有先例检索结论的计划；
+* **新 run 冻结协议身份**：`New-TeamRun` 把 `version` + 三文件确定性哈希 + 逐文件 sha256/字节数
+  写进 `state.reuse_protocol`，并把 README/schema/validator 复制到
+  `team/runtime/<run>/reuse-protocol/`。`resume`/`replan`/`repair-integration`/`recover`/
+  `accept`/`integrate` 与真正的派发点都会重新核对：冻结副本未被改动、且当前可用协议与冻结
+  身份一致。任一不符即 80 并提示**开新 run**，绝不把旧检索结论搬过一条已经改变的协议；
+* **blocked 决策在作者之前暂停**：任一检索 `unavailable` ⇒ 决策只能 `blocked`。首派、resume、
+  重规划、集成修复与恢复路径都会在**前置条件、worktree、worker**之前停下，并登记既有升级机制
+  中的一条 `reuse_unavailable`（只创建 run 元数据与升级记录）。恢复**只**接受 owner 对
+  **确切 plan hash** 的显式 `resolve ... -Decision approve -Reason ...`；reject、过期（24h）、
+  哈希不匹配或身份不匹配的批准一律不通过，且不会自动产生任何批准；
+* **replan 使例外失效**：批准绑定单一 plan hash，新修订必须重新取得批准；同时顶层决策或任务
+  声明的变化会让相关任务进入 `affected`（即使文件范围未变），其推断与审查证据一并作废。
+  仍为 `blocked` 的新修订会重新登记暂停，而不是继承旧批准；
+* **集成修复任务不得自带 blanket skip**：`repair-integration` 生成的 task 继承嫌疑任务的
+  声明（冲突修复继承冲突来源，回归修复要求所有来源声明一致），不一致或缺失时要求显式 replan；
+* **派发内容有界**：worker 收到由 `Get-ReuseContext` 派生的 `reuse_context`（身份、plan hash、
+  决策字段、任务声明、仅本任务引用的候选摘要；**不含**检索日志与决策级 reason/rationale）。
+  带 `reuse_context` 的 Result **必须**返回 `reuse`（`references_used` / `deviations`）：
+  未知引用、任务外引用、被规定却未使用且没有同名 deviation 解释，都会在验收前被拒；
+* **审查面**：LOCAL 与 9A 拿到有界决策字段 + 任务声明（含任务级 `reason`）+ 被引用候选的来源事实
+  （`id`/`url`/`revision`/`borrow`/`constraints`）+ worker 声明的真实使用；9B **只**拿冻结 constraints、实际使用
+  引用的来源事实（`id`/`url`/`revision`/`constraints`）与实际使用声明——计划级 `reason`/`rationale`/`strategy`、
+  候选 rationale、检索日志、未被使用的候选以及 deviation 的自由文字都被显式剥离；9P 直接审阅计划文件本身（含完整
+  决策），不再声称「本阶段没有复用决策」；
+* **只读汇总**：`status`/`cost` 的 `summary.reuse` 给出协议身份、决策、owner 例外与每个任务
+  的 usage 声明，全部按「worker 声明」呈现。适配器**不重放检索、不伪造遥测**、不声称某次
+  检索真的发生过；
+* **历史 run**：没有 `reuse_protocol` 标记的旧 run 依旧可读、可 stop、可 cleanup，但
+  `resume`/`replan`/`repair-integration`/`recover`/`accept`/`integrate` 一律以 80 明确要求
+  **新计划 + 新 run**，不补造任何历史收据。
+
 ## 前置条件：零作者准入门（2026-09-18）
 
 Plan 可选声明 `prerequisites`（命令 + 可选 `restore`）。`run` 与 `resume` 在**任何** worker 或
@@ -236,6 +279,8 @@ Lead 对真实项目 worktree 的归档清理由 Lead 另行决定与执行；�
 `attempts.infrastructure_recoverable`（transport/start/idle）与
 `attempts.infrastructure_nonrecoverable`（hard/output，需 owner 决定）分开报告；
 `semantic_replans` 与 `infrastructure_recovery` 各自计数，验证执行数与复用数分列。
+`summary.reuse` 汇总冻结协议身份、计划级决策、owner 例外与各任务的 usage 声明（均按
+worker 声明呈现，不重放检索、不伪造遥测；旧 run 报告 `status=unavailable`）。
 已知费用只等于已单独录入的账单之和；未记录的部分保持"未知"，不声称零成本或提速。
 
 `preview -Plan <plan> -Repo <repo>` 是只读估算：按 HEAD 事实给出每个 task 的范围文件数、

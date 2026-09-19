@@ -24,6 +24,11 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory, $Plan = 
             Stop-TeamError 82 'Integration task scope differs from its recorded conflict and glue decision'
         }
     }
+    # Admissibility is decided before any worktree or process exists. A blocked reuse decision
+    # without an approved owner exception for this exact plan hash stops here; the run-level
+    # gate already refused the command earlier, so this is the last mechanical line of defence.
+    $effectivePlan = if ($Plan) { $Plan } else { @{ tasks = @($Task) } }
+    $null = Assert-TeamReuseAdmission $State $effectivePlan $Directory
     $rolePath = Join-Path $Directory "roles/$($Task.role).yaml"
     if (-not (Test-Path -LiteralPath $rolePath)) { Write-TeamData $rolePath (Get-TeamRole $Task.role -Plan $Plan) }
     $role = Get-TeamRole $Task.role $Directory $Plan
@@ -51,6 +56,13 @@ function Start-TeamWorker($State, $Task, $Manifest, [string]$Directory, $Plan = 
         write_scope = $Task.write_scope; acceptance = $Task.acceptance; subagents = @{allowed=$allowChildren;max_depth=$(if ($allowChildren) {2} else {0})}
         verification = $Task.verification
         base_sha = $base; result_schema = 'result-v1'; result_schema_sha256 = Get-TeamHash (Join-Path $script:TeamRoot 'schemas/result.schema.json')
+    }
+    # The worker receives only the bounded reuse context: identity, plan hash, decision fields,
+    # its own declaration and the candidates it references. Search logs and decision prose are
+    # never propagated, and the Result must answer this exact context before acceptance.
+    if ($Task['reuse']) {
+        $packet['reuse'] = $Task['reuse']
+        $packet['reuse_context'] = Get-TeamReuseTaskContext $effectivePlan $Task $State.plan_hash
     }
     Test-TeamTask $packet
     $taskPath = Join-Path $item.directory 'task.yaml'

@@ -171,6 +171,66 @@ Critical 审查按已审 plan revision 聚合 9A/9B；9P 不计入修复轮次�
 最小验收：result.status=completed、Worker 分支与 worktree 存在、main SHA 不变、
 外部验证 exit=0、Lead 验收绑定 commit、集成回归 exit=0、run.status=COMPLETED。
 
+## 复用决策：计划必须带 reuse（2026-09-19 新增）
+
+规范来源是仓内 `core/reuse/`（README 冻结语义、`reuse.schema.json` 冻结结构、
+`Reuse.ps1` 是纯校验器）。Team 只引用它：适配器 `team/scripts/PriorArt.ps1` 从固定位置
+（源仓同级 `core/reuse`，安装副本同级 `workflow-core/reuse`）加载，不读调用方工作目录。
+**没有顶层 `reuse` 或没有任务级 `reuse` 的计划会被直接判为无效**（exit 10）。
+
+纯文档 / 已定位本地缺陷 / 沿用仓内既有模式 / 纯数据改动可以跳过，但必须写显式
+`skip_reason`（四类枚举之一），自由说明写在 `reason` 里：
+
+```yaml
+reuse:
+  version: 1
+  applicability: skipped
+  status: skipped
+  reason: 三个任务都只改本仓既有 SQL fixture 文件。
+  searches: []
+  candidates: []
+  strategy: build
+  rationale: fixture 文件不引入任何新能力、依赖、协议或架构决策。
+  constraints: []
+tasks:
+  - id: SQL-001
+    # ...
+    reuse:
+      applicability: skipped
+      reason: 沿用仓内既有 fixture 模式，没有先例检索问题。
+      change_kinds: [established_repo_pattern]
+      refs: []
+      skip_reason: established_repo_pattern
+```
+
+`new_implementation` / `new_dependency` / `architecture` / `protocol` 四类**强制检索**：
+决策需 `applicability: required`，`status: completed` 时三个强制渠道
+（`github_repositories` / `github_code` / `primary_docs`）都要有成功检索
+（`results` 或 `no_results` 都算成功，查不到不是失败），`new_dependency` 还需要一次
+成功的 `package_registry` 检索。
+
+任一检索 `unavailable` ⇒ 决策只能 `blocked`，运行器在**前置条件、worktree、worker
+之前**暂停并登记 `reuse_unavailable` 升级：
+
+```powershell
+pwsh -NoProfile -File ./team/scripts/team.ps1 escalations -Run <run-id> -Repo <repo> -Json
+pwsh -NoProfile -File ./team/scripts/team.ps1 resolve -Run <run-id> -Repo <repo> -Escalation <esc-id> -Decision approve -Reason 'owner 接受该检索不可用，绑定本 plan hash' -Json
+pwsh -NoProfile -File ./team/scripts/team.ps1 resume -Run <run-id> -Repo <repo> -Json
+```
+
+批准只对**确切 plan hash** 有效（24h 过期；reject、过期、哈希不符一律不通过），
+`replan` 会使其失效并要求重新批准。新 run 会把协议身份冻结进 `state.reuse_protocol`
+并把三个协议文件复制到 `team/runtime/<run>/reuse-protocol/`；任何 mutating 执行路径都会
+重新核对，协议变了就要求开新 run。没有该标记的旧 run 仍可 `status`/`logs`/`cost`/`result`/
+`stop`/`cleanup`，但执行类命令会明确要求**新计划 + 新 run**。
+
+worker 收到派生的有界 `reuse_context`（不含检索日志与决策级 reason/rationale），
+Result 必须回 `reuse`（`references_used` / `deviations`）：未知引用、任务外引用、
+被规定却未使用又无 deviation 解释都会在验收前被拒。LOCAL/9A 拿到决策字段 + 任务声明 +
+被引用候选的来源事实 + 使用声明；9B 只拿冻结 constraints、实际使用来源的
+URL/revision/约束与使用声明（决策 reason/rationale/strategy、候选 rationale、检索日志与
+未使用的候选都不下发）；9P 审阅计划本身，含完整决策。
+
 ## 收尾与恢复（2026-09-18 新增）
 
 只读预览计划规模与预算（不派发、不写运行目录）：

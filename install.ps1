@@ -39,9 +39,12 @@
 # plugins = what the run actually did. -DryRun reports would-write instead.
 #
 # Targets (defaults; each root is overridable with -ClaudeDir / -CodexDir / -DshDir):
-#   ~/.claude  <- CLAUDE.md, settings.json, rules/, workflow/, commands/
-#   ~/.codex   <- AGENTS.md, and config.toml only when it is missing (seed-only)
-#   ~/.dsh     <- AGENTS.md, workflow/, skills/* (every bundle found in dsh/skills)
+#   ~/.claude  <- CLAUDE.md, settings.json, rules/, workflow/, commands/, workflow-core/reuse/
+#   ~/.codex   <- AGENTS.md, workflow-core/reuse/, and config.toml only when it is missing (seed-only)
+#   ~/.dsh     <- AGENTS.md, workflow/, workflow-core/reuse/, skills/* (every bundle found in dsh/skills)
+# The reuse protocol (core/reuse/) is deployed under EVERY root on purpose: the three
+# harness entrypoints reference one semantic source, and each home resolves the same bytes
+# locally instead of reading another client's directory.
 #
 # Deliberately NOT done by this script:
 #   * no deletion at all unless -RemoveStale is given explicitly: live-only content is
@@ -262,6 +265,11 @@ function Build-Plan {
     # the same list, agreed with it (registered as a debt; repaid 2026-09-15).
     foreach ($skillDir in (Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'dsh\skills') -Directory)) {
         $plan.Add((New-MirrorAction -Source $skillDir.FullName -Target (Join-Path $DshRoot ('skills\' + $skillDir.Name))))
+    }
+    # Shared reuse-first protocol: one canonical source (core/reuse), one managed copy per
+    # harness home. Non-overlapping folders, so no root can overwrite another home's copy.
+    foreach ($root in @($ClaudeRoot, $CodexRoot, $DshRoot)) {
+        $plan.Add((New-MirrorAction -Source (Join-Path $RepoRoot 'core\reuse') -Target (Join-Path $root 'workflow-core\reuse')))
     }
     # Always planned: with -NoPluginInstall each one is reported as SKIPPED, so the
     # deployment summary states what was suppressed instead of staying silent.

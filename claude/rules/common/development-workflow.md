@@ -6,13 +6,12 @@ The Feature Implementation Workflow describes the development pipeline: research
 
 ## Feature Implementation Workflow
 
-0. **Research & Reuse** _(for new implementations, new dependencies, and architecture choices; pure doc fixes, already-diagnosed bug fixes, and changes following established in-repo patterns may skip)_
-   - **GitHub code search first:** Run `gh search repos` and `gh search code` to find existing implementations, templates, and patterns before writing anything new.
-   - **Library docs second:** Use Context7 or primary vendor docs to confirm API behavior, package usage, and version-specific details before implementing.
-   - **Web search only when the first two are insufficient:** Use `WebSearch` / `WebFetch` for broader web research or discovery, after GitHub search and primary docs. (The Exa MCP previously named here is retired — see CLAUDE.md "MCP servers loaded".)
-   - **Check package registries:** Search npm, PyPI, crates.io, and other registries before writing utility code. Prefer battle-tested libraries over hand-rolled solutions.
-   - **Search for adaptable implementations:** Look for open-source projects that solve most of the problem and can be forked, ported, or wrapped; judge adoption by requirement fit, maintenance status, license, integration cost, and security risk — no fixed percentage threshold.
-   - Prefer adopting or porting a proven approach over writing net-new code when it meets the requirement.
+0. **Research & Reuse** _(new implementations, new dependencies, architecture choices and new protocols; pure doc fixes, already-diagnosed local bug fixes, changes following established in-repo patterns, and data-only changes may be skipped with an explicit reason)_
+   - **One canonical source, no duplicate rules here:** the semantics, frozen field shapes and the validators live in `~/.claude/workflow-core/reuse/README.md` (deployed by `install.ps1` from `core/reuse/`). Read it before writing anything new; this step is the trigger and the pointer, not the procedure.
+   - Four change kinds force a recorded prior-art pass; a skip must carry one of the protocol's fixed `skip_reason` values (the free-text justification goes in `reason`).
+   - Native channels for this landing: `gh search repos` / `gh search code` (github_repositories / github_code), vendor or Context7 docs (primary_docs), npm / PyPI / crates.io (package_registry) — web search only when those are insufficient.
+   - Record the conclusion as one inline sentence (Routine) or in `/explore`'s **Reuse Findings** plus the **Reuse / Prior Art** section of `IMPLEMENTATION_PLAN.md` (Critical).
+   - Reviewers do not re-run the search: they check the declared constraints against the references actually used.
 
 1. **Plan First**
    - Routine: state a brief plan/direction inline (in conversation); ask only when a real ambiguity would change the outcome.

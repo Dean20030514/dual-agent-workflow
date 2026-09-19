@@ -8,6 +8,9 @@
 ## Summary
 推荐方案（多候选则简要比较为何选这个）。**选择标准 = 满足 Frozen Acceptance 的最小完整方案**——不选漏需求/会返工的偷懒小方案，也不为抽象/统一而扩大范围；**扩大架构须有证据并经人类批准**。
 
+## Reuse / Prior Art
+**固定小节**（Critical 必填；Routine 不建计划文件、只在对话里留一句 inline 结论）。语义、字段形状与校验入口的**唯一规范来源 = `<harness home>/workflow-core/reuse/README.md`**（`install.ps1` 部署的核心协议）——本节不复述规则，只承载两件事：① 计划级 reuse decision（检索来源 / 结论 / 候选 / 策略 / 约束）；② `new_implementation` / `new_dependency` / `architecture` / `protocol` 四类任务各自的声明（change kinds / refs / 跳过时的 `skip_reason` 枚举值）。零候选是合法结论；任一检索 `unavailable` 时 decision 必须为 `blocked`，且**不得开工**（走既有升级流程并就确切 plan hash 取得例外）。
+
 ## Architectural Layers & Split Assessment
 本任务触及的架构层（DB / core / API / CLI / GUI / 真实软件兼容）。**≥3 层 → 必做拆分评估 + 人类批准**：能否拆成有独立验收性质/独立测试/独立回退边界的切片？能拆则列切片；不宜拆则记理由请人类批准整体推进（非机械拒绝）。<3 层写 "N/A"。
 

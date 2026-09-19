@@ -84,9 +84,18 @@ $commit = git rev-parse HEAD
 $branch = git branch --show-current
 @{schema_version=1;agents=@(@{id='fixture-agent';depth=0;state='created';provider='deepseek-official';model='deepseek-flash';cwd=(Get-Location).Path})} | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $guard.receipt -Encoding utf8NoBOM
 if ($task.objective[0] -eq 'MALFORMED') { Write-Output 'no result'; exit 0 }
-$escalated=$task.objective[0] -in @('ESCALATE','ESCALATE_SCOPE')
+$escalated=$task.objective[0] -in @('ESCALATE','ESCALATE_SCOPE','ESCALATE_NO_REUSE')
 $changedFiles=@(); if ($task.objective[0] -ne 'NOOP') { $changedFiles=@($path) }
-@{schema_version=1;run_id=$task.run_id;task_id=$task.task_id;status=$(if ($escalated) {'escalated'} else {'completed'});summary=@('synthetic fixture');changed_files=$changedFiles;verification=@{passed=(-not $escalated)};subagents_used=@();risks=@('FIXTURE_WORKER_RISK');git=@{branch=$branch;commit=$commit}} | ConvertTo-Json -Depth 20
+# The dispatched packet carries a bounded reuse_context. The fixture declares honest usage:
+# every prescribed reference was used, so no deviation is needed. A packet without a context
+# keeps the historical result shape. ESCALATE_NO_REUSE models a worker that escalates without
+# answering the reuse declaration, which must keep its escalation instead of being read as a
+# malformed completed Result.
+$reuseDeclaration=$null
+if ($task['reuse_context'] -and $task.objective[0] -ne 'ESCALATE_NO_REUSE') { $reuseDeclaration=@{references_used=@($task.reuse_context.task.refs);deviations=@()} }
+$result=@{schema_version=1;run_id=$task.run_id;task_id=$task.task_id;status=$(if ($escalated) {'escalated'} else {'completed'});summary=@('synthetic fixture');changed_files=$changedFiles;verification=@{passed=(-not $escalated)};subagents_used=@();risks=@('FIXTURE_WORKER_RISK');git=@{branch=$branch;commit=$commit}}
+if ($reuseDeclaration) { $result['reuse']=$reuseDeclaration }
+$result | ConvertTo-Json -Depth 20
 if ($task.objective[0] -eq 'PIPE_HOLDER') {
     & (Join-Path $PSScriptRoot 'pipe-holder.ps1') -Silent -Receipt (Join-Path (Split-Path $guard.receipt -Parent) 'pipe-child.json')
 }

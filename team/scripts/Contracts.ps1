@@ -1,3 +1,4 @@
+. (Join-Path $PSScriptRoot 'PriorArt.ps1')
 function Get-TeamRole([string]$Id, [string]$Directory = '', $Plan = $null) {
     Assert-TeamId $Id
     $path = if ($Directory) { Join-Path $Directory "roles/$Id.yaml" } else { Join-Path $script:TeamRoot "roles/$Id.yaml" }
@@ -37,6 +38,15 @@ function Test-TeamTask($Packet) {
     if ($Packet.role['definition']) {
         Test-TeamSchema $Packet.role.definition 'role'
         if ($Packet.role.definition.role_id -cne $Packet.role.id) { Stop-TeamError 10 'Task role definition identity mismatch' }
+    }
+    # A dispatched packet that carries a derived reuse context must carry the bounded shape a
+    # worker and its reviewer can rely on. Its cross-field integrity is enforced against the
+    # Result before acceptance.
+    if ($Packet['reuse_context']) {
+        if ($Packet['reuse_context'] -isnot [Collections.IDictionary]) { Stop-TeamError 10 'Task reuse_context must be a JSON object' }
+        foreach ($name in @('version', 'identity', 'plan_hash', 'decision', 'task', 'candidates')) {
+            if (-not $Packet.reuse_context.Contains($name)) { Stop-TeamError 10 "Task reuse_context is missing '$name'" }
+        }
     }
     Assert-TeamIssueAcceptanceMap $Packet
 }
@@ -136,6 +146,9 @@ function Test-TeamPlanContent($Plan, $Manifest) {
         (-not $Plan.review.require_9p -or -not $Plan.review.require_fresh_9b)) {
         Stop-TeamError 10 'Critical requires 9P and fresh 9B'
     }
+    # New plans must carry the frozen reuse documents; a legacy plan is rejected here with an
+    # explicit message instead of being dispatched without a prior-art decision.
+    $null = Assert-TeamReusePlanContent $Plan
     $ids = @{}
     foreach ($task in $Plan.tasks) {
         if ($ids.ContainsKey($task.id)) { Stop-TeamError 10 "Duplicate task: $($task.id)" }
@@ -257,6 +270,24 @@ function Read-WorkerResult($TaskState, $Task, [string]$RunId, [switch]$AllowInco
     }
     $reported = @($result.changed_files | Sort-Object -Unique)
     if (@(Compare-Object $reported @($changed | Sort-Object -Unique)).Count) { Stop-TeamError 10 'changed_files differs from Git' }
+    # The dispatched packet freezes the bounded reuse context. When it is present the Result
+    # must declare what was actually reused, and every prescribed reference must either appear
+    # in references_used or carry a deviation explanation. Historical packets have no context.
+    # An incomplete Result (escalated worker request, AllowIncomplete ingestion) keeps its
+    # existing escalation path: a missing declaration is not a malformed Result there, while
+    # a declaration that is present is still validated.
+    $packetPath = Join-Path $TaskState.directory 'task.yaml'
+    if (Test-Path -LiteralPath $packetPath -PathType Leaf) {
+        $packet = Read-TeamData $packetPath
+        $context = $packet['reuse_context']
+        if ($context) {
+            if ($result['reuse']) {
+                Assert-TeamReuseResultDocument $context $result['reuse']
+            } elseif (-not ($AllowIncomplete -and ($result.status -ne 'completed' -or -not $result.verification.passed))) {
+                Stop-TeamError 10 "Result for task $($Task.id) omits the reuse declaration required by its frozen reuse_context"
+            }
+        }
+    }
     if ($result.subagents_used.Count -and -not $Task.subagents.allowed) { Stop-TeamError 82 'Unauthorized subagent use' }
     foreach ($child in $result.subagents_used) {
         foreach ($permission in @('shell','network','production','secrets')) {

@@ -22,6 +22,19 @@ function New-TeamRegressionTask($State, $Plan, $Failure, [string]$RootTask) {
     $affected=@($affected | Sort-Object -Unique)
     $sources=@($affected | Where-Object { $State.tasks[$_].commit -and $State.tasks[$_].status -in @('MERGED','CLEANED','REWORK','ACCEPTED') })
     if (-not $sources.Count) { Stop-TeamError 80 'No accepted integration inputs match the selected failure task' }
+    # An integration-generated task is never allowed to invent a blanket reuse skip. It must
+    # inherit the exact justified declaration of its suspect task; a repair that spans tasks
+    # with different declarations requires an explicit replan instead.
+    $declarations=@(foreach ($id in $sources) {
+        $sourceTask=@($Plan.tasks | Where-Object id -eq $id)[0]
+        if (-not $sourceTask -or -not $sourceTask['reuse']) { Stop-TeamError 10 "Integration repair needs an explicit replan: suspect task $id has no justified reuse declaration" }
+        Get-TeamCanonicalJson $sourceTask['reuse']
+    })
+    $declarations=@($declarations | Sort-Object -Unique)
+    if ($declarations.Count -ne 1) {
+        Stop-TeamError 10 'Integration repair spans tasks with different reuse declarations; an explicit replan is required instead of merging or skipping them'
+    }
+    $inheritedReuse=@($Plan.tasks | Where-Object { $_.id -eq $sources[0] })[0]['reuse']
     $scope=@(); $acceptance=@(); $verification=@()
     foreach ($id in $sources) {
         $task=@($Plan.tasks | Where-Object id -eq $id)[0]
@@ -46,6 +59,7 @@ function New-TeamRegressionTask($State, $Plan, $Failure, [string]$RootTask) {
         dependencies=@($State.tasks.Keys | Where-Object { $_ -notin $sources -and $State.tasks[$_].status -in @('MERGED','CLEANED') })
         write_scope=@($scope | Sort-Object -Unique);acceptance=$acceptance;verification=$verification
         permissions=@{shell=$true;network=$false;secrets=$false;production=$false};subagents=@{allowed=$false;max_depth=0}
+        reuse=$inheritedReuse
     }
     return @{task=$task;sources=$sources}
 }
@@ -95,6 +109,9 @@ function Record-TeamRollbackProbe($State, $Plan, [string]$Directory, [string[]]$
 }
 
 function New-TeamRegressionRepair($State, $Plan, $Manifest, [string]$Directory, [string]$RootTask, [string]$Reason) {
+    # A repair revises the frozen plan and re-dispatches its sources: verify the frozen
+    # protocol before the revision transaction can start.
+    $null = Assert-TeamReuseRunProtocol $State $Directory
     $failure=Read-TeamData (Join-Path $Directory 'integration-failure.json')
     if ($failure.status -ne 'unresolved' -or $failure.plan_hash -cne $State.plan_hash) { Stop-TeamError 80 'Regression evidence belongs to a resolved or different plan' }
     $head=Invoke-TeamGit $State.integration_worktree @('rev-parse','HEAD')

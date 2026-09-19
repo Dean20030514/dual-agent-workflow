@@ -1,5 +1,21 @@
 # Snapshot-first authority contract — task record
 
+> **2026-09-19 增补（复用协议进入受管部署面）**：`install.ps1` 新增受管目标 `<每个 home>/workflow-core/reuse/`，
+> 源 = 仓内 `core/reuse/`（`README.md` 语义规范 / `reuse.schema.json` 结构契约 / `Reuse.ps1` 纯校验器）。
+> 它**同时**部署到 `-ClaudeDir`、`-CodexDir`、`-DshDir` 三个根下**互不重叠**的 `workflow-core/reuse` 文件夹，
+> 三份内容相同——这样 Claude / DSH / Codex 三种入口引用的是同一语义来源，而不是三份各自维护的规则文本。
+> 部署语义不变：只增/只更新、逐文件覆盖前备份、默认不删除；`Get-ReuseProtocolIdentity` 按 `Reuse.ps1` 所在目录
+> 解析协议文件，故三份副本与源在内容一致时身份哈希相同（可跨副本比对，可用于检测副本被改动）。
+> **本次同时落位的入口指针**：`claude/CLAUDE.md`、`claude/rules/common/development-workflow.md` §0、
+> `claude/commands/{explore,plan}.md`、`dsh/AGENTS.md`、`dsh/skills/dual-agent-workflow/references/phases/{explore,plan}.md`、
+> `codex/AGENTS.md`（非审查开发会话）、`team/policies/codex-lead-prompt.md`，以及两份 `workflow/templates/IMPLEMENTATION_PLAN.md`
+> 的固定 `## Reuse / Prior Art` 小节；详细规则不再在这三侧重复，只在规范源维护。
+> **边界（不得据此扩大权限）**：本增补不改变任何权威、权限、冻结验收或 Git 政策；协议里的 `deviation` 与 `blocked`
+> 都只是声明、不构成批准；**Team 侧的机读落位**（计划顶层 `Plan.reuse` / 任务 `task.reuse` / 结果 `Result.reuse`）
+> **与准入、结果摄取、审查材料的机械校验由同一批变更一并落位**（适配器 `team/scripts/PriorArt.ps1`，语义与字段形状仍
+> 只由本目录冻结），因此本记录不再保留「尚未接入 / 后续切片」的旧描述。三入口引用正确性只有只读文本断言
+> （`tests/reuse.Entrypoints.Tests.ps1`），**不代表任何 harness 已真实加载**——真实加载由 Lead 后续 smoke 判定。
+
 > **2026-09-17 Team 部署增补**：`install.ps1` 新增受管目标 `~/.codex/team/` 下的
 > `scripts/`、`schemas/`、`roles/`、`policies/`、`certifications/`、manifest/README/QUICKSTART 与 `spike/*.md`。
 > 不含私有运行状态、测试和探针脚本。`tools/enable-team-project.ps1` 在目标项目播种的

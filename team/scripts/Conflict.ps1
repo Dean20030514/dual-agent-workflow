@@ -1,5 +1,8 @@
 function New-TeamIntegrationRepair($State, $Plan, $Manifest, [string]$Directory, [string[]]$GlueScope, [string]$Reason, [string]$RootTask = '') {
     if (-not $Reason) { Stop-TeamError 10 'Integration repair requires a Lead Decision Log reason' }
+    # An integration repair revises the frozen plan and re-dispatches its source: the frozen
+    # protocol identity is verified before the revision transaction can start.
+    $null = Assert-TeamReuseRunProtocol $State $Directory
     if ($State.replans -ge $Manifest.budget.max_replans) { Stop-TeamError 60 'Replan limit reached' }
     if (-not $State.integration_worktree) { Stop-TeamError 80 'Integration repair requires an integration worktree' }
     $null = & git -C $State.integration_worktree rev-parse -q --verify MERGE_HEAD 2>$null
@@ -11,6 +14,12 @@ function New-TeamIntegrationRepair($State, $Plan, $Manifest, [string]$Directory,
     $sourceTask = @($Plan.tasks | Where-Object { $_.id -eq $conflict.task_id })[0]
     $source = $State.tasks[$sourceTask.id]
     if ($source.status -ne 'ACCEPTED') { Stop-TeamError 80 'Conflicting source is no longer ACCEPTED' }
+    # The repair resolves an existing accepted task, so it inherits that task's justified reuse
+    # declaration instead of inventing a blanket skip. A missing declaration needs a replan.
+    if (-not $sourceTask -or -not $sourceTask['reuse']) {
+        Stop-TeamError 10 "Integration repair needs an explicit replan: suspect task $($conflict.task_id) has no justified reuse declaration"
+    }
+    $inheritedReuse=$sourceTask['reuse']
     $scope = @(@($conflict.conflicts) + $GlueScope | Sort-Object -Unique)
     $changed = (Invoke-TeamGit $source.worktree @('diff','--name-only','--no-renames',$source.base_sha,$source.commit)) -split "`n"
     foreach ($path in $changed) {
@@ -25,7 +34,7 @@ function New-TeamIntegrationRepair($State, $Plan, $Manifest, [string]$Directory,
         dependencies=@($State.tasks.Keys | Where-Object { $State.tasks[$_].status -in @('MERGED','CLEANED') })
         write_scope=$scope;acceptance=@('Incoming accepted commit is an ancestor; approved contracts preserved; targeted and full regressions pass')
         verification=$sourceTask.verification;permissions=@{shell=$true;network=$false;secrets=$false;production=$false}
-        subagents=@{allowed=$false;max_depth=0}
+        subagents=@{allowed=$false;max_depth=0};reuse=$inheritedReuse
     }
     $next = $Plan | ConvertTo-Json -Depth 80 | ConvertFrom-Json -AsHashtable
     $next.run.revision++; if ($next.mode -eq 'L1') { $next.mode='L2' }; $next.tasks += $task

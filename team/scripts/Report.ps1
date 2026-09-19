@@ -127,6 +127,9 @@ function Get-TeamRunSummary($State, [string]$Directory) {
             repeated_verification_failures = $verificationFailures; reasons = $reasons }
         verification = Get-TeamVerificationUsage $Directory
         prerequisites = Get-TeamPrerequisiteSummary $Directory
+        # Read-only reuse summary: frozen protocol identity, decision, owner exception and the
+        # usage each Result declared. Declarations are never replayed or upgraded to telemetry.
+        reuse = Get-TeamReuseRunSummary $State $Directory
         known_usage = @{ ledgers = $State['cost_ledgers']; unknown_usage = [bool]$State.unknown_usage
             note = 'Known cost is the sum of separately recorded bills. Unrecorded provider spend is not claimed to be zero.' }
         notes = @(
@@ -135,6 +138,7 @@ function Get-TeamRunSummary($State, [string]$Directory) {
             'Infrastructure retries are counted apart from semantic replans; neither bypasses its own cap.'
             'attempts.infrastructure counts every infrastructure-class attempt; only transport/start/idle are recoverable and hard timeouts or output overflows stay owner decisions.'
             'A local reviewer recorded as PREPARING is reported as not started.'
+            'Reuse reporting is declaration-only: it never claims that a search happened or was reproduced, and a historical run without the frozen protocol marker reports that fact instead.'
         )
     }
 }

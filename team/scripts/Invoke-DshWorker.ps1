@@ -40,6 +40,11 @@ use only native subagent/subagent_fork, at most two children total across this w
 depth at most two. Pass the same permission and write-scope limits to every child.
 Include each child in subagents_used. The native guard rejects extra creations.
 Network/secrets/production permissions are declarations, not an OS sandbox.
+A derived reuse_context is part of the packet whenever the plan froze a reuse decision.
+When reuse_context is present, the Result Packet MUST carry a reuse object with
+references_used and deviations for that exact context: every prescribed reference must
+appear in references_used or be explained by a same-named deviation with a reason.
+Unknown or out-of-task references, and unexplained omissions, are rejected before acceptance.
 If the task requires any disallowed action, return status=escalated.
 Implement only the objective, run self-checks, commit only assigned files on
 your assigned branch, and leave a clean worktree. Never use git add -A.

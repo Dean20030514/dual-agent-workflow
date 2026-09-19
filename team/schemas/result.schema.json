@@ -117,6 +117,11 @@
         "minLength": 1
       }
     },
+    "reuse": {
+      "type": "object",
+      "description": "Worker-declared reuse result (references_used, deviations). Optional here so historical results stay readable; required whenever the dispatched task packet carried a derived reuse_context, and validated against it before acceptance.",
+      "additionalProperties": true
+    },
     "git": {
       "type": "object",
       "properties": {
