@@ -1,9 +1,9 @@
 # 版本与可复现锚点
 
-| 项目 | 本机核验值 | 运行门 |
+| 项目 | 首次验收基线 | 当前运行门 |
 |---|---|---|
-| Codex CLI | 0.153.3 | 精确 pin |
-| DSH CLI | 0.1.5-rc.1 | 精确 pin |
+| Codex CLI | 0.153.3 | 所需 CLI 接口 + 当前 Lead 元数据 |
+| DSH CLI | 0.1.5-rc.1 | 实际版本/profile/模型/native guard 对应的验收证据 |
 | PowerShell | 7.6.6 | ≥7.4 |
 | powershell-yaml | 0.4.12 | ≥0.4.12（用户已批准） |
 | Node | 24.19.0 | 由 DSH 使用；guard tests 实跑此版本 |
@@ -11,7 +11,18 @@
 | Lead alias | astra-lead → gpt-6-astra | Codex 原生；独立审查实测另记 |
 
 逻辑别名不硬编码在算法中。DSH 实际模型 id 与规格示例不同，按 Phase 0 绑定实际可用 id，
-不把模型自报的营销名称作为路由证据。升级默认拒绝；override 明确记录 UNVERIFIED_RUNTIME。
+不把模型自报的营销名称作为路由证据。自 2026-09-19 起，版本基线差异只报告，准入取决于
+实际接口与验收证据。Codex 接口可本地检查；DSH 的原生行为验收不能由版本相近或 help 输出替代。
+新版 DSH 完成 Worker/独立 Local Review 的输入输出、退出和工具隔离验证，以及所需 L3 的
+fresh/fork/深度/预算/路由验证后，在本文件追加真实证据和唯一锚点，再添加 `certifications/`
+中的对应版本记录；不覆盖旧证据，不自动宣称未来版本兼容。显式 override 仍记 UNVERIFIED_RUNTIME。
+
+2026-09-19 本地接口复核：Codex CLI 0.155.1 的 Team 必需 exec 选项可用，当前桌面 Lead
+元数据校验通过；Claude Code 2.1.246 的版本/help 检查通过，模型访问未测试（用户未续费）。
+DSH 0.1.5-rc.1 路由及现有验收证书匹配。此轮未调用模型，不把接口复核记作新版模型端到端验收。
+接口查询依据：[Codex CLI](https://learn.chatgpt.com/docs/developer-commands?surface=cli)、
+[Claude CLI](https://code.claude.com/docs/en/cli-reference)、
+[DSH Headless](https://github.com/deepseek-ai/deepseek-harness/blob/master/packages/bundle/headless/README.md)。
 
 首条真实 L1（临时仓库 `team-live-f2cd0576de`）：
 base `df1114952cb532e0d4e6ac1b281829af7f49a192`；

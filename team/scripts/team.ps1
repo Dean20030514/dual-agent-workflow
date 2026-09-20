@@ -33,7 +33,7 @@ try {
                     Unlock-TeamRepo $Repo $stale.run_id
                 }
             }
-            $output = Test-TeamDoctor $config $Repo -AllowUnverifiedRuntime:$AllowUnverifiedRuntime
+            $output = Test-TeamDoctor $config $Repo -AllowUnverifiedRuntime:$AllowUnverifiedRuntime -IncludeOptionalHarnesses
             if (-not $output.success) { $exitCode = 20 }
         }
         'route' {

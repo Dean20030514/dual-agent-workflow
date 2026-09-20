@@ -542,6 +542,25 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
             Test-Path (Join-Path $g.repo '.worktrees') | Should -BeFalse
         } finally { $env:TEAM_FIXTURE_VERSION=$old }
     }
+    It 'admits a compatible Codex update but refuses lost isolation interfaces on run and resume' {
+        $oldVersion=$env:TEAM_FIXTURE_CODEX_VERSION; $oldMissing=$env:TEAM_FIXTURE_CODEX_MISSING_OPTION
+        try {
+            $env:TEAM_FIXTURE_CODEX_VERSION='0.155.1'; $env:TEAM_FIXTURE_CODEX_MISSING_OPTION=''
+            $f=New-RuntimeFixture
+            $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+            (State $f).runtime_status | Should -Be 'COMPATIBILITY_CHECKED'
+            $before=State $f
+            $env:TEAM_FIXTURE_CODEX_MISSING_OPTION='--ignore-rules'
+            $r=Invoke-Cli @('resume','-Repo',$f.repo,'-Run','FIXTURE','-Json'); $r.code | Should -Be 20 -Because $r.raw
+            (State $f).tasks.T1.attempts | Should -Be $before.tasks.T1.attempts
+            (State $f).agents_created | Should -Be $before.agents_created
+            $g=New-RuntimeFixture
+            $r=Invoke-Cli @('run','-Repo',$g.repo,'-Plan',$g.path,'-Json'); $r.code | Should -Be 20 -Because $r.raw
+            Test-Path (Join-Path $g.repo '.worktrees') | Should -BeFalse
+        } finally {
+            $env:TEAM_FIXTURE_CODEX_VERSION=$oldVersion; $env:TEAM_FIXTURE_CODEX_MISSING_OPTION=$oldMissing
+        }
+    }
     It 'exposes degraded routing to the Lead and requires explicit replay before recovery' {
         $f=New-RuntimeFixture
         foreach ($i in 1..3) {
@@ -1003,14 +1022,15 @@ Describe 'End-to-end CLI on isolated Git with synthetic native executables' {
         $s.review_rounds['1'].records['9A-T1'].issues[0].caused_by_last_fix | Should -Be 'dispute'
         $r=Invoke-Cli @('accept','-Repo',$f.repo,'-Run','FIXTURE','-Task','T1','-Commit',$s.tasks.T1.commit,'-Reason','Attribution is not defect resolution','-Json'); $r.code | Should -Be 50
     }
-    It 'rejects wrong route and unverified versions before dispatch' {
+    It 'rejects wrong route but admits a certified installed DSH version despite an older manifest baseline' {
         $f=New-RuntimeFixture
         $config=Read-TeamData (Join-Path $script:TeamPath 'manifest.yaml'); $config.models.worker.runtime_model='wrong-model'
         $manifestPath=Join-Path $TestDrive 'wrong-manifest.json'; Write-TeamData $manifestPath $config
         $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$manifestPath,'-Json'); $r.code | Should -Be 20
         Test-Path (Join-Path $f.repo '.worktrees') | Should -BeFalse
         $config.models.worker.runtime_model='deepseek-flash'; $config.runtime.dsh_version='0.0.0'; Write-TeamData $manifestPath $config
-        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$manifestPath,'-Json'); $r.code | Should -Be 20
+        $r=Invoke-Cli @('run','-Repo',$f.repo,'-Plan',$f.path,'-Manifest',$manifestPath,'-Json'); $r.code | Should -Be 0 -Because $r.raw
+        (State $f).runtime_status | Should -Be 'COMPATIBILITY_CHECKED'
     }
     It 'reconciles a persisted RUNNING snapshot without duplicate worker creation' {
         $f=New-RuntimeFixture

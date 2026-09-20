@@ -29,6 +29,13 @@ doctor 同时返回原文 `matrix_modes` 与实际 `allowed_modes`；L3 要求�
 profile/模型组合、子 Agent 开关、原生工具及其 provider 可用和 guard 存在。run/resume 重新检查，
 不满足返回 20，不静默改计划。`-AllowUnverifiedRuntime` 不授予未知版本的 L3 扩展。
 
+CLI 更新后先运行下方 doctor：版本差异显示在 `version_drift` / `warnings`，不单独构成失败。
+Codex 通过本地必需接口和活动 Lead 检查即可继续；DSH 按实际安装版本查找已有验收证据，
+项目 manifest 中旧的版本基线不用跟着改。缺失 DSH 验收证据时，先按
+`spike/VERIFIED_VERSIONS.md` 的原生验收范围验证更新后的适配器，再添加对应 certification；
+不能把旧证书改个版本号就视为通过。Claude 的检查是可选 CLI 检查，不涉及登录或付费调用。
+这些规则同样适用于 run/resume；查询历史、停止和 finalize 不因此要求启动模型进程。
+
 ```powershell
 pwsh -NoProfile -File ./team/scripts/team.ps1 doctor -Json
 pwsh -NoProfile -File ./team/scripts/team.ps1 route -TaskText 'SQL optimization' -Json

@@ -104,21 +104,58 @@ function Get-TeamCertification([string]$Version,$Manifest,$Route) {
     return $null
 }
 
-function Test-TeamDoctor($Manifest, [string]$Repo, [switch]$AllowUnverifiedRuntime) {
+function Test-TeamCliSurface([string]$Source, [string[]]$Arguments, [string[]]$Required, [string]$Repo) {
+    # Local help is an interface probe, not evidence of model access or a completed review.
+    # Check flags even at the baseline version: the version string alone proves nothing.
+    $help=Invoke-TeamCapture $Source $Arguments $Repo
+    $missing=@($Required | Where-Object { $help -notmatch ('(?<![\w-])'+[regex]::Escape($_)+'(?![\w-])') })
+    if ($missing.Count) { Stop-TeamError 20 "Required CLI options missing: $($missing -join ', ')" }
+    return @{verified=$true;evidence='local CLI help; model access not tested';required_options=$Required}
+}
+
+function Test-TeamDoctor($Manifest, [string]$Repo, [switch]$AllowUnverifiedRuntime, [switch]$IncludeOptionalHarnesses) {
     Test-TeamSchema $Manifest 'manifest'
     $problems = [Collections.Generic.List[string]]::new()
+    $warnings = [Collections.Generic.List[string]]::new()
     $lead = Get-TeamLeadEvidence $Manifest
     if (-not $lead.runtime_verified) { $problems.Add("Lead: $($lead.reason)") }
-    $versions = @{}; $route = @{ verified = $false }
+    $versions = @{}; $route = @{ verified = $false }; $cliChecks=@{}; $drift=@()
     foreach ($command in @('dsh','codex')) {
         try {
             $source = (Get-Command $command -ErrorAction Stop).Source
             $version = (Invoke-TeamCapture $source @('--version') $Repo).Trim() -replace '^codex-cli\s+', ''
+            if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$') {
+                Stop-TeamError 20 'Unrecognized CLI version output'
+            }
             $versions[$command] = $version
-            if ($version -cne $Manifest.runtime["${command}_version"] -and -not $AllowUnverifiedRuntime) {
-                $problems.Add("$command outside verified version pin")
+            if ($version -cne $Manifest.runtime["${command}_version"]) {
+                $drift+=@{harness=$command;installed=$version;baseline=$Manifest.runtime["${command}_version"]}
+                $warnings.Add("$command version differs from recorded baseline ($($Manifest.runtime["${command}_version"]) -> $version); compatibility evidence governs admission")
+            }
+            if ($command -eq 'codex') {
+                $cliChecks.codex=Test-TeamCliSurface $source @('exec','--help') @('--ephemeral','--ignore-user-config',
+                    '--ignore-rules','--disable','--config','--model','--sandbox','--cd','--output-schema','--output-last-message','--json','read-only') $Repo
             }
         } catch { $problems.Add("$command unavailable: $($_.Exception.Message)") }
+    }
+    # Claude is not a Team execution dependency. Report its local interface separately;
+    # neither missing installation nor entitlement is a reason to block Codex + DSH.
+    # Explicit doctor includes optional harnesses; run/resume probe only their dependencies.
+    $claude=if ($IncludeOptionalHarnesses) { Get-Command claude -ErrorAction SilentlyContinue } else { $null }
+    $cliChecks.claude=@{required=$false;status=$(if ($IncludeOptionalHarnesses) {'NOT_INSTALLED'} else {'NOT_CHECKED'});model_access='NOT_TESTED'}
+    if ($claude) {
+        try {
+            $version=(Invoke-TeamCapture $claude.Source @('--version') $Repo).Trim()
+            if ($version -notmatch '^(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)(?: \(Claude Code\))?$') {
+                Stop-TeamError 20 'Unrecognized Claude Code version output'
+            }
+            $versions.claude=$Matches[1]
+            $surface=Test-TeamCliSurface $claude.Source @('--help') @('--print','--model','--permission-mode','--output-format','--settings') $Repo
+            $cliChecks.claude=@{required=$false;status='CLI_CHECKED';model_access='NOT_TESTED';surface=$surface}
+        } catch {
+            $cliChecks.claude=@{required=$false;status='CHECK_FAILED';model_access='NOT_TESTED';reason=$_.Exception.Message}
+            $warnings.Add("Optional Claude CLI check failed: $($_.Exception.Message)")
+        }
     }
     try { $route = Test-DshRoute $Manifest $Repo } catch { $problems.Add($_.Exception.Message) }
     $routing = @(Test-TeamRoutingFixtures)
@@ -128,6 +165,12 @@ function Test-TeamDoctor($Manifest, [string]$Repo, [switch]$AllowUnverifiedRunti
     # user-edited manifest pin. An override keeps diagnostics available, not L3 proof.
     $certification=Get-TeamCertification $versions['dsh'] $Manifest $route
     $certified=$null -ne $certification
+    $cliChecks.dsh=@{verified=$certified;route_verified=$route.verified;installed_version=$versions['dsh'];
+        evidence=$(if ($certified) {'version-specific transport and native guard acceptance'} else {'acceptance evidence missing'})}
+    if (-not $certified) {
+        $message="DSH $($versions['dsh']) has no matching transport/native-guard acceptance evidence for this profile and model; validate the installed adapter and add a certification before normal Team dispatch"
+        if ($AllowUnverifiedRuntime) { $warnings.Add($message) } else { $problems.Add($message) }
+    }
     $native=$Manifest.subagents.enabled -and $route['native_available'] -eq $true
     $observable=Test-Path -LiteralPath (Join-Path $PSScriptRoot 'native-guard.mjs')
     $adapterVerified=$certified -and $certification.record.adapter_l3_extension
@@ -144,9 +187,12 @@ function Test-TeamDoctor($Manifest, [string]$Repo, [switch]$AllowUnverifiedRunti
     return @{
         success = ($problems.Count -eq 0); versions = $versions; powershell = $PSVersionTable.PSVersion.ToString()
         route = $route; lead = $lead; routing = $routing; problems = $problems.ToArray(); certification=$certification
+        warnings=$warnings.ToArray();version_drift=$drift;cli_checks=$cliChecks
         routing_health = @{auto_route=$routingHealth.auto_route;consecutive_misroutes=$routingHealth.consecutive_misroutes;notice=$routingHealth.notice;lead_action=$routingHealth.lead_action}
         capabilities = $capabilities
-        runtime_status = $(if ($AllowUnverifiedRuntime) { 'UNVERIFIED_RUNTIME' } else { 'PINNED_RUNTIME' })
+        runtime_status = $(if ($AllowUnverifiedRuntime) { 'UNVERIFIED_RUNTIME' }
+            elseif ($problems.Count) { 'INCOMPATIBLE_RUNTIME' }
+            elseif ($drift.Count) { 'COMPATIBILITY_CHECKED' } else { 'PINNED_RUNTIME' })
         codex_shell = [bool](Get-Command pwsh -ErrorAction SilentlyContinue)
         lock = $(if (Test-Path -LiteralPath $lockPath) { Read-TeamData $lockPath } else { $null })
         integration_map = 'team/spike/EXISTING_INTEGRATION_MAP.md'

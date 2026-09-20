@@ -15,7 +15,18 @@ JSON 是协议文件的规范写出形式（YAML 1.2 子集）；输入支持普
 DSH 的正文输出可带普通说明前缀，但必须以唯一、符合 Result schema 的 JSON 对象结束；
 多份结构化结果或有歧义的围栏前缀会被拒绝。`result-source.json` 记录提取方式与原始 stdout 哈希，原文保留。
 
-运行模型由 manifest 中逻辑别名解析。默认精确版本 pin；升级先重新运行能力验收再改 pin。
+运行模型由 manifest 中逻辑别名解析。`runtime.codex_version` / `dsh_version` 保留为历史验收基线，
+不再仅因安装版本不同就拒绝；doctor 的 `version_drift` / `warnings` 如实记录差异。
+Codex 每次检查实际 `exec --help` 是否保留隔离、只读 sandbox、结构化输出等所需接口；
+即使版本与基线相同，接口缺失也拒绝。此检查不调用模型，不等于完成了一次真实独立审查。
+DSH 仍须匹配安装版本、profile、模型和 native guard 的 `certifications/` 验收证据；
+已验收的新版本可直接使用，不必逐个修改项目 manifest。尚无证据的新版本明确报告缺失验收，
+不能仅修改版本号或凭 `--help` 就继承原生工具隔离、退出语义或 L3 的已验证结论。
+Claude Code 没有精确版本 pin；doctor 对已安装的 Claude 做可选的版本/CLI 接口检查，
+不检查订阅、不调用模型，也不使其成为 Codex + DSH Team 的运行依赖。
+`cli_checks` 区分本地接口、原生验收证据和未测试的模型访问；版本变化且兼容检查通过时，
+`runtime_status=COMPATIBILITY_CHECKED`。无变化保留历史状态名 `PINNED_RUNTIME`，
+它不表示三端在线验收全部通过。失败为 `INCOMPATIBLE_RUNTIME`，旧运行记录不回写。
 doctor 和执行/验收入口读取 `CODEX_THREAD_ID` 对应的当前活动轮次元数据，核对 Lead 实际模型。
 缺少活动轮次、模型不符或只有已结束轮次时返回 20；`-AllowUnverifiedRuntime` 不绕过此检查。
 这是本地 Harness 证据，不是服务端模型证明或对同权限进程的防篡改保证。
@@ -28,7 +39,8 @@ Plan 可用 `dynamic_roles: {角色ID: 完整角色定义}` 定义本次运行�
 旧定义及任务包保留。此项是审计后授权增加的能力，原文 18–19 节列举默认模板及角色 schema。
 Integration 角色只能由记录在案的冲突或集成回归生成，并绑定 conflict/glue scope；它不得更改已批准接口或验收，
 只能为集成破坏的有效测试或既有已批准合同适配测试。语义判断仍由 Lead 审核，Git 范围由程序强制检查。
-`-AllowUnverifiedRuntime` 只放宽 CLI 版本，不放宽模型路由、协议、范围或审查；运行记录标记 `UNVERIFIED_RUNTIME`。
+`-AllowUnverifiedRuntime` 保留为显式的未验收 DSH L1/L2 调试入口，记录 `UNVERIFIED_RUNTIME`，
+不授予 L3，不放宽 Codex 必需接口、模型路由、协议、范围或审查；正常升级无需添加该参数。
 
 L0 不建立 run。L1 单 Worker；L2 按 DAG 并行调度；L3 可由 Worker 使用 DSH 原生
 `subagent` / `subagent_fork`，每个 Worker 最多两个子 Agent、深度最多 2。

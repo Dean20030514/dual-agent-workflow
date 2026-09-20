@@ -1,5 +1,11 @@
 # The production adapter launches Codex; this fixture proves gate wiring only.
-if ($args -contains '--version') { Write-Output 'codex-cli 0.153.3'; exit 0 }
+if ($args -contains '--version') { Write-Output "codex-cli $(if ($env:TEAM_FIXTURE_CODEX_VERSION) {$env:TEAM_FIXTURE_CODEX_VERSION} else {'0.153.3'})"; exit 0 }
+if ($args -contains '--help') {
+    $options=@('--ephemeral','--ignore-user-config','--ignore-rules','--disable','--config','--model',
+        '--sandbox','--cd','--output-schema','--output-last-message','--json','read-only')
+    $options | Where-Object { $_ -cne $env:TEAM_FIXTURE_CODEX_MISSING_OPTION } | Write-Output
+    exit 0
+}
 $index = [array]::IndexOf($args, '-o')
 if ($index -lt 0) { exit 2 }
 @($args) | ConvertTo-Json | Set-Content -LiteralPath (Join-Path (Split-Path $args[$index+1] -Parent) 'invocation.json') -Encoding utf8NoBOM
